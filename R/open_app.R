@@ -1,11 +1,3 @@
-globalVariables(c("aantal_personen",
-                  "dag",
-                  "eenheid",
-                  "gerecht",
-                  "gerecht_id",
-                  "hoeveelheid",
-                  "ingredient"))
-
 #' Open Shiny App
 #'
 #' This opens the Shiny app.

@@ -9,7 +9,7 @@
 \title{PLUS.nl Remote Functions}
 \usage{
 plus_login(
-  credentials_file = getOption("plus_credentials", default =
+  credentials = getOption("plus_credentials", default =
     system.file("login_credentials.yaml", package = "shinyplus")),
   info = interactive()
 )
@@ -28,7 +28,7 @@ plus_add_product(
 plus_open_browser()
 }
 \arguments{
-\item{credentials_file}{Path to a YAML file containing fields \code{email} and \code{password}. Can be set with \code{options(plus_credentials = "...")}}
+\item{credentials}{Path to a YAML file containing fields \code{email} and \code{password}, or a \link{list} contains those names. Can be set with \code{options(plus_credentials = "...")}}
 
 \item{info}{Logical to print info, default is \code{TRUE} in interactive sessions.}
 

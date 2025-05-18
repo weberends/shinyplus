@@ -1,9 +1,7 @@
-plus_env <- new.env()
-
 #' PLUS.nl Remote Functions
 #'
 #' These functions allow remote access to the [PLUS.nl website](https://www.plus.nl) through the [`Chromote`][chromote::Chromote] class.
-#' @param credentials_file Path to a YAML file containing fields `email` and `password`. Can be set with `options(plus_credentials = "...")`
+#' @param credentials Path to a YAML file containing fields `email` and `password`, or a [list] contains those names. Can be set with `options(plus_credentials = "...")`
 #' @param product_name Name of the product, such as "PLUS Houdbare Halfvolle Melk Pak 1000 ml".
 #' @param product_id PLUS ID of the product, such as "957806".
 #' @param product_url PLUS URL of the product, such as "plus-houdbare-halfvolle-melk-pak-1000-ml-957806".
@@ -23,22 +21,22 @@ plus_env <- new.env()
 #'
 #' plus_add_product(product_name = "PLUS Houdbare Halfvolle Melk Pak 1000 ml")
 #' }
-plus_login <- function(credentials_file = getOption("plus_credentials", default = system.file("login_credentials.yaml", package = "shinyplus")), info = interactive()) {
+plus_login <- function(credentials = getOption("plus_credentials", default = system.file("login_credentials.yaml", package = "shinyplus")), info = interactive()) {
 
   if (is.null(plus_env$browser)) {
     plus_env$browser <- ChromoteSession$new()
   }
 
   # login page
-  if (info) cli::cli_text("Visiting {.url https://www.plus.nl}...")
+  if (info) cli::cli_progress_message("Visiting {.url https://www.plus.nl}...")
   login_url <- "https://aanmelden.plus.nl/plus/login/?sessionOnly=true&goto=https%3A%2F%2Faanmelden.plus.nl%2Fplus%2Fauth%2Foauth2.0%2Fv1%2Fauthorize%3Fresponse_type%3Dcode%26scope%3Dopenid%2Bprofile%26client_id%3Dweb_ecop_eprod%26redirect_uri%3Dhttps%253A%252F%252Fwww.plus.nl%252FCallback"
-  plus_env$browser$Page$navigate(login_url)
+  plus_env$browser$go_to(login_url)
 
   # wait for page population of fields
   repeat {
     ready <- plus_env$browser$Runtime$evaluate("document.querySelector('#username') !== null && document.querySelector('#password') !== null && document.querySelector('#loginFormUsernameAndPasswordButton') !== null")$result$value
     if (isTRUE(ready)) break
-    Sys.sleep(0.5)
+    Sys.sleep(0.1)
 
     # check url to see if we're still logged in
     current_url <- plus_env$browser$Runtime$evaluate("window.location.href")$result$value
@@ -50,8 +48,15 @@ plus_login <- function(credentials_file = getOption("plus_credentials", default 
   }
 
   # fill in fields
-  email <- read_yaml(credentials_file)$email
-  password <- read_yaml(credentials_file)$password
+  if (grepl("[.]ya?ml$", credentials)) {
+    email <- read_yaml(credentials)$email
+    password <- read_yaml(credentials)$password
+  } else if (is.list(credentials) && all(c("email", "password") %in% names(credentials))) {
+    email <- credentials$email
+    password <- credentials$password
+  } else {
+    stop("Credentials must be named list or YAML file.")
+  }
   plus_env$browser$Runtime$evaluate(paste0("
   const emailInput = document.querySelector('#username');
   const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
@@ -64,15 +69,15 @@ plus_login <- function(credentials_file = getOption("plus_credentials", default 
   passInput.dispatchEvent(new Event('input', { bubbles: true }));
 "))
   plus_env$browser$Runtime$evaluate("document.querySelector('#loginFormUsernameAndPasswordButton').click();")
-  if (info) cli::cli_progress_message("Logged in, redirecting to Plus home page...")
-  Sys.sleep(5)
+  if (info) cli::cli_progress_message("Logged in, redirecting to PLUS home page...")
+  wait_for_element(".input-search input")
 
   # no cookies, remove screen (for easier debugging with `plus_env$browser$view()`)
   plus_env$browser$Runtime$evaluate("
-  const buttons = Array.from(document.querySelectorAll('button'));
-  const declineBtn = buttons.find(btn => btn.textContent.trim() === 'Weigeren');
-  if (declineBtn) declineBtn.click();
-")
+    const buttons = Array.from(document.querySelectorAll('button'));
+    const declineBtn = buttons.find(btn => btn.textContent.trim() === 'Weigeren');
+    if (declineBtn) declineBtn.click();
+  ")
   if (info) cli::cli_alert_success("Succesfully logged in.")
   return(invisible(TRUE))
 }
@@ -110,15 +115,15 @@ plus_add_product <- function(product_name = NULL, product_id = NULL, product_url
       stop("You must provide a product name, ID, or URL.")
     }
     if (info) cli::cli_text("Searching product {.val {search_value}}...")
-    plus_env$browser$Page$navigate(paste0("https://www.plus.nl/zoekresultaten?SearchTerm=", search_value))
-    Sys.sleep(3)
+    plus_env$browser$go_to(paste0("https://www.plus.nl/zoekresultaten?SearchTerm=", search_value))
+    wait_for_element(".plp-results-list")
     url <- plus_env$browser$Runtime$evaluate("document.querySelector('.plp-results-list a[href]').href;")$result$value
     if (info) cli::cli_text("Found URL {.url {url}}.")
   }
 
   # visit the product page
-  plus_env$browser$Page$navigate(url)
-  Sys.sleep(3)
+  plus_env$browser$go_to(url)
+  wait_for_element(".product-header-title")
 
   product_title <- plus_env$browser$Runtime$evaluate("document.querySelector('.product-header-title').textContent;")$result$value
 
@@ -146,3 +151,17 @@ plus_open_browser <- function() {
   }
   plus_env$browser$view()
 }
+
+wait_for_element <- function(selector, b = plus_env$browser, timeout = 10, interval = 0.1) {
+  start_time <- Sys.time()
+  while (Sys.time() - start_time < timeout) {
+    found <- b$Runtime$evaluate(
+      sprintf("document.querySelector('%s') !== null", selector)
+    )$result$value
+    if (isTRUE(found)) return(invisible(TRUE))
+    Sys.sleep(interval)
+  }
+  warning(sprintf("Timeout waiting for selector: %s", selector))
+  invisible(FALSE)
+}
+
