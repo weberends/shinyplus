@@ -18,7 +18,6 @@ plus_logout(info = interactive())
 
 plus_add_product(
   product_name = NULL,
-  product_id = NULL,
   product_url = NULL,
   quantity = 1,
   info = interactive(),
@@ -33,8 +32,6 @@ plus_open_browser()
 \item{info}{Logical to print info, default is \code{TRUE} in interactive sessions.}
 
 \item{product_name}{Name of the product, such as "PLUS Houdbare Halfvolle Melk Pak 1000 ml".}
-
-\item{product_id}{PLUS ID of the product, such as "957806".}
 
 \item{product_url}{PLUS URL of the product, such as "plus-houdbare-halfvolle-melk-pak-1000-ml-957806".}
 

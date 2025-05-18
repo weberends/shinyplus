@@ -3,7 +3,6 @@
 #' These functions allow remote access to the [PLUS.nl website](https://www.plus.nl) through the [`Chromote`][chromote::Chromote] class.
 #' @param credentials Path to a YAML file containing fields `email` and `password`, or a [list] contains those names. Can be set with `options(plus_credentials = "...")`
 #' @param product_name Name of the product, such as "PLUS Houdbare Halfvolle Melk Pak 1000 ml".
-#' @param product_id PLUS ID of the product, such as "957806".
 #' @param product_url PLUS URL of the product, such as "plus-houdbare-halfvolle-melk-pak-1000-ml-957806".
 #' @param quantity Number of items to add to basket.
 #' @param info Logical to print info, default is `TRUE` in interactive sessions.
@@ -42,7 +41,7 @@ plus_login <- function(credentials = getOption("plus_credentials", default = sys
     current_url <- plus_env$browser$Runtime$evaluate("window.location.href")$result$value
     if (!identical(login_url, current_url)) {
       # logged in, so quit this process
-      if (info) cli::cli_alert_info("Already logged in.")
+      if (info) cli::cli_alert_success("Already logged in.")
       return(invisible(TRUE))
     }
   }
@@ -86,7 +85,7 @@ plus_login <- function(credentials = getOption("plus_credentials", default = sys
 #' @export
 plus_logout <- function(info = interactive()) {
   if (!inherits(plus_env$browser, "ChromoteSession")) {
-    if (info) cli::cli_alert_info("Was not logged in.")
+    if (info) cli::cli_alert_danger("Was not logged in.")
     return(invisible())
   }
   # remove cookies
@@ -100,25 +99,28 @@ plus_logout <- function(info = interactive()) {
 
 #' @rdname plus_remote_functions
 #' @export
-plus_add_product <- function(product_name = NULL, product_id = NULL, product_url = NULL, quantity = 1, info = interactive(), ...) {
+plus_add_product <- function(product_name = NULL, product_url = NULL, quantity = 1, info = interactive(), ...) {
   plus_login(..., info = FALSE)
 
   if (!is.null(product_url)) {
     url <- paste0("https://www.plus.nl/product/", product_url)
   } else {
     # we need to search for the product
-    if (!is.null(product_id)) {
-      search_value <- product_id
-    } else if (!is.null(product_name)) {
+    if (!is.null(product_name)) {
       search_value <- product_name
     } else {
       stop("You must provide a product name, ID, or URL.")
     }
     if (info) cli::cli_text("Searching product {.val {search_value}}...")
     plus_env$browser$go_to(paste0("https://www.plus.nl/zoekresultaten?SearchTerm=", search_value))
-    wait_for_element(".plp-results-list")
+    # wait_for_element(".plp-results-list")
+    Sys.sleep(5)
     url <- plus_env$browser$Runtime$evaluate("document.querySelector('.plp-results-list a[href]').href;")$result$value
     if (info) cli::cli_text("Found URL {.url {url}}.")
+  }
+
+  if (length(url) == 0 || url == "") {
+    stop("No URL.")
   }
 
   # visit the product page
@@ -139,7 +141,7 @@ plus_add_product <- function(product_name = NULL, product_id = NULL, product_url
   ")
     Sys.sleep(0.1)
   }
-  if (info) cli::cli_text("Added {.strong {quantity}} item{?s} of {.val {product_title}}.")
+  if (info) cli::cli_alert_success("Added {.strong {quantity}} item{?s} of {.val {product_title}}.")
 }
 
 #' @rdname plus_remote_functions
