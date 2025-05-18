@@ -2,6 +2,8 @@
 
 export(open_app)
 export(plus_add_product)
+export(plus_current_basket)
+export(plus_current_url)
 export(plus_login)
 export(plus_logout)
 export(plus_open_browser)

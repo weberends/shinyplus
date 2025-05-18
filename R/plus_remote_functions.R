@@ -9,6 +9,7 @@
 #' @param ... arguments passed to [plus_login()]
 #' @importFrom yaml read_yaml
 #' @importFrom chromote ChromoteSession
+#' @importFrom tibble tibble
 #' @importFrom cli cli_alert_danger cli_alert_info cli_alert_success cli_progress_message cli_text
 #' @rdname plus_remote_functions
 #' @name plus_remote_functions
@@ -27,7 +28,7 @@ plus_login <- function(credentials = getOption("plus_credentials", default = sys
   }
 
   # login page
-  if (info) cli::cli_progress_message("Visiting {.url https://www.plus.nl}...")
+  if (info) cli_progress_message("Logging in at {.url https://www.plus.nl}...")
   login_url <- "https://aanmelden.plus.nl/plus/login/?sessionOnly=true&goto=https%3A%2F%2Faanmelden.plus.nl%2Fplus%2Fauth%2Foauth2.0%2Fv1%2Fauthorize%3Fresponse_type%3Dcode%26scope%3Dopenid%2Bprofile%26client_id%3Dweb_ecop_eprod%26redirect_uri%3Dhttps%253A%252F%252Fwww.plus.nl%252FCallback"
   plus_env$browser$go_to(login_url)
 
@@ -38,10 +39,9 @@ plus_login <- function(credentials = getOption("plus_credentials", default = sys
     Sys.sleep(0.1)
 
     # check url to see if we're still logged in
-    current_url <- plus_env$browser$Runtime$evaluate("window.location.href")$result$value
-    if (!identical(login_url, current_url)) {
-      # logged in, so quit this process
-      if (info) cli::cli_alert_success("Already logged in.")
+    if (!identical(login_url, plus_current_url())) {
+      # logged in since we're not on the login page anymore, so quit this process
+      if (info) cli_alert_success("Already logged in.")
       return(invisible(TRUE))
     }
   }
@@ -68,7 +68,7 @@ plus_login <- function(credentials = getOption("plus_credentials", default = sys
   passInput.dispatchEvent(new Event('input', { bubbles: true }));
 "))
   plus_env$browser$Runtime$evaluate("document.querySelector('#loginFormUsernameAndPasswordButton').click();")
-  if (info) cli::cli_progress_message("Logged in, redirecting to PLUS home page...")
+  if (info) cli_progress_message("Logged in, redirecting to PLUS home page...")
   wait_for_element(".input-search input")
 
   # no cookies, remove screen (for easier debugging with `plus_open_browser()`)
@@ -77,7 +77,7 @@ plus_login <- function(credentials = getOption("plus_credentials", default = sys
     const declineBtn = buttons.find(btn => btn.textContent.trim() === 'Weigeren');
     if (declineBtn) declineBtn.click();
   ")
-  if (info) cli::cli_alert_success("Succesfully logged in.")
+  if (info) cli_alert_success("Succesfully logged in.")
   return(invisible(TRUE))
 }
 
@@ -85,7 +85,7 @@ plus_login <- function(credentials = getOption("plus_credentials", default = sys
 #' @export
 plus_logout <- function(info = interactive()) {
   if (!inherits(plus_env$browser, "ChromoteSession")) {
-    if (info) cli::cli_alert_danger("Was not logged in.")
+    if (info) cli_alert_danger("Was not logged in.")
     return(invisible())
   }
   # remove cookies
@@ -93,14 +93,14 @@ plus_logout <- function(info = interactive()) {
   plus_env$browser$Runtime$evaluate("localStorage.clear(); sessionStorage.clear();")
   # close browser
   plus_env$browser$close()
-  if (info) cli::cli_alert_success("Succesfully logged out.")
+  if (info) cli_alert_success("Succesfully logged out.")
   return(invisible())
 }
 
 #' @rdname plus_remote_functions
 #' @export
 plus_add_product <- function(product_name = NULL, product_url = NULL, quantity = 1, info = interactive(), ...) {
-  plus_login(..., info = FALSE)
+  plus_login(..., info = info)
 
   if (!is.null(product_url)) {
     url <- paste0("https://www.plus.nl/product/", product_url)
@@ -111,22 +111,19 @@ plus_add_product <- function(product_name = NULL, product_url = NULL, quantity =
     } else {
       stop("You must provide a product name, ID, or URL.")
     }
-    if (info) cli::cli_text("Searching product {.val {search_value}}...")
+    if (info) cli_text("Searching product {.val {search_value}}...")
     plus_env$browser$go_to(paste0("https://www.plus.nl/zoekresultaten?SearchTerm=", search_value))
-    # wait_for_element(".plp-results-list")
-    Sys.sleep(5)
+    wait_for_element(".plp-results-list a")
     url <- plus_env$browser$Runtime$evaluate("document.querySelector('.plp-results-list a[href]').href;")$result$value
-    if (info) cli::cli_text("Found URL {.url {url}}.")
-  }
-
-  if (length(url) == 0 || url == "") {
-    stop("No URL.")
+    if (length(url) == 0 || url == "") {
+      stop(cli_alert_danger("No URL found."))
+    }
+    if (info) cli_text("Found URL {.url {url}}.")
   }
 
   # visit the product page
   plus_env$browser$go_to(url)
-  wait_for_element(".product-header-title")
-
+  wait_for_element("button.gtm-add-to-cart")
   product_title <- plus_env$browser$Runtime$evaluate("document.querySelector('.product-header-title').textContent;")$result$value
 
   # add to basket
@@ -134,14 +131,37 @@ plus_add_product <- function(product_name = NULL, product_url = NULL, quantity =
     plus_env$browser$Runtime$evaluate("
     if (typeof add_button === 'undefined') {
       const add_button = document.querySelector('button.gtm-add-to-cart');
-      if (add_button) add_button.click();
-    } else {
-      add_button.click();
+    }
+    add_button.click();
     }
   ")
-    Sys.sleep(0.1)
+    Sys.sleep(0.2)
   }
-  if (info) cli::cli_alert_success("Added {.strong {quantity}} item{?s} of {.val {product_title}}.")
+  if (info) cli_alert_success("Added {.strong {quantity}} item{?s} of {.val {product_title}}.")
+}
+
+#' @rdname plus_remote_functions
+#' @export
+plus_current_basket <- function(..., info = interactive()) {
+  plus_login(..., info = info)
+
+  # visit the basket page
+  plus_env$browser$go_to("https://www.plus.nl/winkelwagen")
+  # wait_for_element("button.gtm-add-to-cart")
+  tibble(product = character(0),
+         quantity = integer(0))
+}
+
+#' @rdname plus_remote_functions
+#' @export
+plus_current_url <- function() {
+  if (is.null(plus_env$browser)) {
+    cli_alert_danger("No browser initiated yet, run {.fn plus_login} first.")
+    return(invisible())
+  }
+  tryCatch(plus_env$browser$Runtime$evaluate("window.location.href")$result$value,
+           error = function(e) cli_alert_danger("Browser not available."))
+
 }
 
 #' @rdname plus_remote_functions
@@ -151,10 +171,11 @@ plus_open_browser <- function() {
     cli_alert_danger("No browser initiated yet, run {.fn plus_login} first.")
     return(invisible())
   }
-  plus_env$browser$view()
+  tryCatch(plus_env$browser$view(),
+           error = function(e) cli_alert_danger("Browser not available."))
 }
 
-wait_for_element <- function(selector, b = plus_env$browser, timeout = 10, interval = 0.1) {
+wait_for_element <- function(selector, b = plus_env$browser, timeout = 10, interval = 0.2) {
   start_time <- Sys.time()
   while (Sys.time() - start_time < timeout) {
     found <- b$Runtime$evaluate(
@@ -166,4 +187,3 @@ wait_for_element <- function(selector, b = plus_env$browser, timeout = 10, inter
   warning(sprintf("Timeout waiting for selector: %s", selector))
   invisible(FALSE)
 }
-

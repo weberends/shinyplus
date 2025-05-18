@@ -6,6 +6,8 @@
 \alias{plus_logout}
 \alias{plus_add_product}
 \alias{plus_open_browser}
+\alias{plus_current_basket}
+\alias{plus_current_url}
 \title{PLUS.nl Remote Functions}
 \usage{
 plus_login(
@@ -23,6 +25,10 @@ plus_add_product(
   info = interactive(),
   ...
 )
+
+plus_current_basket(..., info = interactive())
+
+plus_current_url()
 
 plus_open_browser()
 }
