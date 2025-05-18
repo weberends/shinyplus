@@ -8,6 +8,8 @@ on:
 
 name: Update website
 
+permissions:
+  contents: write
 
 jobs:
   R-CMD-check:
