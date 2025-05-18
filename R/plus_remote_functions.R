@@ -48,14 +48,14 @@ plus_login <- function(credentials = getOption("plus_credentials", default = sys
   }
 
   # fill in fields
-  if (grepl("[.]ya?ml$", credentials)) {
+  if (is.character(credentials) && grepl("[.]ya?ml$", credentials)) {
     email <- read_yaml(credentials)$email
     password <- read_yaml(credentials)$password
   } else if (is.list(credentials) && all(c("email", "password") %in% names(credentials))) {
     email <- credentials$email
     password <- credentials$password
   } else {
-    stop("Credentials must be named list or YAML file.")
+    stop("Credentials must be named list or YAML file path.")
   }
   plus_env$browser$Runtime$evaluate(paste0("
   const emailInput = document.querySelector('#username');
@@ -72,7 +72,7 @@ plus_login <- function(credentials = getOption("plus_credentials", default = sys
   if (info) cli::cli_progress_message("Logged in, redirecting to PLUS home page...")
   wait_for_element(".input-search input")
 
-  # no cookies, remove screen (for easier debugging with `plus_env$browser$view()`)
+  # no cookies, remove screen (for easier debugging with `plus_open_browser()`)
   plus_env$browser$Runtime$evaluate("
     const buttons = Array.from(document.querySelectorAll('button'));
     const declineBtn = buttons.find(btn => btn.textContent.trim() === 'Weigeren');
