@@ -30,7 +30,7 @@ plus_login <- function(credentials = getOption("plus_credentials", default = sys
   current_account <- tryCatch(plus_env$browser$Runtime$evaluate("document.querySelector('.gtm-account-options .popover-top-label span').textContent")$result$value,
                               error = function(e) NULL)
   if (!is.null(current_account) && current_account != "") {
-    if (info) cli_alert_success("Already logged in.")
+    # if (info) cli_alert_success("Already logged in.")
     return(invisible(TRUE))
   }
 
@@ -54,17 +54,17 @@ plus_login <- function(credentials = getOption("plus_credentials", default = sys
         if (declineBtn) declineBtn.click();
       ")
       # logged in since we're not on the login page anymore, so quit this process
-      if (info) cli_alert_success("Already logged in.")
+      # if (info) cli_alert_success("Already logged in.")
       return(invisible(TRUE))
     }
   }
 
   # fill in fields
   if (is.character(credentials) && grepl("[.]ya?ml$", credentials)) {
-    email <- read_yaml(credentials)$email
+    plus_env$email <- read_yaml(credentials)$email
     password <- read_yaml(credentials)$password
   } else if (is.list(credentials) && all(c("email", "password") %in% names(credentials))) {
-    email <- credentials$email
+    plus_env$email <- credentials$email
     password <- credentials$password
   } else {
     stop("Credentials must be named list or YAML file path.")
@@ -72,7 +72,7 @@ plus_login <- function(credentials = getOption("plus_credentials", default = sys
   plus_env$browser$Runtime$evaluate(paste0("
   var emailInput = document.querySelector('#username');
   var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-  nativeInputValueSetter.call(emailInput, '", email, "');
+  nativeInputValueSetter.call(emailInput, '", plus_env$email, "');
   emailInput.dispatchEvent(new Event('input', { bubbles: true }));
 "))
   plus_env$browser$Runtime$evaluate(paste0("
@@ -90,7 +90,7 @@ plus_login <- function(credentials = getOption("plus_credentials", default = sys
     var declineBtn = buttons.find(btn => btn.textContent.trim() === 'Weigeren');
     if (declineBtn) declineBtn.click();
   ")
-  if (info) cli_alert_success("Succesfully logged in.")
+  if (info) cli_alert_success("Succesfully logged in as {.val {plus_env$email}}.")
   return(invisible(TRUE))
 }
 
@@ -149,9 +149,9 @@ plus_add_product <- function(product_name = NULL, product_url = NULL, quantity =
 
   if (info == TRUE) {
     if (length(product_title) > 0 && product_title != "") {
-      cli_alert_success("Added {.strong {quantity}} item{?s} of {.val {product_title}}.")
+      cli_alert_success("Added {.strong {quantity}} item{?s} of {.val {product_title}} to basket.")
     } else {
-      cli_alert_danger("Error in adding {.strong {quantity}} item{?s} of unknown product.")
+      cli_alert_danger("Error in adding {.strong {quantity}} item{?s} of unknown product to basket.")
     }
   }
 }
@@ -191,7 +191,8 @@ plus_current_basket <- function(..., info = interactive()) {
   out <- tibble(
     product = vapply(FUN.VALUE = character(1), basket_data, function(e) as.character(e$name)),
     price = vapply(FUN.VALUE = double(1), basket_data, function(e) as.double(e$price)),
-    quantity = vapply(FUN.VALUE = integer(1), basket_data, function(e) as.integer(e$quantity))
+    quantity = vapply(FUN.VALUE = integer(1), basket_data, function(e) as.integer(e$quantity)),
+    price_total = price * quantity
   )
   structure(out, class = c("plus_basket", class(out)))
 }
@@ -201,7 +202,10 @@ plus_current_basket <- function(..., info = interactive()) {
 tbl_sum.plus_basket<- function(x, ...) {
   cross_icon <- if (isTRUE(base::l10n_info()$`UTF-8`)) "\u00d7" else "x"
   dims <- paste(format(NROW(x), big.mark = ","), cross_icon, format(NCOL(x), big.mark = ","))
-  names(dims) <- paste0("A PLUS Basket (\u20AC ", sum(x$price * x$quantity, na.rm = TRUE), " in total)")
+  names(dims) <- "A PLUS Basket"
+  dims <- c(dims, "Total Products" = paste0(sum(x$quantity, na.rm = TRUE), " (unique: ", NROW(x), ")"))
+  dims <- c(dims, "Total Price" = paste0("\u20AC ", format(round(sum(x$price_total, na.rm = TRUE), 2), nsmall = 2)))
+  dims <- c(dims, Account = plus_env$email)
   dims
 }
 
