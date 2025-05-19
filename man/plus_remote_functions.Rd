@@ -7,7 +7,9 @@
 \alias{plus_add_product}
 \alias{plus_open_browser}
 \alias{plus_current_basket}
+\alias{plus_open_checkout}
 \alias{plus_current_url}
+\alias{plus_page_reload}
 \title{PLUS.nl Remote Functions}
 \usage{
 plus_login(
@@ -28,9 +30,13 @@ plus_add_product(
 
 plus_current_basket(..., info = interactive())
 
+plus_open_checkout()
+
 plus_current_url()
 
 plus_open_browser()
+
+plus_page_reload()
 }
 \arguments{
 \item{credentials}{Path to a YAML file containing fields \code{email} and \code{password}, or a \link{list} contains those names. Can be set with \code{options(plus_credentials = "...")}}

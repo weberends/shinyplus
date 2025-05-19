@@ -7,3 +7,4 @@ globalVariables(c("aantal_personen",
                   "gerecht_id",
                   "hoeveelheid",
                   "ingredient"))
+
