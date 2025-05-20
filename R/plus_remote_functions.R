@@ -211,8 +211,8 @@ tbl_sum.plus_basket<- function(x, ...) {
 
 #' @rdname plus_remote_functions
 #' @export
-plus_open_checkout <- function() {
-  if (interactive()) {
+plus_checkout <- function() {
+  if (interactive() && !is.null(getOption("browser")) && is.function(getOption("browser"))) {
     utils::browseURL("https://www.plus.nl/checkout")
   } else {
     cli_alert_info("Visit {.url https://www.plus.nl/checkout} and proceed there.")

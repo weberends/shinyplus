@@ -7,7 +7,7 @@
 \alias{plus_add_product}
 \alias{plus_open_browser}
 \alias{plus_current_basket}
-\alias{plus_open_checkout}
+\alias{plus_checkout}
 \alias{plus_current_url}
 \alias{plus_page_reload}
 \title{PLUS.nl Remote Functions}
@@ -30,7 +30,7 @@ plus_add_product(
 
 plus_current_basket(..., info = interactive())
 
-plus_open_checkout()
+plus_checkout()
 
 plus_current_url()
 

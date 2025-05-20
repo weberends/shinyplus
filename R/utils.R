@@ -6,5 +6,6 @@ globalVariables(c("aantal_personen",
                   "gerecht",
                   "gerecht_id",
                   "hoeveelheid",
-                  "ingredient"))
-
+                  "ingredient",
+                  "price",
+                  "quantity"))
