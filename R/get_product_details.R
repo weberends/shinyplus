@@ -1,6 +1,4 @@
 #' Get Product Details
-#'
-#' Get product details from the [recently_bought] data set.
 #' @param x Name or URL of a product.
 #' @name get_product_details
 #' @rdname get_product_details

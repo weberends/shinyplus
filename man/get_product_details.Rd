@@ -20,7 +20,7 @@ get_product_image(x)
 \item{x}{Name or URL of a product.}
 }
 \description{
-Get product details from the \link{recently_bought} data set.
+Get Product Details
 }
 \examples{
 get_product_url("PLUS Aardbeien")
