@@ -8,7 +8,7 @@
 #'
 #' get_product_name("/product/plus-aardbeien-doos-225-g-244585")
 #'
-#' get_product_name_quantity("PLUS Aardbeien")
+#' get_product_name_unit("PLUS Aardbeien")
 #'
 #' get_product_image("PLUS Aardbeien")
 get_product_url <- function(x) {
@@ -35,11 +35,23 @@ get_product_name <- function(x) {
 
 #' @rdname get_product_details
 #' @export
-get_product_name_quantity <- function(x) {
+get_product_name_unit <- function(x) {
   if (x %in% recently_bought$name) {
     paste0(recently_bought$name, " (", recently_bought$unit, ")")[match(x, recently_bought$name)]
   } else if (x %in% recently_bought$url) {
     paste0(recently_bought$name, " (", recently_bought$unit, ")")[match(x, recently_bought$url)]
+  } else {
+    stop("Product not found: ", x)
+  }
+}
+
+#' @rdname get_product_details
+#' @export
+get_product_unit <- function(x) {
+  if (x %in% recently_bought$name) {
+    recently_bought$unit[match(x, recently_bought$name)]
+  } else if (x %in% recently_bought$url) {
+    recently_bought$unit[match(x, recently_bought$url)]
   } else {
     stop("Product not found: ", x)
   }

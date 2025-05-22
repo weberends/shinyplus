@@ -4,7 +4,8 @@
 \alias{get_product_details}
 \alias{get_product_url}
 \alias{get_product_name}
-\alias{get_product_name_quantity}
+\alias{get_product_name_unit}
+\alias{get_product_unit}
 \alias{get_product_image}
 \title{Get Product Details}
 \usage{
@@ -12,7 +13,9 @@ get_product_url(x)
 
 get_product_name(x)
 
-get_product_name_quantity(x)
+get_product_name_unit(x)
+
+get_product_unit(x)
 
 get_product_image(x)
 }
@@ -27,7 +30,7 @@ get_product_url("PLUS Aardbeien")
 
 get_product_name("/product/plus-aardbeien-doos-225-g-244585")
 
-get_product_name_quantity("PLUS Aardbeien")
+get_product_name_unit("PLUS Aardbeien")
 
 get_product_image("PLUS Aardbeien")
 }

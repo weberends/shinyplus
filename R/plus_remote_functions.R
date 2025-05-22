@@ -192,7 +192,7 @@ plus_current_basket <- function(..., info = interactive()) {
     product = vapply(FUN.VALUE = character(1), basket_data, function(e) as.character(e$name)),
     price = vapply(FUN.VALUE = double(1), basket_data, function(e) as.double(e$price)),
     quantity = vapply(FUN.VALUE = integer(1), basket_data, function(e) as.integer(e$quantity)),
-    price_total = price * quantity
+    price_total = round(price * quantity, 2)
   )
   structure(out, class = c("plus_basket", class(out)))
 }

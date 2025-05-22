@@ -10,6 +10,7 @@
 #' @importFrom dplyr filter select pull bind_rows mutate arrange inner_join group_by summarise %>%
 #' @importFrom stringr str_detect
 #' @importFrom purrr map map_chr
+#' @rdname open_app
 #' @export
 open_app <- function() {
 

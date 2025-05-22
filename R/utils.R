@@ -9,3 +9,7 @@ globalVariables(c("aantal_personen",
                   "ingredient",
                   "price",
                   "quantity"))
+
+as_euro <- function(x) {
+  paste("\u20ac", format(round(x, 2), nsmall = 2, decimal.mark = ",", big.mark = "."))
+}
