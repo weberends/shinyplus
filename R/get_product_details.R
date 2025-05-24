@@ -12,59 +12,37 @@
 #'
 #' get_product_image("PLUS Aardbeien")
 get_product_url <- function(x) {
-  if (x %in% recently_bought$name) {
-    recently_bought$url[match(x, recently_bought$name)]
-  } else if (x %in% recently_bought$url) {
-    recently_bought$url[match(x, recently_bought$url)]
-  } else {
-    stop("Product not found: ", x)
-  }
+  plus_get_urls(x, offline_only = TRUE)
 }
 
 #' @rdname get_product_details
 #' @export
 get_product_name <- function(x) {
-  if (x %in% recently_bought$name) {
-    recently_bought$name[match(x, recently_bought$name)]
-  } else if (x %in% recently_bought$url) {
-    recently_bought$name[match(x, recently_bought$url)]
-  } else {
-    stop("Product not found: ", x)
-  }
-}
-
-#' @rdname get_product_details
-#' @export
-get_product_name_unit <- function(x) {
-  if (x %in% recently_bought$name) {
-    paste0(recently_bought$name, " (", recently_bought$unit, ")")[match(x, recently_bought$name)]
-  } else if (x %in% recently_bought$url) {
-    paste0(recently_bought$name, " (", recently_bought$unit, ")")[match(x, recently_bought$url)]
-  } else {
-    stop("Product not found: ", x)
-  }
+  urls <- plus_get_urls(x, offline_only = TRUE)
+  trimws(recently_bought$name[match(urls, paste0("https://www.plus.nl", recently_bought$url))])
 }
 
 #' @rdname get_product_details
 #' @export
 get_product_unit <- function(x) {
-  if (x %in% recently_bought$name) {
-    recently_bought$unit[match(x, recently_bought$name)]
-  } else if (x %in% recently_bought$url) {
-    recently_bought$unit[match(x, recently_bought$url)]
-  } else {
-    stop("Product not found: ", x)
-  }
+  urls <- plus_get_urls(x, offline_only = TRUE)
+  recently_bought$unit[match(urls, paste0("https://www.plus.nl", recently_bought$url))]
+}
+
+#' @rdname get_product_details
+#' @export
+get_product_name_unit <- function(x) {
+  urls <- plus_get_urls(x, offline_only = TRUE)
+  name <- trimws(recently_bought$name[match(urls, paste0("https://www.plus.nl", recently_bought$url))])
+  unit <- trimws(recently_bought$unit[match(urls, paste0("https://www.plus.nl", recently_bought$url))])
+  out <- rep(NA_character_, length(name))
+  out[!is.na(name)] <- paste0(name[!is.na(name)], " (", unit[!is.na(name)], ")")
+  out
 }
 
 #' @rdname get_product_details
 #' @export
 get_product_image <- function(x) {
-  if (x %in% recently_bought$name) {
-    recently_bought$img[match(x, recently_bought$name)]
-  } else if (x %in% recently_bought$url) {
-    recently_bought$img[match(x, recently_bought$url)]
-  } else {
-    stop("Product not found: ", x)
-  }
+  urls <- plus_get_urls(x, offline_only = TRUE)
+  recently_bought$img[match(urls, paste0("https://www.plus.nl", recently_bought$url))]
 }

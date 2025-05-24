@@ -7,7 +7,7 @@
 \alias{plus_add_product}
 \alias{plus_open_browser}
 \alias{plus_add_products}
-\alias{plus_current_basket}
+\alias{plus_current_cart}
 \alias{plus_checkout}
 \alias{plus_current_url}
 \alias{plus_page_reload}
@@ -23,7 +23,7 @@ plus_logout(info = interactive())
 
 plus_add_products(x, quantity = 1, info = interactive(), ...)
 
-plus_current_basket(..., info = interactive())
+plus_current_cart(..., info = interactive())
 
 plus_checkout()
 
@@ -38,7 +38,7 @@ plus_page_reload()
 
 \item{info}{Logical to print info, default is \code{TRUE} in interactive sessions.}
 
-\item{quantity}{Number of items to add to basket.}
+\item{quantity}{Number of items to add to cart.}
 
 \item{...}{arguments passed to \code{\link[=plus_login]{plus_login()}}}
 

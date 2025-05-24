@@ -4,8 +4,8 @@
 \alias{get_product_details}
 \alias{get_product_url}
 \alias{get_product_name}
-\alias{get_product_name_unit}
 \alias{get_product_unit}
+\alias{get_product_name_unit}
 \alias{get_product_image}
 \title{Get Product Details}
 \usage{
@@ -13,9 +13,9 @@ get_product_url(x)
 
 get_product_name(x)
 
-get_product_name_unit(x)
-
 get_product_unit(x)
+
+get_product_name_unit(x)
 
 get_product_image(x)
 }

@@ -42,6 +42,49 @@ open_app2 <- function() {
       "))
     ),
     tags$style(".navbar { background: none; }"),
+    tags$style(HTML("
+      .card, .well {
+        background: rgba(255, 255, 255, 0.7);
+        color: RGB(var(--bs-emphasis-color-rgb, 0, 0, 0));
+        border-radius: 10px;
+      }
+
+      .row.fixed-product-row {
+        height: 50px;
+        display: flex;
+        align-items: center;
+        margin-bottom: 5px;
+      }
+
+      .fixed-products-img img {
+        max-height: 40px;
+        max-width: 100%;
+        object-fit: contain;
+      }
+
+      .fixed-products-p p {
+        margin: 0;
+        font-size: 0.8rem;
+        display: flex;
+        align-items: center;
+        height: 100%;
+      }
+
+      .fixed-products-qty {
+        padding-top: 10px;
+      }
+
+      .fixed-products-qty .form-control {
+        height: 35px;
+        padding: 5px;
+      }
+    ")),
+    tags$style(HTML("
+      .extra-input-row .selectize-control,
+      .extra-input-row .form-control {
+        font-size: 0.85rem;
+      }
+    ")),
     div(id = "background-image"),
     theme = bs_theme(version = 5, base_font = font_google("Open Sans")),
     navbarPage(
@@ -49,56 +92,68 @@ open_app2 <- function() {
         tags$img(src = "https://upload.wikimedia.org/wikipedia/commons/9/92/PLUS_supermarket_logo.svg", height = "40px", style = "margin-right: 10px;"),
         tags$span("ShinyPLUS", style = "font-weight: bold; font-size: 1.2rem; vertical-align: middle;")
       ),
-      tabPanel("Boodschappen doen",
-               sidebarLayout(
-                 sidebarPanel(
-                   width = 5,
-                   h4("Stap 1: Gerechten"),
-                   uiOutput("weekplan_ui"),
-                   actionButton("save_weekplan", "Weekmenu opslaan"),
+      tabPanel("Mandje", # Mandje ----
+               fluidPage(
+                 fluidRow(
+                   column(2,
+                          card(
+                            h3("1. Weekmenu"), # Step 1 ----
+                            lapply(weekdays_list, function(day) {
+                              selectInput(paste0("dish_day_", day), label = day, choices = NULL, width = "100%")
+                            }),
+                            actionButton("save_weekplan", "Weekmenu opslaan", icon = icon("save")),
+                            actionButton("add_weekplan_products_to_basket", "Toevoegen aan mandje", icon = icon("cart-plus")),
+                          ),
+                   ),
+                   column(3,
+                          card(
+                            h3("2. Vaste boodschappen"), # Step 2 ----
 
-                   hr(),
-                   h4("Stap 2: Vaste boodschappen"),
-                   uiOutput("fixed_selection_ui"),
-                   actionButton("add_weekly", "Toevoegen aan mandje", icon = icon("basket-shopping")),
-                   br(),
-                   br(),
-                   selectizeInput("add_to_weekly", "Toevoegen aan vaste lijst:",
-                                  choices = recently_bought$name |> stats::setNames(paste0(recently_bought$name, " (", recently_bought$unit, ")")),
-                                  options = list(placeholder = 'Type om te zoeken...',
-                                                 onInitialize = I('function() { this.setValue(""); }'))),
-                   actionButton("add_weekly_product", "Toevoegen", icon = icon("plus")),
-                   actionButton("remove_weekly_product", "Verwijderen", icon = icon("trash")),
-
-                   hr(),
-                   h4("Stap 3: Extra artikelen"),
-                   selectizeInput("add_to_weekly", "Extra artikel toevoegen:",
-                                  choices = recently_bought$name |> stats::setNames(paste0(recently_bought$name, " (", recently_bought$unit, ")")),
-                                  options = list(placeholder = 'Type om te zoeken...',
-                                                 onInitialize = I('function() { this.setValue(""); }'))),
-                   actionButton("add_extra", "Toevoegen aan mandje", icon = icon("basket-shopping")),
-                   br(),
-                   br(),
-                   br(),
-                   br(),
-                   br(),
-                   br()
-                 ),
-                 mainPanel(
-                   width = 7,
-                   h3("Mandje"),
-                   DTOutput("weekplan_table"),
-                   hr(),
-                   uiOutput("basket_section")
+                            h5("Selecteer uit je vaste producten:"),
+                            uiOutput("fixed_items_ui"),
+                            actionButton("add_fixed_to_basket", "Toevoegen aan mandje", icon = icon("cart-plus")),
+                            actionButton("fixed_to_zero", "Alles op nul zetten", icon = icon("rotate-left")),
+                            hr(),
+                            h5("Beheer vaste producten:"),
+                            selectizeInput("add_fixed_product", NULL,
+                                           choices = recently_bought$name |> stats::setNames(get_product_name_unit(recently_bought$name)),
+                                           options = list(placeholder = 'Type om te zoeken...',
+                                                          onInitialize = I('function() { this.setValue(""); }')),
+                                           width = "100%"),
+                            actionButton("add_fixed_product_button", "Toevoegen aan vaste producten", icon = icon("plus")),
+                            actionButton("remove_fixed_product_button", "Verwijderen aan vaste producten", icon = icon("trash"))
+                          )
+                   ),
+                   column(3,
+                          card(
+                            h3("3. Extra artikelen"), # Step 3 ----
+                            h5("Kies extra artikelen:"),
+                            uiOutput("extra_inputs_ui"),
+                            actionButton("add_all_extras_to_basket", "Toevoegen aan mandje", icon = icon("cart-plus")),
+                            hr(),
+                            h5("Reeds toegevoegde extra artikelen:"),
+                            uiOutput("extra_items_list")
+                          )
+                   ),
+                   column(4,
+                          card(
+                            h3("4. Mandje"), # Step 4 ----
+                            DTOutput("basket_overview_table"),
+                            br(),
+                            actionButton("send_basket_to_cart", "Mandje in PLUS Winkelwagen plaatsen", class = "btn-success"),
+                            actionButton("clear_basket", "Mandje leegmaken", class = "btn-danger"),
+                          )
+                   )
                  )
                )
       ),
+
       tabPanel("PLUS Winkelwagen",
                fluidRow(
                  column(8,
-                        uiOutput("online_basket_summary"),
+                        uiOutput("online_cart_summary"),
                         br(), br(),
-                        DTOutput("online_basket_table"),
+                        DTOutput("online_cart_table"),
                  )
                )
       ),
@@ -163,6 +218,8 @@ open_app2 <- function() {
       extra_items = character(),
       logged_in = FALSE
     )
+    extra_input_count <- reactiveVal(1)
+    extra_inputs <- reactiveValues(data = list(), expanded = list())
 
 
     # Login ----
@@ -205,7 +262,7 @@ open_app2 <- function() {
 
     observeEvent(values$logged_in, {
       if (values$logged_in) {
-        values$online_basket <- plus_current_basket(credentials = values$credentials, info = FALSE)
+        values$online_cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
       }
     })
 
@@ -232,117 +289,232 @@ open_app2 <- function() {
     })
 
 
-    # Grocery Shopping ----
-    output$fixed_selection_ui <- renderUI({
-      if (length(values$weekly_basics) == 0) return(p("Geen vaste artikelen."))
+    # TAB 1: Basket ----
+
+    ## Step 1 ----
+    # Populate weekmenu dish choices
+    observe({
+      dish_names <- values$dishes$name
+      for (day in weekdays_list) {
+        updateSelectInput(session, paste0("dish_day_", day),
+                          choices = c("", dish_names),
+                          selected = values$weekplan |> filter(day == !!day) |> pull(dish))
+      }
+    })
+
+    observeEvent(input$save_weekplan, {
+      values$weekplan <- bind_rows(lapply(weekdays_list, function(day) {
+        dish <- input[[paste0("dish_day_", day)]]
+        tibble(day = day, dish = ifelse(is.null(dish) || dish == "", NA_character_, dish))
+      }))
+      saveRDS(values$weekplan, weekplan_file)
+    })
+
+    output$fixed_items_ui <- renderUI({
+      if (length(values$weekly_basics) == 0) return(p("Nog geen vaste producten."))
+
+      values$weekly_basics <- sort(values$weekly_basics)
 
       tagList(
-        lapply(values$weekly_basics, function(product) {
+        lapply(values$weekly_basics, function(prod) {
           fluidRow(
-            column(2,
-                   numericInput(
-                     inputId = paste0("fixed_qty_", make.names(product)),
-                     label = NULL,
-                     value = 0,
-                     min = 0,
-                     width = "80px"
-                   )
-            ),
-            column(8,
-                   tags$label(get_product_name_unit(product), `for` = paste0("fixed_qty_", make.names(product)))
-            )
+            class = "row fixed-product-row",
+            column(2, div(class = "fixed-products-img", height = "100%", img(src = get_product_image(prod), width = "100%"))),
+            column(7, div(class = "fixed-products-p", height = "100%", p(get_product_name_unit(prod)))),
+            column(3, div(class = "fixed-products-qty", height = "100%", numericInput(paste0("qty_fixed_", make.names(prod)), NULL, value = 0, min = 0, step = 1, width = "100%")))
           )
         })
       )
     })
 
-    observeEvent(input$add_weekly_product, {
-      prod <- input$add_to_weekly
+    ## Step 2 ----
+
+    # Manage weekly_basics (add/remove)
+    observeEvent(input$add_fixed_product_button, {
+      prod <- input$add_fixed_product
       if (!is.null(prod) && !(prod %in% values$weekly_basics)) {
         values$weekly_basics <- unique(c(values$weekly_basics, prod))
         saveRDS(values$weekly_basics, weekly_basics_file)
       }
     })
 
-    observeEvent(input$remove_weekly_product, {
-      to_remove <- input$fixed_selection
-      values$weekly_basics <- setdiff(values$weekly_basics, to_remove)
-      updateCheckboxGroupInput(session, "fixed_selection", choices = values$weekly_basics)
+    observeEvent(input$remove_fixed_product_button, {
+      prod <- input$add_fixed_product
+      values$weekly_basics <- setdiff(values$weekly_basics, prod)
       saveRDS(values$weekly_basics, weekly_basics_file)
     })
 
-    output$weekplan_ui <- renderUI({
-      lapply(weekdays_list, function(day) {
-        dish_choices <- values$dishes |>
-          filter(is.na(days) | str_detect(days, day)) |>
-          pull(name)
-        selectInput(paste0("dish_", day), label = day, choices = c("", dish_choices))
+    # Add selected fixed items + quantities to planning basket
+    observeEvent(input$add_fixed_to_basket, {
+      qtys <- lapply(values$weekly_basics, function(prod) {
+        qty <- input[[paste0("qty_fixed_", make.names(prod))]]
+        if (is.null(qty) || qty <= 0) return("")
+        rep(prod, qty)
       })
-    })
 
-    observeEvent(input$save_weekplan, {
-      plan <- lapply(weekdays_list, function(day) {
-        dish <- input[[paste0("dish_", day)]]
-        tibble(day = day, dish = ifelse(is.null(dish) || dish == "", NA_character_, dish))
-      }) |> bind_rows()
-      values$weekplan <- plan
-      saveRDS(plan, weekplan_file)
+      qtys <- unlist(qtys)
+      qtys <- qtys[qtys != ""]
+      if (length(qtys) > 1) {
+        values$fixed_items <- c(values$fixed_items, unlist(qtys))
+      }
     })
-
-    output$weekplan_table <- renderDT({
-      req(values$weekplan)
-      datatable(values$weekplan, colnames = c("Dag", "Gerecht"), options = list(dom = 't'))
-    })
-
-    observeEvent(input$add_extra, {
-      if (!is.null(input$extra_selection)) {
-        values$extra_items <- unique(c(values$extra_items, input$extra_selection))
+    observeEvent(input$fixed_to_zero, {
+      for (prod in values$weekly_basics) {
+        input_id <- paste0("qty_fixed_", make.names(prod))
+        updateNumericInput(session, inputId = input_id, value = 0)
       }
     })
 
-    output$basket_section <- renderUI({
-      if (values$logged_in) {
-        tagList(
-          br(),
-          actionButton("send_to_basket", "Plaats in winkelwagen", class = "btn-info"),
-          br(),
-          uiOutput("basket_table_ui"),
-          uiOutput("basket_summary"),
-          br(),
-          actionButton("checkout", "Afrekenen bij PLUS", class = "btn-success")
-        )
-      } else {
-        p("Om artikelen aan de winkelwagen toe te voegen, log eerst in via het menu 'Inloggen'.", class = "text-danger")
+    ## Step 3 ----
+
+    observe({
+      n <- extra_input_count()
+
+      for (i in seq_len(n)) {
+        id_prod <- paste0("extra_item_", i)
+        id_qty  <- paste0("extra_qty_", i)
+
+        prod_val <- input[[id_prod]]
+        qty_val  <- input[[id_qty]]
+
+        if (!is.null(prod_val) && nzchar(prod_val)) {
+          prev <- tryCatch(extra_inputs$data[[i]], error = function(e) NULL)
+
+          if (is.null(prev) || !identical(prev$product, prod_val) || !identical(prev$qty, qty_val)) {
+            extra_inputs$data[[i]] <- list(product = prod_val, qty = qty_val)
+          }
+
+          # Expand only ONCE per row
+          already_expanded <- tryCatch(extra_inputs$expanded[[i]], error = function(e) FALSE)
+          if (i == n && !already_expanded) {
+            extra_inputs$expanded[[i]] <- TRUE
+            extra_input_count(n + 1)
+          }
+        }
       }
     })
 
+    observe({
+      n <- extra_input_count()
 
-    # PLUS basket ----
+      for (i in seq_len(n)) {
+        id_prod <- paste0("extra_item_", i)
+        id_qty  <- paste0("extra_qty_", i)
 
-    output$online_basket_summary <- renderUI({
+        prod_val <- input[[id_prod]]
+        qty_val  <- input[[id_qty]]
+
+        # Store valid product + quantity
+        if (!is.null(prod_val) && nzchar(prod_val)) {
+          existing <- tryCatch(extra_inputs$data[[i]], error = function(e) NULL)
+
+          # Only update if it changed
+          if (is.null(existing) || !identical(existing$product, prod_val) || !identical(existing$qty, qty_val)) {
+            extra_inputs$data[[i]] <- list(product = prod_val, qty = qty_val)
+
+            # If it's the last row, add a new blank one
+            if (i == n) {
+              extra_input_count(n + 1)
+            }
+          }
+        }
+      }
+    })
+
+    observeEvent(input$add_all_extras_to_basket, {
+      items <- unlist(lapply(extra_inputs$data, function(x) {
+        if (!is.null(x$product) && nzchar(x$product) && x$qty > 0) {
+          rep(x$product, x$qty)
+        }
+      }))
+
+      values$extra_items <- c(values$extra_items, items)
+
+      # Reset
+      extra_input_count(1)
+      extra_inputs$data <- list()
+    })
+
+    # Grouped summary
+    output$extra_items_list <- renderUI({
+      if (length(values$extra_items) == 0) return(p("Nog geen extra artikelen toegevoegd."))
+
+      grouped <- as.data.frame(table(values$extra_items))
+      names(grouped) <- c("product", "qty")
+
+      tags$ul(
+        lapply(seq_len(nrow(grouped)), function(i) {
+          tags$li(HTML(paste0("<strong>", grouped$product[i], "</strong>: ", grouped$qty[i], " st.")))
+        })
+      )
+    })
+
+    ## Step 4 ----
+
+    # Mandje overview table
+    output$basket_overview_table <- renderDT({
+      selected_dishes <- values$weekplan$dish[!is.na(values$weekplan$dish)]
+      ingredients <- values$ingredients |>
+        inner_join(values$dishes |> filter(name %in% selected_dishes), by = "dish_id") |>
+        pull(product)
+
+      items <- tibble(Artikel = c(ingredients, values$fixed_items, values$extra_items)) |>
+        count(Artikel, name = "Aantal")
+
+      datatable(items, options = list(dom = 't'))
+    })
+
+    # Send basket to cart
+    observeEvent(input$send_basket_to_cart, {
+      if (!values$logged_in) {
+        showNotification("Log eerst in om te verzenden naar winkelwagen.", type = "error")
+        return()
+      }
+
+      basket_items <- output$basket_overview_table$data()
+      for (i in seq_len(NROW(basket_items))) {
+        product <- unlist(basket_items[i, "Artikel"])
+        quantity <- unlist(basket_items[i, "Aantal"])
+        url <- tryCatch(get_product_url(product), error = function(e) NULL)
+        if (!is.null(url)) {
+          plus_add_product(product_url = url, quantity = quantity, credentials = values$credentials, info = FALSE)
+        }
+      }
+      showNotification("Mandje in PLUS Winkelwagen geplaatst.", type = "message")
+    })
+
+    observeEvent(input$clear_basket, {
+      values$fixed_items <- character(0)
+      values$extra_items <- character(0)
+    })
+
+
+    # TAB 2: PLUS Cart ----
+
+    output$online_cart_summary <- renderUI({
       if (!values$logged_in) {
         return(p("Om artikelen in de PLUS Winkelwagen te zien, log eerst in via het menu 'Inloggen'.", class = "text-danger"))
       }
       req(values$logged_in)
-      req(values$online_basket)
+      req(values$online_cart)
 
-      total_items <- sum(values$online_basket$quantity, na.rm = TRUE)
-      unique_items <- nrow(values$online_basket)
-      total_price <- sum(values$online_basket$price_total, na.rm = TRUE)
+      total_items <- sum(values$online_cart$quantity, na.rm = TRUE)
+      unique_items <- nrow(values$online_cart)
+      total_price <- sum(values$online_cart$price_total, na.rm = TRUE)
 
       tagList(
         h3("Inhoud PLUS Winkelwagen (online)"),
         h4(HTML(paste0("<strong>Totale prijs:</strong> ", as_euro(sum(total_price, na.rm = TRUE))))),
         p(HTML(paste0("<strong>Totaal artikelen:</strong> ", total_items, " (uniek: ", unique_items, ")"))),
         actionButton("checkout", "Afrekenen bij PLUS", class = "btn-success", icon = icon("right-from-bracket")),
-        actionButton("refresh_online_basket", "Vernieuwen", icon = icon("refresh")),
+        actionButton("refresh_online_cart", "Vernieuwen", icon = icon("refresh")),
       )
     })
-    output$online_basket_table <- renderDT({
+    output$online_cart_table <- renderDT({
       req(values$logged_in)
-      req(values$online_basket)
+      req(values$online_cart)
 
-      basket <- values$online_basket |>
+      cart <- values$online_cart |>
         arrange(product) |>
         left_join(recently_bought, by = c("product" = "name")) |>
         mutate(img = paste0(
@@ -354,11 +526,11 @@ open_app2 <- function() {
                price = as_euro(price),
                price_total = as_euro(price_total))
 
-      display_basket <- basket |>
+      display_cart <- cart |>
         select(" " = img, Artikel = product, Prijs = price, Aantal = quantity, Totaal = price_total, Artikelinfo = url)
 
       datatable(
-        display_basket,
+        display_cart,
         escape = FALSE, # allow HTML for image and icon
         rownames = FALSE,
         selection = "none",
@@ -374,13 +546,13 @@ open_app2 <- function() {
       )
     })
 
-    observeEvent(input$refresh_online_basket, {
+    observeEvent(input$refresh_online_cart, {
       req(values$logged_in)
-      values$online_basket <- plus_current_basket(credentials = values$credentials, info = FALSE)
+      values$online_cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
     })
 
 
-    # Dishes ----
+    # TAB 3: Manage dishes ----
 
     observe({
       updateSelectInput(session, "selected_dish", choices = values$dishes$name)
@@ -483,7 +655,7 @@ open_app2 <- function() {
 
 
 
-    observeEvent(input$send_to_basket, {
+    observeEvent(input$send_to_cart, {
       if (!values$logged_in) return()
       selected_dishes <- values$weekplan$dish[!is.na(values$weekplan$dish)]
       ingredients_to_add <- values$ingredients |>
@@ -498,27 +670,27 @@ open_app2 <- function() {
       }
     })
 
-    output$basket_table_ui <- renderUI({
+    output$cart_table_ui <- renderUI({
       req(values$logged_in)
-      basket <- plus_current_basket(credentials = values$credentials, info = FALSE)
+      cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
 
-      output$basket_table <- renderDT({
-        basket |>
+      output$cart_table <- renderDT({
+        cart |>
           select(Artikel = product, Prijs = price, Aantal = quantity, Totaal = price_total) |>
           arrange(Artikel) |>
           datatable(options = list(dom = 't'))
       })
 
-      DTOutput("basket_table")
+      DTOutput("cart_table")
     })
 
-    output$basket_summary <- renderDT({
+    output$cart_summary <- renderDT({
       req(values$logged_in)
-      basket <- plus_current_basket(credentials = values$credentials, info = FALSE)
+      cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
 
-      total_items <- sum(basket$quantity, na.rm = TRUE)
-      unique_items <- nrow(basket)
-      total_price <- sum(basket$price_total, na.rm = TRUE)
+      total_items <- sum(cart$quantity, na.rm = TRUE)
+      unique_items <- nrow(cart)
+      total_price <- sum(cart$price_total, na.rm = TRUE)
 
       summary_df <- tibble(
         Samenvatting = c("Aantal artikelen", "Uniek", "Totale prijs"),

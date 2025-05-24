@@ -4,7 +4,7 @@
 #' @param credentials Path to a YAML file containing fields `email` and `password`, or a [list] contains those names. Can be set with `options(plus_credentials = "...")`
 #' @param product_name Name of the product, such as "PLUS Houdbare Halfvolle Melk Pak 1000 ml".
 #' @param product_url PLUS URL of the product, such as "plus-houdbare-halfvolle-melk-pak-1000-ml-957806".
-#' @param quantity Number of items to add to basket.
+#' @param quantity Number of items to add to cart.
 #' @param info Logical to print info, default is `TRUE` in interactive sessions.
 #' @param ... arguments passed to [plus_login()]
 #' @importFrom yaml read_yaml
@@ -149,7 +149,7 @@ plus_add_products <- function(x, quantity = 1, info = interactive(), ...) {
         Sys.sleep(0.5)
       }
 
-      if (info) cli_alert_success("Added {.strong {{j} items} of {.val {product_title}} to basket.")
+      if (info) cli_alert_success("Added {.strong {{j} items} of {.val {product_title}} to cart.")
     }, error = function(e) {
       if (info) cli_alert_danger("Failed to add product: {.strong {conditionMessage(e)}}")
     })
@@ -157,14 +157,14 @@ plus_add_products <- function(x, quantity = 1, info = interactive(), ...) {
 }
 
 #' @importFrom cli cli_text cli_alert_danger
-plus_get_urls <- function(x, ..., info = interactive(), b = plus_env$browser) {
+plus_get_urls <- function(x, ..., info = interactive(), b = plus_env$browser, offline_only = FALSE) {
   x <- trimws(as.character(x))
   x <- gsub("https://www.plus.nl", "", x, fixed = TRUE)
   out <- rep(NA_character_, length(x))
-  out[x %in% recently_bought$name] <- recently_bought$url[match(x[x %in% recently_bought$name], recently_bought$name)]
+  out[x %in% trimws(recently_bought$name)] <- recently_bought$url[match(x[x %in% trimws(recently_bought$name)], trimws(recently_bought$name))]
   out[x %in% recently_bought$url] <- x[x %in% recently_bought$url]
   out[x %in% recently_bought$img] <- recently_bought$url[match(x[x %in% recently_bought$img], recently_bought$img)]
-  if (anyNA(out)) {
+  if (anyNA(out) && !offline_only) {
     # we need to search these on the PLUS website
     if (!plus_ascertain_logged_in(info = info)) return(invisible())
     to_search <- unique(x[is.na(out)])
@@ -185,21 +185,22 @@ plus_get_urls <- function(x, ..., info = interactive(), b = plus_env$browser) {
     }
     out[is.na(out)] <- search_out[match(x, to_search)]
   }
-  paste0("https://www.plus.nl", out)
+  out[!is.na(out)] <- paste0("https://www.plus.nl", out[!is.na(out)])
+  out
 }
 
 #' @rdname plus_remote_functions
 #' @export
-plus_current_basket <- function(..., info = interactive()) {
+plus_current_cart <- function(..., info = interactive()) {
   if (!plus_ascertain_logged_in(info = info)) return(invisible())
 
-  # go to the basket page
+  # go to the cart page
   open_url_if_not_already_there("https://www.plus.nl/winkelwagen")
   # first wait for page to load
   wait_for_element(".cart-title-wrapper h1")
   # items are not loaded yet, run script until quantities appear
-  get_basket <- function() {
-    basket <- plus_env$browser$Runtime$evaluate("
+  get_cart <- function() {
+    cart <- plus_env$browser$Runtime$evaluate("
       Array.from(document.querySelectorAll('.cart-item-wrapper')).map(item => {
         var name = item.querySelector('.cart-item-name span')?.textContent.trim() || '';
         var price = item.querySelector('.cart-item-price span')?.textContent.trim() || '';
@@ -207,34 +208,34 @@ plus_current_basket <- function(..., info = interactive()) {
         return { name, price, quantity };
       })
     ", returnByValue = TRUE)$result$value
-    basket[vapply(FUN.VALUE = logical(1), basket, function(e) e$name != "")]
+    cart[vapply(FUN.VALUE = logical(1), cart, function(e) e$name != "")]
   }
 
-  basket_data <- get_basket()
+  cart_data <- get_cart()
   i <- 1
-  if (length(basket_data) > 0 && all(is.na(vapply(FUN.VALUE = integer(1), basket_data, function(e) as.integer(e$quantity))))) {
-    while (i <= 10 && length(basket_data) != 0 && all(is.na(vapply(FUN.VALUE = integer(1), basket_data, function(e) as.integer(e$quantity))))) {
-      basket_data <- get_basket()
+  if (length(cart_data) > 0 && all(is.na(vapply(FUN.VALUE = integer(1), cart_data, function(e) as.integer(e$quantity))))) {
+    while (i <= 10 && length(cart_data) != 0 && all(is.na(vapply(FUN.VALUE = integer(1), cart_data, function(e) as.integer(e$quantity))))) {
+      cart_data <- get_cart()
       Sys.sleep(0.2)
       i <- i + 1
     }
   }
 
   out <- tibble(
-    product = vapply(FUN.VALUE = character(1), basket_data, function(e) as.character(e$name)),
-    price = vapply(FUN.VALUE = double(1), basket_data, function(e) as.double(e$price)),
-    quantity = vapply(FUN.VALUE = integer(1), basket_data, function(e) as.integer(e$quantity)),
+    product = vapply(FUN.VALUE = character(1), cart_data, function(e) as.character(e$name)),
+    price = vapply(FUN.VALUE = double(1), cart_data, function(e) as.double(e$price)),
+    quantity = vapply(FUN.VALUE = integer(1), cart_data, function(e) as.integer(e$quantity)),
     price_total = round(price * quantity, 2)
   )
-  structure(out, class = c("plus_basket", class(out)))
+  structure(out, class = c("plus_cart", class(out)))
 }
 
 #' @importFrom pillar tbl_sum
 #' @export
-tbl_sum.plus_basket<- function(x, ...) {
+tbl_sum.plus_cart<- function(x, ...) {
   cross_icon <- if (isTRUE(base::l10n_info()$`UTF-8`)) "\u00d7" else "x"
   dims <- paste(format(NROW(x), big.mark = ","), cross_icon, format(NCOL(x), big.mark = ","))
-  names(dims) <- "A PLUS Basket"
+  names(dims) <- "A PLUS cart"
   dims <- c(dims, "Total Products" = paste0(sum(x$quantity, na.rm = TRUE), " (unique: ", NROW(x), ")"))
   dims <- c(dims, "Total Price" = paste0("\u20AC ", format(round(sum(x$price_total, na.rm = TRUE), 2), nsmall = 2)))
   dims <- c(dims, Account = plus_env$email)
