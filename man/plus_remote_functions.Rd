@@ -6,6 +6,7 @@
 \alias{plus_logout}
 \alias{plus_add_product}
 \alias{plus_open_browser}
+\alias{plus_add_products}
 \alias{plus_current_basket}
 \alias{plus_checkout}
 \alias{plus_current_url}
@@ -20,19 +21,13 @@ plus_login(
 
 plus_logout(info = interactive())
 
-plus_add_product(
-  product_name = NULL,
-  product_url = NULL,
-  quantity = 1,
-  info = interactive(),
-  ...
-)
+plus_add_products(x, quantity = 1, info = interactive(), ...)
 
 plus_current_basket(..., info = interactive())
 
 plus_checkout()
 
-plus_current_url()
+plus_current_url(b = plus_env$browser)
 
 plus_open_browser()
 
@@ -43,13 +38,13 @@ plus_page_reload()
 
 \item{info}{Logical to print info, default is \code{TRUE} in interactive sessions.}
 
-\item{product_name}{Name of the product, such as "PLUS Houdbare Halfvolle Melk Pak 1000 ml".}
-
-\item{product_url}{PLUS URL of the product, such as "plus-houdbare-halfvolle-melk-pak-1000-ml-957806".}
-
 \item{quantity}{Number of items to add to basket.}
 
 \item{...}{arguments passed to \code{\link[=plus_login]{plus_login()}}}
+
+\item{product_name}{Name of the product, such as "PLUS Houdbare Halfvolle Melk Pak 1000 ml".}
+
+\item{product_url}{PLUS URL of the product, such as "plus-houdbare-halfvolle-melk-pak-1000-ml-957806".}
 }
 \description{
 These functions allow remote access to the \href{https://www.plus.nl}{PLUS.nl website} through the \code{\link[chromote:Chromote]{Chromote}} class.
@@ -58,6 +53,6 @@ These functions allow remote access to the \href{https://www.plus.nl}{PLUS.nl we
 \dontrun{
 plus_login()
 
-plus_add_product(product_name = "PLUS Houdbare Halfvolle Melk Pak 1000 ml")
+plus_add_products("Houdbare halfvolle melk pak 1000 ml")
 }
 }

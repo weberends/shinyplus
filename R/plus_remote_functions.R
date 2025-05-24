@@ -19,91 +19,94 @@
 #' \dontrun{
 #' plus_login()
 #'
-#' plus_add_product(product_name = "PLUS Houdbare Halfvolle Melk Pak 1000 ml")
+#' plus_add_products("Houdbare halfvolle melk pak 1000 ml")
 #' }
 plus_login <- function(credentials = getOption("plus_credentials", default = system.file("login_credentials.yaml", package = "shinyplus")), info = interactive()) {
 
-  if (is.null(plus_env$browser)) {
-    plus_env$browser <- ChromoteSession$new()
+  if (is.character(credentials) && grepl("[.]ya?ml$", credentials)) {
+    email <- read_yaml(credentials)$email
+    password <- read_yaml(credentials)$password
+  } else if (is.list(credentials) && all(c("email", "password") %in% names(credentials))) {
+    email <- credentials$email
+    password <- credentials$password
+  } else {
+    stop("Credentials must be named list or YAML file path.")
   }
 
-  current_account <- tryCatch(plus_env$browser$Runtime$evaluate("document.querySelector('.gtm-account-options .popover-top-label span').textContent")$result$value,
-                              error = function(e) NULL)
-  if (!is.null(current_account) && current_account != "") {
-    # if (info) cli_alert_success("Already logged in.")
+  if (is.null(plus_env$browser)) {
+    # initialise browser
+    plus_env$browser <- ChromoteSession$new()
+  }
+  if (plus_ascertain_logged_in(info = FALSE)) {
+    plus_env$email <- email
+    if (info) cli_alert_success("Already logged in as {.val {plus_env$email}}.")
     return(invisible(TRUE))
   }
 
   # login page
   if (info) cli_progress_message("Logging in at {.url https://www.plus.nl}...")
-  login_url <- "https://aanmelden.plus.nl/plus/login/?sessionOnly=true&goto=https%3A%2F%2Faanmelden.plus.nl%2Fplus%2Fauth%2Foauth2.0%2Fv1%2Fauthorize%3Fresponse_type%3Dcode%26scope%3Dopenid%2Bprofile%26client_id%3Dweb_ecop_eprod%26redirect_uri%3Dhttps%253A%252F%252Fwww.plus.nl%252FCallback"
+  login_url <- "https://aanmelden.plus.nl/plus/login/?plus_env$browserOnly=true&goto=https%3A%2F%2Faanmelden.plus.nl%2Fplus%2Fauth%2Foauth2.0%2Fv1%2Fauthorize%3Fresponse_type%3Dcode%26scope%3Dopenid%2Bprofile%26client_id%3Dweb_ecop_eprod%26redirect_uri%3Dhttps%253A%252F%252Fwww.plus.nl%252FCallback"
   open_url_if_not_already_there(login_url)
 
   # wait for page population of fields
   repeat {
     ready <- plus_env$browser$Runtime$evaluate("document.querySelector('#username') !== null && document.querySelector('#password') !== null && document.querySelector('#loginFormUsernameAndPasswordButton') !== null")$result$value
     if (isTRUE(ready)) break
-    Sys.sleep(0.1)
+    Sys.sleep(0.5)
 
     # check url to see if we're still logged in
-    if (!identical(login_url, plus_current_url())) {
-      # no cookies, remove screen (for easier debugging with `plus_open_browser()`)
-      plus_env$browser$Runtime$evaluate("
-        var buttons = Array.from(document.querySelectorAll('button'));
-        var declineBtn = buttons.find(btn => btn.textContent.trim() === 'Weigeren');
-        if (declineBtn) declineBtn.click();
-      ")
-      # logged in since we're not on the login page anymore, so quit this process
-      # if (info) cli_alert_success("Already logged in.")
+    if (!identical(login_url, plus_current_url(plus_env$browser)) && !grepl("aanmelden.plus.nl", plus_current_url(plus_env$browser), fixed = TRUE)) {
+      # already logged in
+      plus_env$email <- email
+      if (info) cli_alert_success("Already logged in as {.val {plus_env$email}}.")
       return(invisible(TRUE))
     }
   }
 
   # fill in fields
-  if (is.character(credentials) && grepl("[.]ya?ml$", credentials)) {
-    plus_env$email <- read_yaml(credentials)$email
-    password <- read_yaml(credentials)$password
-  } else if (is.list(credentials) && all(c("email", "password") %in% names(credentials))) {
-    plus_env$email <- credentials$email
-    password <- credentials$password
-  } else {
-    stop("Credentials must be named list or YAML file path.")
-  }
   plus_env$browser$Runtime$evaluate(paste0("
-  var emailInput = document.querySelector('#username');
-  var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-  nativeInputValueSetter.call(emailInput, '", plus_env$email, "');
-  emailInput.dispatchEvent(new Event('input', { bubbles: true }));
-"))
+    var emailInput = document.querySelector('#username');
+    var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+    nativeInputValueSetter.call(emailInput, '", email, "');
+    emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+  "))
   plus_env$browser$Runtime$evaluate(paste0("
-  var passInput = document.querySelector('#password');
-  nativeInputValueSetter.call(passInput, '", password, "');
-  passInput.dispatchEvent(new Event('input', { bubbles: true }));
-"))
+    var passInput = document.querySelector('#password');
+    nativeInputValueSetter.call(passInput, '", password, "');
+    passInput.dispatchEvent(new Event('input', { bubbles: true }));
+  "))
   plus_env$browser$Runtime$evaluate("document.querySelector('#loginFormUsernameAndPasswordButton').click();")
   if (info) cli_progress_message("Logged in, redirecting to PLUS home page...")
-  wait_for_element(".input-search input")
-
-  # no cookies, remove screen (for easier debugging with `plus_open_browser()`)
-  plus_env$browser$Runtime$evaluate("
-    var buttons = Array.from(document.querySelectorAll('button'));
-    var declineBtn = buttons.find(btn => btn.textContent.trim() === 'Weigeren');
-    if (declineBtn) declineBtn.click();
-  ")
+  # wait_for_element(".input-search input")
+  plus_env$email <- email
   if (info) cli_alert_success("Succesfully logged in as {.val {plus_env$email}}.")
   return(invisible(TRUE))
 }
 
+plus_ascertain_logged_in <- function(info = interactive(), b = plus_env$browser) {
+  current_account <- tryCatch(
+    b$Runtime$evaluate("document.querySelector('.gtm-account-options .popover-top-label span')?.textContent")$result$value,
+    error = function(e) NULL
+  )
+  if (!is.null(current_account) && current_account != "") {
+    return(TRUE)
+  } else {
+    if (info) cli_alert_danger("Not logged in.")
+    return(FALSE)
+  }
+}
+
 #' @rdname plus_remote_functions
+#' @importFrom cli cli_alert_success
 #' @export
 plus_logout <- function(info = interactive()) {
-  if (!inherits(plus_env$browser, "ChromoteSession")) {
+  if (!inherits(plus_env$browser, "Chromoteplus_env$browser")) {
     if (info) cli_alert_danger("Was not logged in.")
     return(invisible())
   }
   # remove cookies
   plus_env$browser$Network$clearBrowserCookies()
-  plus_env$browser$Runtime$evaluate("localStorage.clear(); sessionStorage.clear();")
+  plus_env$browser$Runtime$evaluate("localStorage.clear(); plus_env$browserStorage.clear();")
   # close browser
   plus_env$browser$close()
   if (info) cli_alert_success("Succesfully logged out.")
@@ -111,55 +114,84 @@ plus_logout <- function(info = interactive()) {
 }
 
 #' @rdname plus_remote_functions
+#' @importFrom tibble tibble
+#' @importFrom dplyr group_by summarise
+#' @importFrom cli cli_progress_message cli_alert_success cli_alert_danger
 #' @export
-plus_add_product <- function(product_name = NULL, product_url = NULL, quantity = 1, info = interactive(), ...) {
-  plus_login(..., info = info)
+plus_add_products <- function(x, quantity = 1, info = interactive(), ...) {
+  if (length(quantity) == 1) quantity <- rep(quantity, length(x))
+  stopifnot(length(x) == length(quantity))
 
-  if (!is.null(product_url)) {
-    url <- paste0("https://www.plus.nl", product_url)
-  } else {
-    # we need to search for the product
-    if (!is.null(product_name)) {
-      search_value <- product_name
-    } else {
-      stop("You must provide a product name, ID, or URL.")
-    }
-    if (info) cli_text("Searching product {.val {search_value}}...")
-    open_url_if_not_already_there(paste0("https://www.plus.nl/zoekresultaten?SearchTerm=", search_value))
-    wait_for_element(".plp-results-list a")
-    url <- plus_env$browser$Runtime$evaluate("document.querySelector('.plp-results-list a[href]').href;")$result$value
-    if (length(url) == 0 || url == "") {
-      stop(cli_alert_danger("No URL found."))
-    }
-    if (info) cli_text("Found URL {.url {url}}.")
+  if (length(unique(x)) < length(x)) {
+    summed <- tibble(x, quantity) |>
+      group_by(x) |>
+      summarise(quantity = sum(quantity, na.rm = TRUE))
+    x <- summed$x
+    quantity <- summed$quantity
   }
 
-  # visit the product page
-  open_url_if_not_already_there(url)
-  wait_for_element("button.gtm-add-to-cart")
-  product_title <- plus_env$browser$Runtime$evaluate("document.querySelector('.product-header-title').textContent;")$result$value
+  if (!plus_ascertain_logged_in(info = info)) return(invisible())
+  urls <- plus_get_urls(x, ..., info = info)
 
-  # add to basket
-  for (i in seq_len(quantity)) {
-    plus_env$browser$Runtime$evaluate("
-      var add_button = document.querySelector('button.gtm-add-to-cart');
-      add_button.click();")
-    Sys.sleep(0.2)
+  for (i in seq_along(x)) {
+    cli_progress_message("Adding {.url {urls[i]}}...")
+    tryCatch({
+      open_url_if_not_already_there(urls[i])
+      wait_for_element("button.gtm-add-to-cart")
+      Sys.sleep(2)
+
+      product_title <- plus_env$browser$Runtime$evaluate("document.querySelector('.product-header-title')?.textContent")$result$value
+
+      for (j in seq_len(quantity[i])) {
+        plus_env$browser$Runtime$evaluate("
+          var add_button = document.querySelector('button.gtm-add-to-cart');
+          add_button?.click();")
+        Sys.sleep(0.5)
+      }
+
+      if (info) cli_alert_success("Added {.strong {{j} items} of {.val {product_title}} to basket.")
+    }, error = function(e) {
+      if (info) cli_alert_danger("Failed to add product: {.strong {conditionMessage(e)}}")
+    })
   }
+}
 
-  if (info == TRUE) {
-    if (length(product_title) > 0 && product_title != "") {
-      cli_alert_success("Added {.strong {quantity}} item{?s} of {.val {product_title}} to basket.")
-    } else {
-      cli_alert_danger("Error in adding {.strong {quantity}} item{?s} of unknown product to basket.")
+#' @importFrom cli cli_text cli_alert_danger
+plus_get_urls <- function(x, ..., info = interactive(), b = plus_env$browser) {
+  x <- trimws(as.character(x))
+  x <- gsub("https://www.plus.nl", "", x, fixed = TRUE)
+  out <- rep(NA_character_, length(x))
+  out[x %in% recently_bought$name] <- recently_bought$url[match(x[x %in% recently_bought$name], recently_bought$name)]
+  out[x %in% recently_bought$url] <- x[x %in% recently_bought$url]
+  out[x %in% recently_bought$img] <- recently_bought$url[match(x[x %in% recently_bought$img], recently_bought$img)]
+  if (anyNA(out)) {
+    # we need to search these on the PLUS website
+    if (!plus_ascertain_logged_in(info = info)) return(invisible())
+    to_search <- unique(x[is.na(out)])
+    print(to_search)
+    search_out <- rep(NA_character_, length(to_search))
+    for (i in seq_len(length(to_search))) {
+      search_value <- to_search[i]
+      if (info) cli_text("Searching product {.val {search_value}}...")
+      open_url_if_not_already_there(paste0("https://www.plus.nl/zoekresultaten?SearchTerm=", utils::URLencode(search_value)),
+                                    b = b)
+      wait_for_element(".plp-results-list a", b = b)
+      url <- b$Runtime$evaluate("document.querySelector('.plp-results-list a[href]').href;")$result$value
+      if (length(url) == 0 || url == "") {
+        stop(cli_alert_danger("No URL found."))
+      }
+      search_out[i] <- url
+      if (info) cli_text("Found URL {.url {url}}.")
     }
+    out[is.na(out)] <- search_out[match(x, to_search)]
   }
+  paste0("https://www.plus.nl", out)
 }
 
 #' @rdname plus_remote_functions
 #' @export
 plus_current_basket <- function(..., info = interactive()) {
-  plus_login(..., info = info)
+  if (!plus_ascertain_logged_in(info = info)) return(invisible())
 
   # go to the basket page
   open_url_if_not_already_there("https://www.plus.nl/winkelwagen")
@@ -219,58 +251,14 @@ plus_checkout <- function() {
   }
 }
 
-# #' @rdname plus_remote_functions
-# #' @param type Character, must be "deliver" or "pickup".
-# #' @param preferred_day Character, must be "first".
-# #' @param preferred_hours Character, must be "first".
-# #' @export
-# plus_start_order <- function(type = "deliver", preferred_day = "first", preferred_hours = "first", info = interactive()) {
-#   stopifnot(type %in% c("deliver", "pickup"))
-#   stopifnot(preferred_day %in% c("first", "first"))
-#   stopifnot(preferred_hours %in% c("first", "first"))
-#
-#   plus_login(..., info = info)
-#
-#   # go to the basket page
-#   open_url_if_not_already_there("https://www.plus.nl/winkelwagen")
-#   # first wait for page to load
-#   wait_for_element(".cart-title-wrapper h1")
-#   # click button to proceed
-#   plus_env$browser$Runtime$evaluate("
-#     var checkout_button = document.querySelector('button.gtm-checkout-start-button');
-#     checkout_button.click();
-#   ")
-#   Sys.sleep(5)
-#   wait_for_element(".place span")
-#
-#   button_type <- ifelse(type == "pickup", "Ophalen", "Bezorgen")
-#   res <- plus_env$browser$Runtime$evaluate(paste0("
-#   (function() {
-#     var radios = Array.from(document.querySelectorAll('[role=\"radio\"]'));
-#     var deliveryOption = radios.find(el => /", button_type, "/i.test(el.textContent));
-#     if (!deliveryOption) {
-#       return { status: 'not found' };
-#     }
-#     deliveryOption.click();
-#     return { status: 'clicked' };
-#   })();
-# "), returnByValue = TRUE)$result$value
-# }
-#
-# #' @rdname plus_remote_functions
-# #' @export
-# plus_definitive_order_placement <- function(..., info = interactive()) {
-#
-# }
-
 #' @rdname plus_remote_functions
 #' @export
-plus_current_url <- function() {
-  if (is.null(plus_env$browser)) {
+plus_current_url <- function(b = plus_env$browser) {
+  if (is.null(b)) {
     cli_alert_danger("No browser initiated yet, run {.fn plus_login} first.")
     return(invisible())
   }
-  tryCatch(plus_env$browser$Runtime$evaluate("window.location.href")$result$value,
+  tryCatch(b$Runtime$evaluate("window.location.href")$result$value,
            error = function(e) cli_alert_danger("Browser not available."))
 
 }
@@ -297,13 +285,13 @@ plus_page_reload <- function() {
            error = function(e) cli_alert_danger("Browser not available."))
 }
 
-open_url_if_not_already_there <- function(url) {
-  current_url <- tryCatch(plus_env$browser$Runtime$evaluate("window.location.href")$result$value,
+open_url_if_not_already_there <- function(url, b = plus_env$browser) {
+  current_url <- tryCatch(b$Runtime$evaluate("window.location.href")$result$value,
                           error = function(e) "")
   if (!identical(url, current_url)) {
     tryCatch({
-      plus_env$browser$go_to(url)
-      wait_for_element("body")  # minimal page check
+      b$go_to(url)
+      wait_for_element("body", b = b)  # minimal page check
     }, error = function(e) {
       cli_alert_danger("Navigation failed: {conditionMessage(e)}")
       stop("Failed to navigate to: ", url, call. = FALSE)
@@ -322,4 +310,14 @@ wait_for_element <- function(selector, b = plus_env$browser, timeout = 10, inter
   }
   warning(sprintf("Timeout waiting for selector: %s", selector))
   invisible(FALSE)
+}
+
+decline_cookies <- function() {
+  # no cookies, remove screen (for easier debugging with `plus_open_browser()`)
+  Sys.sleep(2)
+  plus_env$browser$Runtime$evaluate("
+    var buttons = Array.from(document.querySelectorAll('button'));
+    var declineBtn = buttons.find(btn => btn.textContent.trim() === 'Weigeren');
+    if (declineBtn) declineBtn.click();
+  ")
 }
