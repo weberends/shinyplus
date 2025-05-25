@@ -37,13 +37,11 @@ plus_page_reload()
 
 \item{info}{Logical to print info, default is \code{TRUE} in interactive sessions.}
 
+\item{x}{Name of the product, such as "PLUS Houdbare Halfvolle Melk Pak 1000 ml", or URL of the product, such as "plus-houdbare-halfvolle-melk-pak-1000-ml-957806".}
+
 \item{quantity}{Number of items to add to cart.}
 
 \item{...}{arguments passed to \code{\link[=plus_login]{plus_login()}}}
-
-\item{product_name}{Name of the product, such as "PLUS Houdbare Halfvolle Melk Pak 1000 ml".}
-
-\item{product_url}{PLUS URL of the product, such as "plus-houdbare-halfvolle-melk-pak-1000-ml-957806".}
 }
 \description{
 These functions allow remote access to the \href{https://www.plus.nl}{PLUS.nl website} through the \code{\link[chromote:Chromote]{Chromote}} class.

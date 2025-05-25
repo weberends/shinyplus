@@ -2,8 +2,7 @@
 #'
 #' These functions allow remote access to the [PLUS.nl website](https://www.plus.nl) through the [`Chromote`][chromote::Chromote] class.
 #' @param credentials Path to a YAML file containing fields `email` and `password`, or a [list] contains those names. Can be set with `options(plus_credentials = "...")`
-#' @param product_name Name of the product, such as "PLUS Houdbare Halfvolle Melk Pak 1000 ml".
-#' @param product_url PLUS URL of the product, such as "plus-houdbare-halfvolle-melk-pak-1000-ml-957806".
+#' @param x Name of the product, such as "PLUS Houdbare Halfvolle Melk Pak 1000 ml", or URL of the product, such as "plus-houdbare-halfvolle-melk-pak-1000-ml-957806".
 #' @param quantity Number of items to add to cart.
 #' @param info Logical to print info, default is `TRUE` in interactive sessions.
 #' @param ... arguments passed to [plus_login()]
