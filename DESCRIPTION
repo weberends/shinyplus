@@ -7,21 +7,20 @@ Authors@R: c(
 Description: Automatiseert het boodschappen doen!
 URL: https://github.com/weberends/shinyplus
 BugReports: https://github.com/weberends/shinyplus/issues
-Depends: R (>= 4.1.0)
+Depends: R (>= 4.4.0)
 Imports: 
   bslib,
   chromote,
   cli,
   dplyr,
   DT,
-  glue,
   pillar,
-  purrr,
-  rvest,
   shiny,
   stringr,
   tibble,
   yaml
+Suggests:
+  rvest
 License: GPL-2 | file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)

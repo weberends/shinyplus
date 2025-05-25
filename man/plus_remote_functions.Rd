@@ -41,7 +41,9 @@ plus_page_reload()
 
 \item{quantity}{Number of items to add to cart.}
 
-\item{...}{arguments passed to \code{\link[=plus_login]{plus_login()}}}
+\item{...}{arguments passed to \code{\link[=plus_login]{plus_login()}}.}
+
+\item{b}{Browser to use.}
 }
 \description{
 These functions allow remote access to the \href{https://www.plus.nl}{PLUS.nl website} through the \code{\link[chromote:Chromote]{Chromote}} class.

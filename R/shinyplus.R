@@ -37,7 +37,49 @@ shinyplus <- function() {
     ),
     tags$style(".navbar { background: none; }"),
     tags$style(HTML("
-      .card, .well {
+      .btn-danger {
+        background: rgb(208, 50, 44);
+        border-color: rgb(208, 50, 44);
+      }
+      .btn-danger:hover {
+        background: rgba(208, 50, 44, 0.8);
+        border-color: rgb(208, 50, 44);
+      }
+      .btn-success {
+        background: rgb(140, 185, 64);
+        border-color: rgb(140, 185, 64);
+      }
+      .btn-success:hover {
+        background: rgba(140, 185, 64, 0.8);
+        border-color: rgb(140, 185, 64);
+      }
+
+      .basket-card-1, .products-list-p .basket-source.weekmenu {
+        background: rgba(229, 240, 196, 0.45);
+      }
+      .basket-card-2, .products-list-p .basket-source.vast {
+        background: rgba(210, 232, 253, 0.25);
+      }
+      .basket-card-3, .products-list-p .basket-source.extra  {
+        background: rgba(244, 240, 237, 0.80);
+      }
+      .basket-card-4 {
+        background: rgba(246, 227, 208, 0.70);
+      }
+      .basket-card-1 h3, .products-list-p .basket-source.weekmenu {
+        color: #5a7c00; /* dark olive green to match light green bg */
+      }
+      .basket-card-2 h3, .products-list-p .basket-source.vast {
+        color: #2b73af; /* medium blue to match light blue bg */
+      }
+      .basket-card-3 h3, .products-list-p .basket-source.extra {
+        color: #8c5a40; /* warm brown to match light taupe bg */
+      }
+      .basket-card-4 h3 {
+        color: #cc5c00; /* burnt orange to match peachy bg */
+      }
+
+      .well {
         background: rgba(255, 255, 255, 0.7);
         color: RGB(var(--bs-emphasis-color-rgb, 0, 0, 0));
         border-radius: 10px;
@@ -59,14 +101,37 @@ shinyplus <- function() {
       .products-list-p p {
         margin: 0;
         font-size: 0.8rem;
-        display: inline;
+        display: inline-block;
+        line-height: 1.2;
       }
 
       .products-list-p .basket-source {
-        font-style: italic;
-        font-size: 0.7rem;
-        color: red;
+        font-size: 0.6rem;
         margin-left: 5px;
+        padding-left: 5px;
+        padding-right: 5px;
+        border-radius: 5px;
+      }
+      .products-list-p .basket-source.weekmenu {
+        border: 1px solid rgb(90, 124, 0, 0.5);
+      }
+      .products-list-p .basket-source.vast {
+        border: 1px solid rgb(43, 115, 175, 0.5);
+      }
+      .products-list-p .basket-source.extra {
+        border: 1px solid rgb(140, 90, 64, 0.5);
+      }
+
+      .products-list-p .basket-source.weekmenu {
+        color: rgb(90, 124, 0); /* #5a7c00 */
+      }
+
+      .products-list-p .basket-source.vast {
+        color: rgb(43, 115, 175); /* #2b73af */
+      }
+
+      .products-list-p .basket-source.extra {
+        color: rgb(140, 90, 64); /* #8c5a40 */
       }
 
       .products-list-qty {
@@ -95,22 +160,23 @@ shinyplus <- function() {
                fluidPage(
                  fluidRow(
                    column(2,
-                          card(
+                          card(class = "basket-card-1",
                             h3("1. Weekmenu"), # Step 1 ----
                             lapply(weekdays_list, function(day) {
                               selectInput(paste0("dish_day_", day), label = day, choices = NULL, width = "100%")
                             }),
                             actionButton("save_weekplan", "Weekmenu opslaan", icon = icon("save")),
-                            actionButton("add_weekplan_products_to_basket", "Toevoegen aan mandje", icon = icon("cart-plus")),
+                            actionButton("add_weekplan_products_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping")),
+                            p("Producten worden toegevoegd met apart label 'Weekmenu'."),
                           ),
                    ),
                    column(3,
-                          card(
+                          card(class = "basket-card-2",
                             h3("2. Vaste boodschappen"), # Step 2 ----
 
                             h5("Selecteer uit je vaste producten:"),
                             uiOutput("fixed_items_ui"),
-                            actionButton("add_fixed_to_basket", "Toevoegen aan mandje", icon = icon("cart-plus")),
+                            actionButton("add_fixed_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping")),
                             actionButton("fixed_to_zero", "Alles op nul zetten", icon = icon("rotate-left")),
                             hr(),
                             h5("Beheer vaste producten:"),
@@ -120,22 +186,22 @@ shinyplus <- function() {
                                                           onInitialize = I('function() { this.setValue(""); }')),
                                            width = "100%"),
                             actionButton("add_fixed_product_button", "Toevoegen aan vaste producten", icon = icon("plus")),
-                            actionButton("remove_fixed_product_button", "Verwijderen aan vaste producten", icon = icon("trash"))
+                            actionButton("remove_fixed_product_button", "Verwijderen uit vaste producten", icon = icon("trash"))
                           )
                    ),
                    column(3,
-                          card(
+                          card(class = "basket-card-3",
                             h3("3. Extra artikelen"), # Step 3 ----
                             h5("Kies extra artikelen:"),
                             uiOutput("extra_inputs_ui"),
-                            actionButton("add_all_extras_to_basket", "Toevoegen aan mandje", icon = icon("cart-plus")),
+                            actionButton("add_all_extras_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping")),
                             hr(),
                             h5("Reeds toegevoegde extra artikelen:"),
                             uiOutput("extra_items_list")
                           )
                    ),
                    column(4,
-                          card(
+                          card(class = "basket-card-4",
                             h3("4. Mandje"), # Step 4 ----
                             uiOutput("basket_overview_table"),
                             br(),
@@ -186,7 +252,7 @@ shinyplus <- function() {
                           actionButton("save_dish", "Gerecht opslaan"),
 
                           tags$hr(),
-                          h5("Ingrediënten bewerken"),
+                          h5("Ingredi\u00EBnten bewerken"),
                           selectizeInput("ingredient_name_edit", "Ingredi\u00EBnt",
                                          choices = recently_bought$name,
                                          options = list(placeholder = 'Type om te zoeken...',
@@ -278,6 +344,8 @@ shinyplus <- function() {
       if (nrow(df) == 0) return(invisible())
 
       new_basket <- bind_rows(values$basket, df) |>
+        # prevent sorting by using factors
+        mutate(product = factor(product, levels = unique(product), ordered = TRUE)) |>
         group_by(product, source) |>
         summarise(quantity = sum(quantity), .groups = "drop")
 
@@ -459,7 +527,7 @@ shinyplus <- function() {
 
       qtys <- bind_rows(qtys)
       if (nrow(qtys) > 0) {
-        add_to_basket(product = qtys$product, quantity = qtys$quantity, source = "Vaste boodschap")
+        add_to_basket(product = qtys$product, quantity = qtys$quantity, source = "Vast")
       }
     })
 
@@ -583,9 +651,9 @@ shinyplus <- function() {
           fluidRow(
             class = "row products-list-row",
             column(2, div(class = "products-list-img", img(src = get_product_image(prod), width = "100%"))),
-            column(6, div(class = "products-list-p", p(HTML(paste0(get_product_name_unit(prod), "<span class='basket-source'>", src, "</span>"))))),
+            column(6, div(class = "products-list-p", p(HTML(paste0(get_product_name_unit(prod), "<span class='basket-source ", tolower(src), "'>", src, "</span>"))))),
             column(2, div(class = "products-list-qty", numericInput(input_id, NULL, value = qty, min = 0, step = 1, width = "100%"))),
-            column(2, actionButton(remove_id, "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: 4px;"))
+            column(2, actionButton(remove_id, "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;"))
           )
         })
       )
@@ -845,7 +913,7 @@ shinyplus <- function() {
         Waarde = c(
           formatC(total_items, big.mark = ".", decimal.mark = ",", format = "d"),
           formatC(unique_items, big.mark = ".", decimal.mark = ",", format = "d"),
-          paste0("€ ", format(round(total_price, 2), nsmall = 2, big.mark = ".", decimal.mark = ","))
+          paste0("\u20ac ", format(round(total_price, 2), nsmall = 2, big.mark = ".", decimal.mark = ","))
         )
       )
 

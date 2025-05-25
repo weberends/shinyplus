@@ -5,7 +5,8 @@
 #' @param x Name of the product, such as "PLUS Houdbare Halfvolle Melk Pak 1000 ml", or URL of the product, such as "plus-houdbare-halfvolle-melk-pak-1000-ml-957806".
 #' @param quantity Number of items to add to cart.
 #' @param info Logical to print info, default is `TRUE` in interactive sessions.
-#' @param ... arguments passed to [plus_login()]
+#' @param ... arguments passed to [plus_login()].
+#' @param b Browser to use.
 #' @importFrom yaml read_yaml
 #' @importFrom chromote ChromoteSession
 #' @importFrom tibble tibble
