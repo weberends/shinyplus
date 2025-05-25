@@ -4,9 +4,8 @@
 \alias{plus_remote_functions}
 \alias{plus_login}
 \alias{plus_logout}
-\alias{plus_add_product}
-\alias{plus_open_browser}
 \alias{plus_add_products}
+\alias{plus_open_browser}
 \alias{plus_current_cart}
 \alias{plus_checkout}
 \alias{plus_current_url}

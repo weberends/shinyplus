@@ -1,13 +1,21 @@
 plus_env <- new.env()
 
 globalVariables(c("aantal_personen",
+                  "amount",
+                  "Artikel",
                   "dag",
+                  "days",
+                  "dish",
+                  "dish_id",
                   "eenheid",
                   "gerecht",
                   "gerecht_id",
                   "hoeveelheid",
                   "ingredient",
+                  "name",
+                  "people",
                   "price",
+                  "price_total",
                   "quantity"))
 
 as_euro <- function(x) {

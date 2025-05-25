@@ -13,7 +13,7 @@
 #' @importFrom cli cli_alert_danger cli_alert_info cli_alert_success cli_progress_message cli_text
 #' @rdname plus_remote_functions
 #' @name plus_remote_functions
-#' @aliases plus_login plus_logout plus_add_product plus_open_browser
+#' @aliases plus_login plus_logout plus_add_products plus_open_browser
 #' @export
 #' @examples
 #' \dontrun{

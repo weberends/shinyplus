@@ -1,24 +1,17 @@
 #' Launch PLUS Weekly Grocery App
+#' @importFrom shiny fluidPage HTML div img p icon h5 h3 h4 hr br fluidRow wellPanel textInput a strong tagList reactiveVal passwordInput checkboxInput column navbarPage tabPanel selectInput selectizeInput numericInput actionButton uiOutput renderUI shinyApp observe observeEvent updateSelectInput updateNumericInput updateCheckboxInput updateTextInput updateSelectizeInput reactiveValues reactive req isolate tags modalDialog showModal removeModal modalButton showNotification conditionalPanel
+#' @importFrom bslib bs_theme font_google card
+#' @importFrom dplyr filter pull mutate select arrange inner_join bind_rows distinct if_else left_join count
+#' @importFrom tibble tibble
+#' @importFrom stringr str_detect
+#' @importFrom DT datatable DTOutput renderDT
 #' @export
-open_app2 <- function() {
-  library(shiny)
-  library(bslib)
-  library(DT)
-  library(tibble)
-  library(dplyr)
-  library(stringr)
-
+shinyplus <- function() {
   data_dir <- system.file("plus_data", package = "shinyplus")
-  dishes_file <- file.path(data_dir, "dishes.rds")
-  ingredients_file <- file.path(data_dir, "ingredients.rds")
-  weekplan_file <- file.path(data_dir, "weekplan.rds")
-  weekly_basics_file <- file.path(data_dir, "weekly_basics.rds")
-
   if (!dir.exists(data_dir)) dir.create(data_dir)
 
-  weekly_basics <- if (file.exists(weekly_basics_file)) readRDS(weekly_basics_file) else character()
-
   weekdays_list <- c("Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag", "Zondag")
+  weekdays_short <- substr(weekdays_list, 1, 2)
 
   ui <- fluidPage(
     tags$head(tags$script(HTML("
@@ -33,7 +26,8 @@ open_app2 <- function() {
           top: 0; left: 0;
           width: 100vw;
           height: 100vh;
-          background-image: url('https://upload.wikimedia.org/wikipedia/commons/2/2f/Plus_supermarkt_Delft.jpg');
+          /* background-image: url('https://upload.wikimedia.org/wikipedia/commons/2/2f/Plus_supermarkt_Delft.jpg'); */
+          background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/Truck_Spotting_on_the_A58_E312_Direction_Kruiningen-Netherlands_16_04_2020._%2849781332681%29.jpg/1280px-Truck_Spotting_on_the_A58_E312_Direction_Kruiningen-Netherlands_16_04_2020._%2849781332681%29.jpg');
           background-size: cover;
           background-position: center;
           opacity: 0.05;
@@ -49,32 +43,37 @@ open_app2 <- function() {
         border-radius: 10px;
       }
 
-      .row.fixed-product-row {
+      .row.products-list-row {
         height: 50px;
         display: flex;
         align-items: center;
         margin-bottom: 5px;
       }
 
-      .fixed-products-img img {
+      .products-list-img img {
         max-height: 40px;
         max-width: 100%;
         object-fit: contain;
       }
 
-      .fixed-products-p p {
+      .products-list-p p {
         margin: 0;
         font-size: 0.8rem;
-        display: flex;
-        align-items: center;
-        height: 100%;
+        display: inline;
       }
 
-      .fixed-products-qty {
+      .products-list-p .basket-source {
+        font-style: italic;
+        font-size: 0.7rem;
+        color: red;
+        margin-left: 5px;
+      }
+
+      .products-list-qty {
         padding-top: 10px;
       }
 
-      .fixed-products-qty .form-control {
+      .products-list-qty .form-control {
         height: 35px;
         padding: 5px;
       }
@@ -138,7 +137,7 @@ open_app2 <- function() {
                    column(4,
                           card(
                             h3("4. Mandje"), # Step 4 ----
-                            DTOutput("basket_overview_table"),
+                            uiOutput("basket_overview_table"),
                             br(),
                             actionButton("send_basket_to_cart", "Mandje in PLUS Winkelwagen plaatsen", class = "btn-success"),
                             actionButton("clear_basket", "Mandje leegmaken", class = "btn-danger"),
@@ -197,7 +196,7 @@ open_app2 <- function() {
                           actionButton("add_ingredient_edit", "Toevoegen en opslaan"),
 
                           tags$hr(),
-                          DTOutput("ingredients_table_edit")
+                          DTOutput("dish_ingredients_table_edit")
                         )
                  )
                )
@@ -210,19 +209,107 @@ open_app2 <- function() {
 
   server <- function(input, output, session) {
     values <- reactiveValues(
-      dishes = if (file.exists(dishes_file)) readRDS(dishes_file) else tibble(dish_id = numeric(), name = character(), people = numeric(), days = character()),
-      ingredients = if (file.exists(ingredients_file)) readRDS(ingredients_file) else tibble(dish_id = numeric(), product = character(), amount = numeric(), unit = character()),
-      weekplan = if (file.exists(weekplan_file)) readRDS(weekplan_file) else tibble(day = character(), dish = character()),
-      weekly_basics = if (file.exists(weekly_basics_file)) readRDS(weekly_basics_file) else character(),
+      dishes = tibble(dish_id = numeric(), name = character(), people = numeric(), days = character()),
+      dish_ingredients = tibble(dish_id = numeric(), product = character(), amount = numeric(), unit = character()),
+      weekplan = tibble(day = character(), dish = character()),
+      fixed_products = character(),
       fixed_items = character(),
       extra_items = character(),
+      basket = tibble(product = character(), quantity = integer(), source = character()),
       logged_in = FALSE
     )
+
+    # RDS files for saving
+    dishes_file <- reactive({
+      req(selected_email())
+      file.path(data_dir, paste0("dishes-", make.names(selected_email()), ".rds"))
+    })
+    dish_ingredients_file <- reactive({
+      req(selected_email())
+      file.path(data_dir, paste0("dish_ingredients-", make.names(selected_email()), ".rds"))
+    })
+    weekplan_file <- reactive({
+      req(selected_email())
+      file.path(data_dir, paste0("weekplan-", make.names(selected_email()), ".rds"))
+    })
+    fixed_products_file <- reactive({
+      req(selected_email())
+      file.path(data_dir, paste0("fixed_products-", make.names(selected_email()), ".rds"))
+    })
+    basket_file <- reactive({
+      req(selected_email())
+      file.path(data_dir, paste0("basket-", make.names(selected_email()), ".rds"))
+    })
+
+    selected_email <- reactiveVal(NULL)
+
+    # fill in values from RDS files
+    observeEvent(selected_email(), {
+      if (file.exists(dishes_file())) {
+        values$dishes <- readRDS(dishes_file())
+      }
+      if (file.exists(dish_ingredients_file())) {
+        values$dish_ingredients <- readRDS(dish_ingredients_file())
+      }
+      if (file.exists(weekplan_file())) {
+        values$weekplan <- readRDS(weekplan_file())
+      }
+      if (file.exists(fixed_products_file())) {
+        values$fixed_products <- readRDS(fixed_products_file())
+      }
+      if (file.exists(basket_file())) {
+        values$basket <- readRDS(basket_file())
+      }
+    })
+
+
     extra_input_count <- reactiveVal(1)
     extra_inputs <- reactiveValues(data = list(), expanded = list())
 
+    add_to_basket <- function(product, quantity = 1, source = "Extra") {
+      if (length(product) > 1 && length(quantity) == 1) {
+        quantity <- rep(quantity, length(product))
+      }
+      if (length(product) != length(quantity)) stop("Mismatched product and quantity lengths")
+
+      df <- tibble(product, quantity, source) |>
+        filter(product != "", quantity > 0)
+
+      if (nrow(df) == 0) return(invisible())
+
+      new_basket <- bind_rows(values$basket, df) |>
+        group_by(product, source) |>
+        summarise(quantity = sum(quantity), .groups = "drop")
+
+      # Only update if different
+      if (!identical(new_basket, values$basket)) {
+        values$basket <- new_basket
+      }
+    }
+
 
     # Login ----
+
+    observe({
+      showModal(modalDialog(
+        title = "Selecteer een gebruiker",
+        selectInput("selected_user_email", "Kies je e-mailadres",
+                    choices = c(getOption("plus_credentials")$email, "Zonder inloggen"),
+                    selected = NULL),
+        easyClose = FALSE,
+        footer = tagList(
+          # modalButton("Annuleren"),
+          actionButton("confirm_user_email", "Doorgaan", class = "btn-primary")
+        )
+      ))
+    })
+    observeEvent(input$confirm_user_email, {
+      req(input$selected_user_email)
+      plus_env$email <- trimws(tolower(input$selected_user_email))
+      selected_email(plus_env$email)
+      removeModal()
+    })
+
     output$account_tab_title <- renderUI({
       logged_in <- values$logged_in
       email <- plus_env$email
@@ -294,11 +381,13 @@ open_app2 <- function() {
     ## Step 1 ----
     # Populate weekmenu dish choices
     observe({
-      dish_names <- values$dishes$name
       for (day in weekdays_list) {
+        dishes <- values$dishes |>
+          filter(grepl(day, days))
+        if (nrow(dishes) == 0) next
         updateSelectInput(session, paste0("dish_day_", day),
-                          choices = c("", dish_names),
-                          selected = values$weekplan |> filter(day == !!day) |> pull(dish))
+                          choices = c("", dishes$name) |> stats::setNames(c("", paste0(dishes$name, " (", dishes$people, "p)"))),
+                          selected = NULL)
       }
     })
 
@@ -307,59 +396,75 @@ open_app2 <- function() {
         dish <- input[[paste0("dish_day_", day)]]
         tibble(day = day, dish = ifelse(is.null(dish) || dish == "", NA_character_, dish))
       }))
-      saveRDS(values$weekplan, weekplan_file)
+      saveRDS(values$weekplan, weekplan_file())
     })
 
-    output$fixed_items_ui <- renderUI({
-      if (length(values$weekly_basics) == 0) return(p("Nog geen vaste producten."))
+    observeEvent(input$add_weekplan_products_to_basket, {
+      selected_dishes <- unlist(lapply(weekdays_list, function(day) input[[paste0("dish_day_", day)]]))
+      selected_dishes <- selected_dishes[selected_dishes != ""]
+      dish_ingredients <- values$dish_ingredients |>
+        inner_join(values$dishes |> filter(name %in% selected_dishes), by = "dish_id")
+      ingredients <- rep(dish_ingredients$product, dish_ingredients$amount)
 
-      values$weekly_basics <- sort(values$weekly_basics)
+      if (length(ingredients) == 0) {
+        showNotification("Geen producten om toe te voegen.", type = "error")
+      } else {
+        add_to_basket(product = ingredients, quantity = 1, source = "Weekmenu")
+      }
+    })
+
+
+
+    ## Step 2 ----
+
+    output$fixed_items_ui <- renderUI({
+      if (length(values$fixed_products) == 0) return(p("Nog geen vaste producten."))
+
+      values$fixed_products <- sort(values$fixed_products)
 
       tagList(
-        lapply(values$weekly_basics, function(prod) {
+        lapply(values$fixed_products, function(prod) {
           fluidRow(
-            class = "row fixed-product-row",
-            column(2, div(class = "fixed-products-img", height = "100%", img(src = get_product_image(prod), width = "100%"))),
-            column(7, div(class = "fixed-products-p", height = "100%", p(get_product_name_unit(prod)))),
-            column(3, div(class = "fixed-products-qty", height = "100%", numericInput(paste0("qty_fixed_", make.names(prod)), NULL, value = 0, min = 0, step = 1, width = "100%")))
+            class = "row products-list-row",
+            column(2, div(class = "products-list-img", height = "100%", img(src = get_product_image(prod), width = "100%"))),
+            column(7, div(class = "products-list-p", height = "100%", p(get_product_name_unit(prod)))),
+            column(3, div(class = "products-list-qty", height = "100%", numericInput(paste0("qty_fixed_", make.names(prod)), NULL, value = 0, min = 0, step = 1, width = "100%")))
           )
         })
       )
     })
 
-    ## Step 2 ----
-
-    # Manage weekly_basics (add/remove)
+    # Manage fixed_products (add/remove)
     observeEvent(input$add_fixed_product_button, {
       prod <- input$add_fixed_product
-      if (!is.null(prod) && !(prod %in% values$weekly_basics)) {
-        values$weekly_basics <- unique(c(values$weekly_basics, prod))
-        saveRDS(values$weekly_basics, weekly_basics_file)
+      if (!is.null(prod) && !(prod %in% values$fixed_products)) {
+        values$fixed_products <- unique(c(values$fixed_products, prod))
+        saveRDS(values$fixed_products, fixed_products_file())
       }
     })
 
     observeEvent(input$remove_fixed_product_button, {
       prod <- input$add_fixed_product
-      values$weekly_basics <- setdiff(values$weekly_basics, prod)
-      saveRDS(values$weekly_basics, weekly_basics_file)
+      values$fixed_products <- setdiff(values$fixed_products, prod)
+      saveRDS(values$fixed_products, fixed_products_file())
     })
 
     # Add selected fixed items + quantities to planning basket
     observeEvent(input$add_fixed_to_basket, {
-      qtys <- lapply(values$weekly_basics, function(prod) {
+      qtys <- lapply(values$fixed_products, function(prod) {
         qty <- input[[paste0("qty_fixed_", make.names(prod))]]
-        if (is.null(qty) || qty <= 0) return("")
-        rep(prod, qty)
+        if (is.null(qty) || qty <= 0) return(NULL)
+        tibble(product = prod, quantity = qty)
       })
 
-      qtys <- unlist(qtys)
-      qtys <- qtys[qtys != ""]
-      if (length(qtys) > 1) {
-        values$fixed_items <- c(values$fixed_items, unlist(qtys))
+      qtys <- bind_rows(qtys)
+      if (nrow(qtys) > 0) {
+        add_to_basket(product = qtys$product, quantity = qtys$quantity, source = "Vaste boodschap")
       }
     })
+
     observeEvent(input$fixed_to_zero, {
-      for (prod in values$weekly_basics) {
+      for (prod in values$fixed_products) {
         input_id <- paste0("qty_fixed_", make.names(prod))
         updateNumericInput(session, inputId = input_id, value = 0)
       }
@@ -422,17 +527,20 @@ open_app2 <- function() {
     })
 
     observeEvent(input$add_all_extras_to_basket, {
-      items <- unlist(lapply(extra_inputs$data, function(x) {
+      items <- lapply(extra_inputs$data, function(x) {
         if (!is.null(x$product) && nzchar(x$product) && x$qty > 0) {
-          rep(x$product, x$qty)
+          tibble(product = x$product, quantity = x$qty)
         }
-      }))
+      }) |> bind_rows()
 
-      values$extra_items <- c(values$extra_items, items)
+      if (nrow(items) > 0) {
+        add_to_basket(product = items$product, quantity = items$quantity, source = "Extra")
+      }
 
-      # Reset
+      # Reset dynamic inputs
       extra_input_count(1)
       extra_inputs$data <- list()
+      extra_inputs$expanded <- list()
     })
 
     # Grouped summary
@@ -451,17 +559,58 @@ open_app2 <- function() {
 
     ## Step 4 ----
 
-    # Mandje overview table
-    output$basket_overview_table <- renderDT({
-      selected_dishes <- values$weekplan$dish[!is.na(values$weekplan$dish)]
-      ingredients <- values$ingredients |>
-        inner_join(values$dishes |> filter(name %in% selected_dishes), by = "dish_id") |>
-        pull(product)
+    # save to basket if anything is changed
+    observeEvent(values$basket, {
+      req(selected_email())
+      saveRDS(values$basket, basket_file())
+    }, ignoreInit = TRUE)
 
-      items <- tibble(Artikel = c(ingredients, values$fixed_items, values$extra_items)) |>
-        count(Artikel, name = "Aantal")
+    # basket overview table
+    output$basket_overview_table <- renderUI({
+      if (nrow(values$basket) == 0) return(p("Mandje is leeg."))
 
-      datatable(items, options = list(dom = 't'))
+      # values$basket <- values$basket |> arrange(product)
+
+      tagList(
+        lapply(seq_len(nrow(values$basket)), function(i) {
+          row <- values$basket[i, ]
+          prod <- row$product
+          qty <- row$quantity
+          src <- row$source
+          input_id <- paste0("basket_qty_", make.names(prod))
+          remove_id <- paste0("remove_", make.names(prod))
+
+          fluidRow(
+            class = "row products-list-row",
+            column(2, div(class = "products-list-img", img(src = get_product_image(prod), width = "100%"))),
+            column(6, div(class = "products-list-p", p(HTML(paste0(get_product_name_unit(prod), "<span class='basket-source'>", src, "</span>"))))),
+            column(2, div(class = "products-list-qty", numericInput(input_id, NULL, value = qty, min = 0, step = 1, width = "100%"))),
+            column(2, actionButton(remove_id, "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: 4px;"))
+          )
+        })
+      )
+    })
+
+    observe({
+      new_data <- values$basket
+      for (i in seq_len(nrow(new_data))) {
+        prod <- new_data$product[i]
+        input_id <- paste0("basket_qty_", make.names(prod))
+        qty <- input[[input_id]]
+        if (!is.null(qty) && qty >= 0) {
+          new_data$quantity[i] <- qty
+        }
+      }
+      values$basket <- new_data |> filter(quantity > 0)
+    })
+
+    observe({
+      req(nrow(values$basket) > 0)
+      lapply(values$basket$product, function(prod) {
+        observeEvent(input[[paste0("remove_", make.names(prod))]], {
+          values$basket <- values$basket |> filter(product != prod)
+        }, ignoreInit = TRUE)
+      })
     })
 
     # Send basket to cart
@@ -471,21 +620,23 @@ open_app2 <- function() {
         return()
       }
 
-      basket_items <- output$basket_overview_table$data()
-      for (i in seq_len(NROW(basket_items))) {
-        product <- unlist(basket_items[i, "Artikel"])
-        quantity <- unlist(basket_items[i, "Aantal"])
+      req(nrow(values$basket) > 0)
+
+      for (i in seq_len(nrow(values$basket))) {
+        product <- values$basket$product[i]
+        quantity <- values$basket$quantity[i]
+
         url <- tryCatch(get_product_url(product), error = function(e) NULL)
         if (!is.null(url)) {
-          plus_add_product(product_url = url, quantity = quantity, credentials = values$credentials, info = FALSE)
+          plus_add_products(url, quantity = quantity, credentials = values$credentials, info = FALSE)
         }
       }
+
       showNotification("Mandje in PLUS Winkelwagen geplaatst.", type = "message")
     })
 
     observeEvent(input$clear_basket, {
-      values$fixed_items <- character(0)
-      values$extra_items <- character(0)
+      values$basket <- tibble(product = character(), quantity = integer(), source = character())
     })
 
 
@@ -563,7 +714,7 @@ open_app2 <- function() {
       updateNumericInput(session, "dish_people_edit", value = 2)
 
       # Uncheck all weekday toggles
-      for (d in c("Alle", "Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo", "Vr-Za")) {
+      for (d in c("Alle", weekdays_short, "Vr-Za")) {
         updateCheckboxInput(session, paste0("day_", d), value = FALSE)
       }
       updateSelectInput(session, "selected_dish", selected = "")
@@ -588,10 +739,10 @@ open_app2 <- function() {
       dish_current <- values$dishes |> filter(name == input$selected_dish) |> pull(dish_id)
 
       values$dishes <- values$dishes |> filter(name != input$selected_dish)
-      values$ingredients <- values$ingredients |> filter(dish_id != dish_current)
+      values$dish_ingredients <- values$dish_ingredients |> filter(dish_id != dish_current)
 
-      saveRDS(values$dishes, dishes_file)
-      saveRDS(values$ingredients, ingredients_file)
+      saveRDS(values$dishes, dishes_file())
+      saveRDS(values$dish_ingredients, dish_ingredients_file())
 
       updateSelectInput(session, "selected_dish", choices = values$dishes$name, selected = "")
       updateTextInput(session, "dish_name_edit", value = "")
@@ -607,10 +758,10 @@ open_app2 <- function() {
     })
 
     observeEvent(input$save_dish, {
-      day_keys <- c("Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo")
-      selected_days <- day_keys[vapply(day_keys, function(d) input[[paste0("day_", d)]], logical(1))]
-      if (input$day_Alle) selected_days <- day_keys
+      selected_days <- weekdays_short[vapply(weekdays_short, function(d) input[[paste0("day_", d)]], logical(1))]
+      if (input$day_Alle) selected_days <- weekdays_short
       if (input$`day_Vr-Za`) selected_days <- unique(c(selected_days, "Vr", "Za"))
+      selected_days <- weekdays_list[match(selected_days, weekdays_short)]
 
       values$dishes <- values$dishes |>
         mutate(
@@ -618,7 +769,7 @@ open_app2 <- function() {
           people = if_else(name == input$selected_dish, input$dish_people_edit, people),
           days = if_else(name == input$selected_dish, paste(selected_days, collapse = ","), days)
         )
-      saveRDS(values$dishes, dishes_file)
+      saveRDS(values$dishes, dishes_file())
       updateSelectInput(session, "selected_dish", choices = values$dishes$name, selected = input$dish_name_edit)
     })
 
@@ -634,39 +785,36 @@ open_app2 <- function() {
     observeEvent(input$add_ingredient_edit, {
       selected_id <- values$dishes |> filter(name == input$selected_dish) |> pull(dish_id)
       unit <- recently_bought |> filter(name == input$ingredient_name_edit) |> pull(unit)
-      values$ingredients <- bind_rows(values$ingredients, tibble(
+      values$dish_ingredients <- bind_rows(values$dish_ingredients, tibble(
         dish_id = selected_id,
         product = input$ingredient_name_edit,
         amount = input$ingredient_amount_edit,
         unit = unit[1]
       ))
-      saveRDS(values$ingredients, ingredients_file)
+      saveRDS(values$dish_ingredients, dish_ingredients_file())
     })
 
-    output$ingredients_table_edit <- renderDT({
+    output$dish_ingredients_table_edit <- renderDT({
       req(input$selected_dish)
       selected_id <- values$dishes |> filter(name == input$selected_dish) |> pull(dish_id)
-      values$ingredients |>
+      values$dish_ingredients |>
         filter(dish_id == selected_id) |>
         select("Ingredi\u00EBnt" = product, Aantal = amount, Eenheid = unit) |>
         datatable(options = list(dom = 't'))
     })
 
-
-
-
     observeEvent(input$send_to_cart, {
       if (!values$logged_in) return()
       selected_dishes <- values$weekplan$dish[!is.na(values$weekplan$dish)]
-      ingredients_to_add <- values$ingredients |>
+      dish_ingredients_to_add <- values$dish_ingredients |>
         inner_join(values$dishes |> filter(name %in% selected_dishes), by = "dish_id") |>
         pull(product)
 
-      all_items <- unique(c(ingredients_to_add, input$fixed_selection, values$extra_items))
+      all_items <- unique(c(dish_ingredients_to_add, input$fixed_selection, values$extra_items))
 
       for (product_name in all_items) {
         product_url <- get_product_url(product_name)
-        plus_add_product(product_url = product_url, quantity = 1, credentials = values$credentials, info = FALSE)
+        plus_add_products(product_url, quantity = 1, credentials = values$credentials, info = FALSE)
       }
     })
 
