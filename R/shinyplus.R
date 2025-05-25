@@ -26,8 +26,8 @@ shinyplus <- function() {
           top: 0; left: 0;
           width: 100vw;
           height: 100vh;
-          /* background-image: url('https://upload.wikimedia.org/wikipedia/commons/2/2f/Plus_supermarkt_Delft.jpg'); */
-          background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/Truck_Spotting_on_the_A58_E312_Direction_Kruiningen-Netherlands_16_04_2020._%2849781332681%29.jpg/1280px-Truck_Spotting_on_the_A58_E312_Direction_Kruiningen-Netherlands_16_04_2020._%2849781332681%29.jpg');
+          background-image: url('https://upload.wikimedia.org/wikipedia/commons/2/2f/Plus_supermarkt_Delft.jpg');
+          /* background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/Truck_Spotting_on_the_A58_E312_Direction_Kruiningen-Netherlands_16_04_2020._%2849781332681%29.jpg/1280px-Truck_Spotting_on_the_A58_E312_Direction_Kruiningen-Netherlands_16_04_2020._%2849781332681%29.jpg'); */
           background-size: cover;
           background-position: center;
           opacity: 0.05;
