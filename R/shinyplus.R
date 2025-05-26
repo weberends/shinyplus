@@ -637,8 +637,6 @@ shinyplus <- function() {
     output$basket_overview_table <- renderUI({
       if (nrow(values$basket) == 0) return(p("Mandje is leeg."))
 
-      # values$basket <- values$basket |> arrange(product)
-
       tagList(
         lapply(seq_len(nrow(values$basket)), function(i) {
           row <- values$basket[i, ]
@@ -651,27 +649,15 @@ shinyplus <- function() {
           fluidRow(
             class = "row products-list-row",
             column(2, div(class = "products-list-img", img(src = get_product_image(prod), width = "100%"))),
-            column(6, div(class = "products-list-p", p(HTML(paste0(get_product_name_unit(prod), "<span class='basket-source ", tolower(src), "'>", src, "</span>"))))),
+            column(7, div(class = "products-list-p", p(HTML(paste0(get_product_name_unit(prod), "<span class='basket-source ", tolower(src), "'>", src, "</span>"))))),
             column(2, div(class = "products-list-qty", numericInput(input_id, NULL, value = qty, min = 0, step = 1, width = "100%"))),
-            column(2, actionButton(remove_id, "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;"))
+            column(1, actionButton(remove_id, "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;"))
           )
         })
       )
     })
 
-    observe({
-      new_data <- values$basket
-      for (i in seq_len(nrow(new_data))) {
-        prod <- new_data$product[i]
-        input_id <- paste0("basket_qty_", make.names(prod))
-        qty <- input[[input_id]]
-        if (!is.null(qty) && qty >= 0) {
-          new_data$quantity[i] <- qty
-        }
-      }
-      values$basket <- new_data |> filter(quantity > 0)
-    })
-
+    # Make Remove button work
     observe({
       req(nrow(values$basket) > 0)
       lapply(values$basket$product, function(prod) {
