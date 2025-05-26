@@ -119,6 +119,10 @@ shinyplus <- function() {
         line-height: 1.2;
       }
 
+      .basket-card-3 .products-list-p p {
+        font-size: 0.9rem;
+      }
+
       .products-list-p .basket-source {
         font-size: 0.6rem;
         margin-left: 5px;
@@ -176,6 +180,14 @@ shinyplus <- function() {
       .extra-input-row .form-control {
         font-size: 0.85rem;
       }
+
+      .card.stretch-with-margin {
+        margin-bottom: 300px;
+      }
+
+      .selectize-dropdown-content {
+        max-height: 500px !important;  /* same as .card.stretch-with-margin */
+      }
     ")),
     div(id = "background-image"),
     theme = bs_theme(version = 5, base_font = font_google("Open Sans")),
@@ -187,7 +199,7 @@ shinyplus <- function() {
       tabPanel("Mandje", # UI: Basket ----
                fluidPage(
                  fluidRow(
-                   column(3,
+                   column(2,
                           card(class = "basket-card-1",
                             h3("1. Weekmenu"), ## Step 1 ----
                             lapply(weekdays_list, function(day) {
@@ -202,7 +214,7 @@ shinyplus <- function() {
                                       option: function(item, escape) {
                                         return '<div style=\"padding-left: 5px;\">' +
                                                  '' + escape(item.label) + '<br>' +
-                                                 '<small style=\"opacity: 0.8;\">' +
+                                                 '<small style=\"opacity: 0.8; padding-left: 20px;\">' +
                                                  item.subtext + '</small>' +
                                                '</div>';
                                       },
@@ -220,7 +232,7 @@ shinyplus <- function() {
                             p(HTML("<small>Producten worden toegevoegd met een apart label 'Weekmenu'.</small>")),
                           ),
                    ),
-                   column(3,
+                   column(4,
                           card(class = "basket-card-2",
                             h3("2. Vaste boodschappen"), ## Step 2 ----
 
@@ -233,33 +245,40 @@ shinyplus <- function() {
                             selectizeInput("add_fixed_product", NULL,
                                            choices = recently_bought$name |> stats::setNames(get_product_name_unit(recently_bought$name)),
                                            options = list(placeholder = 'Type om te zoeken...',
+                                                          dropdownParent = 'body',
                                                           onInitialize = I('function() { this.setValue(""); }')),
                                            width = "100%"),
                             actionButton("add_fixed_product_button", "Toevoegen aan vaste producten", icon = icon("plus")),
                             actionButton("remove_fixed_product_button", "Verwijderen uit vaste producten", icon = icon("trash"))
                           )
                    ),
-                   column(3,
-                          card(class = "basket-card-3",
-                            h3("3. Extra artikelen"), ## Step 3 ----
-                            h5("Kies extra artikelen:"),
-                            uiOutput("extra_inputs_ui"),
-                            actionButton("add_all_extras_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping")),
-                            hr(),
-                            h5("Reeds toegevoegde extra artikelen:"),
-                            uiOutput("extra_items_list")
-                          )
-                   ),
-                   column(3,
-                          card(class = "basket-card-4",
-                            h3("4. Mandje"), ## Step 4 ----
+                   column(6,
+                          card(class = "basket-card-3 stretch-with-margin",
+                            h3("3. Mandje"), ## Step 3 ----
+                            selectizeInput("add_extra_product", "Extra artikel toevoegen:",
+                                           choices = recently_bought$name |> stats::setNames(get_product_name_unit(recently_bought$name)),
+                                           options = list(placeholder = 'Type om te zoeken...',
+                                                          dropdownParent = 'body',
+                                                          onInitialize = I("
+                                                            function() {
+                                                              this.setValue('');
+                                                            }
+                                                          "),
+                                                          onChange = I("
+                                                            function(value) {
+                                                              if (value !== '') {
+                                                                Shiny.setInputValue('add_extra_product', value, {priority: 'event'});
+                                                                this.setValue('');
+                                                                this.focus(); // Refocus after selection
+                                                              }
+                                                            }
+                                                          ")
+                                           ),
+                                           width = "100%"),
                             uiOutput("basket_overview_table"),
                             br(),
                             actionButton("send_basket_to_cart", "Mandje in PLUS Winkelwagen plaatsen", class = "btn-success"),
                             actionButton("clear_basket", "Mandje leegmaken", class = "btn-danger"),
-                          ),
-                          card(
-                            uiOutput("img_preview"),
                           )
                    )
                  )
@@ -281,7 +300,7 @@ shinyplus <- function() {
                         wellPanel(
                           h4("Gerecht selecteren"),
                           selectInput("selected_dish", NULL, choices = NULL),
-                          actionButton("delete_dish", "Gerecht verwijderen", icon = icon("trash")),
+                          actionButton("delete_dish", "Gerecht verwijderen", icon = icon("trash"), class = "btn-danger"),
                           hr(),
                           h5("Nieuw gerecht"),
                           textInput("new_dish_name", NULL, placeholder = "Naam van het gerecht"),
@@ -326,6 +345,7 @@ shinyplus <- function() {
                           selectizeInput("ingredient_name", "Ingredi\u00EBnt",
                                          choices = recently_bought$name,
                                          options = list(placeholder = 'Type om te zoeken...',
+                                                        dropdownParent = 'body',
                                                         onInitialize = I('function() { this.setValue(""); }'))),
                           uiOutput("ingredient_unit_text"),
                           numericInput("ingredient_amount", "Aantal", 1),
@@ -520,7 +540,7 @@ shinyplus <- function() {
 
     ## Step 1 ----
     get_current_weekmenu_selections <- function() {
-      isolate(setNames(lapply(weekdays_list, function(day) input[[paste0("dish_day_", day)]]), weekdays_list))
+      isolate(stats::setNames(lapply(weekdays_list, function(day) input[[paste0("dish_day_", day)]]), weekdays_list))
     }
     rebuild_weekmenu_inputs <- function(sorted_dishes) {
       current_selections <- get_current_weekmenu_selections()
@@ -645,94 +665,7 @@ shinyplus <- function() {
 
     ## Step 3 ----
 
-    observe({
-      n <- extra_input_count()
-
-      for (i in seq_len(n)) {
-        id_prod <- paste0("extra_item_", i)
-        id_qty  <- paste0("extra_qty_", i)
-
-        prod_val <- input[[id_prod]]
-        qty_val  <- input[[id_qty]]
-
-        if (!is.null(prod_val) && nzchar(prod_val)) {
-          prev <- tryCatch(extra_inputs$data[[i]], error = function(e) NULL)
-
-          if (is.null(prev) || !identical(prev$product, prod_val) || !identical(prev$qty, qty_val)) {
-            extra_inputs$data[[i]] <- list(product = prod_val, qty = qty_val)
-          }
-
-          # Expand only ONCE per row
-          already_expanded <- tryCatch(extra_inputs$expanded[[i]], error = function(e) FALSE)
-          if (i == n && !already_expanded) {
-            extra_inputs$expanded[[i]] <- TRUE
-            extra_input_count(n + 1)
-          }
-        }
-      }
-    })
-
-    observe({
-      n <- extra_input_count()
-
-      for (i in seq_len(n)) {
-        id_prod <- paste0("extra_item_", i)
-        id_qty  <- paste0("extra_qty_", i)
-
-        prod_val <- input[[id_prod]]
-        qty_val  <- input[[id_qty]]
-
-        # Store valid product + quantity
-        if (!is.null(prod_val) && nzchar(prod_val)) {
-          existing <- tryCatch(extra_inputs$data[[i]], error = function(e) NULL)
-
-          # Only update if it changed
-          if (is.null(existing) || !identical(existing$product, prod_val) || !identical(existing$qty, qty_val)) {
-            extra_inputs$data[[i]] <- list(product = prod_val, qty = qty_val)
-
-            # If it's the last row, add a new blank one
-            if (i == n) {
-              extra_input_count(n + 1)
-            }
-          }
-        }
-      }
-    })
-
-    observeEvent(input$add_all_extras_to_basket, {
-      items <- lapply(extra_inputs$data, function(x) {
-        if (!is.null(x$product) && nzchar(x$product) && x$qty > 0) {
-          tibble(product = x$product, quantity = x$qty)
-        }
-      }) |> bind_rows()
-
-      if (nrow(items) > 0) {
-        add_to_basket(product = items$product, quantity = items$quantity, source = "Extra")
-      }
-
-      # Reset dynamic inputs
-      extra_input_count(1)
-      extra_inputs$data <- list()
-      extra_inputs$expanded <- list()
-    })
-
-    # Grouped summary
-    output$extra_items_list <- renderUI({
-      if (length(values$extra_items) == 0) return(p("Nog geen extra artikelen toegevoegd."))
-
-      grouped <- as.data.frame(table(values$extra_items))
-      names(grouped) <- c("product", "qty")
-
-      tags$ul(
-        lapply(seq_len(nrow(grouped)), function(i) {
-          tags$li(HTML(paste0("<strong>", grouped$product[i], "</strong>: ", grouped$qty[i], " st.")))
-        })
-      )
-    })
-
-    ## Step 4 ----
-
-    # save to basket if anything is changed
+    # save to basket RDS if anything is changed
     observeEvent(values$basket, {
       req(selected_email())
       saveRDS(values$basket, basket_file())
@@ -754,15 +687,15 @@ shinyplus <- function() {
           fluidRow(
             class = "row products-list-row",
             column(2, div(class = "products-list-img", img(src = get_product_image(prod), width = "100%"))),
-            column(7, div(class = "products-list-p", p(HTML(paste0(get_product_name_unit(prod), "<span class='basket-source ", tolower(src), "'>", src, "</span>"))))),
+            column(6, div(class = "products-list-p", p(HTML(paste0(get_product_name_unit(prod), "<span class='basket-source ", tolower(src), "'>", src, "</span>"))))),
             column(2, div(class = "products-list-qty", numericInput(input_id, NULL, value = qty, min = 0, step = 1, width = "100%"))),
-            column(1, actionButton(remove_id, "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;"))
+            column(2, actionButton(remove_id, "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;"))
           )
         })
       )
     })
 
-    # Make Remove button work
+    # Make Remove buttons work
     observe({
       req(nrow(values$basket) > 0)
       lapply(values$basket$product, function(prod) {
@@ -770,6 +703,14 @@ shinyplus <- function() {
           values$basket <- values$basket |> filter(product != prod)
         }, ignoreInit = TRUE)
       })
+    })
+
+    observeEvent(input$add_extra_product, {
+      req(input$add_extra_product)
+      product <- input$add_extra_product
+
+      add_to_basket(product = product, quantity = 1, source = "Extra")
+      updateSelectInput(session, "add_extra_product", selected = "")
     })
 
     # Send basket to cart
@@ -881,7 +822,7 @@ shinyplus <- function() {
       updateSelectInput(
         session,
         "selected_dish",
-        choices = choices,
+        choices = sort(choices),
         selected = if (current_id %in% values$dishes$dish_id) current_id else NULL
       )
     })
@@ -981,7 +922,7 @@ shinyplus <- function() {
       saveRDS(values$dish_ingredients, dish_ingredients_file())
 
       removeModal()
-      updateSelectInput(session, "selected_dish", choices = values$dishes$name, selected = "")
+      updateSelectInput(session, "selected_dish", choices = sort(values$dishes$name), selected = "")
     })
 
     # add ingredient
