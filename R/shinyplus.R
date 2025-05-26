@@ -257,6 +257,9 @@ shinyplus <- function() {
                             br(),
                             actionButton("send_basket_to_cart", "Mandje in PLUS Winkelwagen plaatsen", class = "btn-success"),
                             actionButton("clear_basket", "Mandje leegmaken", class = "btn-danger"),
+                          ),
+                          card(
+                            uiOutput("img_preview"),
                           )
                    )
                  )
@@ -457,9 +460,10 @@ shinyplus <- function() {
       }
     })
 
-
     output$login_ui <- renderUI({
       creds <- getOption("plus_credentials", default = list(email = "", password = ""))
+      # keep only the first
+      creds <- lapply(creds, function(x) x[1])
       if (!values$logged_in) {
         tagList(
           p("Gebruik je PLUS inloggegevens om in te loggen."),
@@ -506,7 +510,6 @@ shinyplus <- function() {
       })
     })
 
-
     observeEvent(input$do_logout, {
       plus_logout()
       values$logged_in <- FALSE
@@ -519,29 +522,8 @@ shinyplus <- function() {
     get_current_weekmenu_selections <- function() {
       isolate(setNames(lapply(weekdays_list, function(day) input[[paste0("dish_day_", day)]]), weekdays_list))
     }
-    sort_dish_df <- function(dishes, method) {
-      sort_field <- switch(method,
-                           "Naam" = "name",
-                           "Bereidingstijd" = "preptime",
-                           "Hoeveelheid groenten" = "vegetables",
-                           "Type vlees" = "meat",
-                           "preptime")
-
-      if (sort_field == "name") {
-        arrange(dishes, name)
-      } else if (sort_field == "preptime") {
-        arrange(dishes, preptime, desc(vegetables))
-      } else if (sort_field == "vegetables") {
-        arrange(dishes, desc(vegetables), preptime)
-      } else if (sort_field == "meat") {
-        arrange(dishes, meat, desc(vegetables), preptime)
-      } else {
-        dishes
-      }
-    }
     rebuild_weekmenu_inputs <- function(sorted_dishes) {
       current_selections <- get_current_weekmenu_selections()
-      # print(current_selections)
 
       for (day in weekdays_list) {
         # Filter dishes by day-type
@@ -549,34 +531,6 @@ shinyplus <- function() {
         dishes <- sorted_dishes |> filter(grepl(day_type, days))
 
         if (nrow(dishes) == 0) next
-
-        preptime_display <- function(x) {
-          switch(as.character(x),
-                 "20" = "0-20",
-                 "40" = "20-40",
-                 "60" = "40-60",
-                 "120" = "60-120",
-                 paste0(x, "+"))
-        }
-
-        meat_icon <- function(type) {
-          switch(tolower(type),
-                 "kip" = "\U0001F413",
-                 "rund" = "\U0001F404",
-                 "varken" = "\U0001F416",
-                 "vegetarisch" = "\U0001F331",
-                 "gecombineerd" = "Combi",
-                 type)
-        }
-
-        vegetables_icon <- function(type) {
-          switch(as.character(type),
-                 "0" = "\U0001F6AB",
-                 "1" = "\U0001F966",
-                 "2" = "\U0001F966\U0001F966",
-                 "3" = "\U0001F966\U0001F966\U0001F966",
-                 type)
-        }
 
         # Build list of choices with label, value, and subtext
         choices_list <- lapply(seq_len(nrow(dishes)), function(i) {
@@ -592,8 +546,7 @@ shinyplus <- function() {
 
         session$sendCustomMessage("updateSelectizeChoices", list(
           inputId = paste0("dish_day_", day),
-          choices = choices_list #,
-          #selected = current_selections[[day]]
+          choices = choices_list
         ))
 
         updateSelectInput(session, paste0("dish_day_", day), selected = current_selections[[day]])
@@ -923,13 +876,15 @@ shinyplus <- function() {
 
     # update dish selector dropdown
     observe({
-      selected <- input$selected_dish
-      choices <- values$dishes$name
-      updateSelectInput(session, "selected_dish",
-                        choices = choices,
-                        selected = if (selected %in% choices) selected else NULL)
+      current_id <- input$selected_dish
+      choices <- values$dishes$dish_id |> stats::setNames(values$dishes$name)
+      updateSelectInput(
+        session,
+        "selected_dish",
+        choices = choices,
+        selected = if (current_id %in% values$dishes$dish_id) current_id else NULL
+      )
     })
-
 
     # new dish = clear form
     observeEvent(input$new_dish, {
@@ -938,21 +893,23 @@ shinyplus <- function() {
         return(invisible())
       }
       new_id <- generate_dish_id()
-      values$dishes <- bind_rows(
-        values$dishes,
-        tibble(dish_id = new_id,
-               name = input$new_dish_name,
-               days = paste0(weekdays_list, collapse = ","))
-      )
+      values$dishes <- bind_rows(values$dishes, tibble(
+        dish_id = new_id,
+        name = input$new_dish_name,
+        days = "Doordeweeks,Weekend",
+        preptime = 20,
+        vegetables = 0,
+        meat = "Vegetarisch"
+      ))
       updateTextInput(session, "new_dish_name", value = "")
       values$new_dish_name <- input$new_dish_name
-      updateSelectInput(session, "selected_dish", choices = values$dishes$name)
+      updateSelectInput(session, "selected_dish", selected = new_id)
       saveRDS(values$dishes, dishes_file())
     })
     observeEvent(values$new_dish_name, {
-      # required to updaste the select list when clicking new_dish
+      # required to update the select list when clicking new_dish
       req(values$new_dish_name %in% values$dishes$name)
-      updateSelectInput(session, "selected_dish", selected = values$new_dish_name)
+      updateSelectInput(session, "selected_dish", selected = max(values$dishes$dish_id))
       values$new_dish_name <- NULL  # reset
     })
     # updating existing fields
@@ -989,7 +946,7 @@ shinyplus <- function() {
 
     # select existing dish
     observeEvent(input$selected_dish, {
-      sel <- values$dishes |> filter(name == input$selected_dish)
+      sel <- values$dishes |> filter(dish_id == input$selected_dish)
       if (nrow(sel) != 1) return()
       updateNumericInput(session, "dish_id", value = sel$dish_id)
       updateTextInput(session, "dish_name", value = sel$name)
@@ -1005,7 +962,7 @@ shinyplus <- function() {
 
       showModal(modalDialog(
         title = "Weet je het zeker?",
-        paste("Verwijder gerecht:", input$selected_dish),
+        paste0("Gerecht '", values$dishes$name[values$dishes$dish_id == input$selected_dish], "' verwijderen?"),
         easyClose = FALSE,
         footer = tagList(
           modalButton("Annuleren"),
@@ -1016,8 +973,8 @@ shinyplus <- function() {
 
     observeEvent(input$confirm_delete_dish, {
       req(input$selected_dish)
-      sel_id <- values$dishes |> filter(name == input$selected_dish) |> pull(dish_id)
-      values$dishes <- values$dishes |> filter(name != input$selected_dish)
+      sel_id <- values$dishes |> filter(dish_id == input$selected_dish) |> pull(dish_id)
+      values$dishes <- values$dishes |> filter(dish_id != input$selected_dish)
       values$dish_ingredients <- values$dish_ingredients |> filter(dish_id != sel_id)
 
       saveRDS(values$dishes, dishes_file())
@@ -1030,7 +987,7 @@ shinyplus <- function() {
     # add ingredient
     observeEvent(input$add_ingredient, {
       req(input$selected_dish)
-      sel_id <- values$dishes |> filter(name == input$selected_dish) |> pull(dish_id)
+      sel_id <- values$dishes |> filter(dish_id == input$selected_dish) |> pull(dish_id)
       unit <- recently_bought |> filter(name == input$ingredient_name) |> pull(unit)
 
       values$dish_ingredients <- bind_rows(values$dish_ingredients, tibble(
@@ -1053,7 +1010,7 @@ shinyplus <- function() {
     # render ingredient table with remove buttons
     output$dish_ingredients_table <- renderUI({
       req(input$selected_dish)
-      sel_id <- values$dishes |> filter(name == input$selected_dish) |> pull(dish_id)
+      sel_id <- values$dishes |> filter(dish_id == input$selected_dish) |> pull(dish_id)
       if (length(sel_id) != 1) return(p(""))
 
       df <- values$dish_ingredients |> filter(dish_id == sel_id)
@@ -1076,8 +1033,8 @@ shinyplus <- function() {
 
     # remove ingredient listener
     observe({
-      if (is.null(input$selected_dish) || input$selected_dish == "") return()
-      sel_id <- values$dishes |> filter(name == input$selected_dish) |> pull(dish_id)
+      if (is.null(input$selected_dish) || input$selected_dish == 0 || input$selected_dish == "") return()
+      sel_id <- values$dishes |> filter(dish_id == input$selected_dish) |> pull(dish_id)
       if (length(sel_id) != 1) return()
 
       df <- values$dish_ingredients |> filter(dish_id == sel_id)
@@ -1093,4 +1050,53 @@ shinyplus <- function() {
   }
 
   shinyApp(ui, server)
+}
+
+sort_dish_df <- function(dishes, method) {
+  sort_field <- switch(method,
+                       "Naam" = "name",
+                       "Bereidingstijd" = "preptime",
+                       "Hoeveelheid groenten" = "vegetables",
+                       "Type vlees" = "meat",
+                       "preptime")
+
+  if (sort_field == "name") {
+    arrange(dishes, name)
+  } else if (sort_field == "preptime") {
+    arrange(dishes, preptime, desc(vegetables))
+  } else if (sort_field == "vegetables") {
+    arrange(dishes, desc(vegetables), preptime)
+  } else if (sort_field == "meat") {
+    arrange(dishes, meat, desc(vegetables), preptime)
+  } else {
+    dishes
+  }
+}
+
+preptime_display <- function(x) {
+  switch(as.character(x),
+         "20" = "0-20",
+         "40" = "20-40",
+         "60" = "40-60",
+         "120" = "60-120",
+         paste0(x, "+"))
+}
+
+meat_icon <- function(type) {
+  switch(tolower(type),
+         "vegetarisch" = "\U0001F331",
+         "kip" = "\U0001F413",
+         "rund" = "\U0001F404",
+         "varken" = "\U0001F416",
+         "gecombineerd" = "Combi",
+         type)
+}
+
+vegetables_icon <- function(type) {
+  switch(as.character(type),
+         "0" = "\U0001F6AB",
+         "1" = "\U0001F966",
+         "2" = "\U0001F966\U0001F966",
+         "3" = "\U0001F966\U0001F966\U0001F966",
+         type)
 }
