@@ -1,10 +1,11 @@
 #' Launch PLUS Weekly Grocery App
-#' @importFrom shiny fluidPage HTML div img p icon h5 h3 h4 hr br fluidRow wellPanel textInput a strong tagList reactiveVal passwordInput checkboxInput column navbarPage tabPanel selectInput selectizeInput numericInput actionButton uiOutput renderUI shinyApp observe observeEvent updateSelectInput updateNumericInput updateCheckboxInput updateTextInput updateSelectizeInput reactiveValues reactive req isolate tags modalDialog showModal removeModal modalButton showNotification conditionalPanel
+#' @importFrom shiny fluidPage HTML div img p icon h5 h3 h4 hr br fluidRow wellPanel textInput a strong tagList reactiveVal passwordInput checkboxInput column navbarPage tabPanel selectInput selectizeInput numericInput actionButton uiOutput renderUI shinyApp observe observeEvent updateSelectInput updateNumericInput updateCheckboxInput updateTextInput updateSelectizeInput reactiveValues reactive req isolate tags modalDialog showModal removeModal modalButton showNotification conditionalPanel checkboxGroupInput updateCheckboxGroupInput radioButtons updateRadioButtons
 #' @importFrom bslib bs_theme font_google card
-#' @importFrom dplyr filter pull mutate select arrange inner_join bind_rows distinct if_else left_join count
+#' @importFrom dplyr filter pull mutate select arrange desc inner_join bind_rows distinct if_else left_join count row_number
 #' @importFrom tibble tibble
 #' @importFrom stringr str_detect
 #' @importFrom DT datatable DTOutput renderDT
+#' @encoding UTF-8
 #' @export
 shinyplus <- function() {
   data_dir <- system.file("plus_data", package = "shinyplus")
@@ -35,6 +36,18 @@ shinyplus <- function() {
         }
       "))
     ),
+    tags$script(HTML("
+      Shiny.addCustomMessageHandler('updateSelectizeChoices', function(message) {
+        var input = $('#' + message.inputId)[0];
+        if (input && input.selectize) {
+          input.selectize.clearOptions();
+          message.choices.forEach(function(opt) {
+            input.selectize.addOption(opt);
+          });
+          input.selectize.refreshOptions(false);
+        }
+      });
+    ")),
     tags$style(".navbar { background: none; }"),
     tags$style(HTML("
       .btn-danger {
@@ -142,8 +155,22 @@ shinyplus <- function() {
         height: 35px;
         padding: 5px;
       }
-    ")),
-    tags$style(HTML("
+
+      .selectize-dropdown .option {
+        padding: 6px 12px !important;  /* More left/right padding */
+        font-weight: normal !important;  /* Not bold */
+      }
+
+      .selectize-dropdown .option:hover,
+      .selectize-dropdown .option.active {
+        background-color: #f0f0f0 !important;  /* Minimalist grey */
+        color: #000 !important;
+      }
+
+      .selectize-input, .selectize-dropdown {
+        font-size: 0.9rem;
+      }
+
       .extra-input-row .selectize-control,
       .extra-input-row .form-control {
         font-size: 0.85rem;
@@ -156,23 +183,45 @@ shinyplus <- function() {
         tags$img(src = "https://upload.wikimedia.org/wikipedia/commons/9/92/PLUS_supermarket_logo.svg", height = "40px", style = "margin-right: 10px;"),
         tags$span("ShinyPLUS", style = "font-weight: bold; font-size: 1.2rem; vertical-align: middle;")
       ),
-      tabPanel("Mandje", # Mandje ----
+      tabPanel("Mandje", # UI: Basket ----
                fluidPage(
                  fluidRow(
-                   column(2,
+                   column(3,
                           card(class = "basket-card-1",
-                            h3("1. Weekmenu"), # Step 1 ----
+                            h3("1. Weekmenu"), ## Step 1 ----
                             lapply(weekdays_list, function(day) {
-                              selectInput(paste0("dish_day_", day), label = day, choices = NULL, width = "100%")
+                              selectizeInput(
+                                inputId = paste0("dish_day_", day),
+                                label = day,
+                                width = "100%",
+                                choices = NULL,
+                                options = list(
+                                  render = I("
+                                    {
+                                      option: function(item, escape) {
+                                        return '<div style=\"padding-left: 5px;\">' +
+                                                 '' + escape(item.label) + '<br>' +
+                                                 '<small style=\"opacity: 0.8;\">' +
+                                                 item.subtext + '</small>' +
+                                               '</div>';
+                                      },
+                                      item: function(item, escape) {
+                                        return '<div>' + escape(item.label) + '</div>';
+                                      }
+                                    }
+                                  ")
+                                )
+                              )
                             }),
-                            actionButton("save_weekplan", "Weekmenu opslaan", icon = icon("save")),
+                            # actionButton("save_weekplan", "Weekmenu opslaan", icon = icon("save")),
                             actionButton("add_weekplan_products_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping")),
-                            p("Producten worden toegevoegd met apart label 'Weekmenu'."),
+                            radioButtons("sort_weekmenu", "Gerechten sorteren op", choices = c("Bereidingstijd", "Naam", "Hoeveelheid groenten", "Type vlees"), selected = "Bereidingstijd", width = "100%"),
+                            p(HTML("<small>Producten worden toegevoegd met een apart label 'Weekmenu'.</small>")),
                           ),
                    ),
                    column(3,
                           card(class = "basket-card-2",
-                            h3("2. Vaste boodschappen"), # Step 2 ----
+                            h3("2. Vaste boodschappen"), ## Step 2 ----
 
                             h5("Selecteer uit je vaste producten:"),
                             uiOutput("fixed_items_ui"),
@@ -191,7 +240,7 @@ shinyplus <- function() {
                    ),
                    column(3,
                           card(class = "basket-card-3",
-                            h3("3. Extra artikelen"), # Step 3 ----
+                            h3("3. Extra artikelen"), ## Step 3 ----
                             h5("Kies extra artikelen:"),
                             uiOutput("extra_inputs_ui"),
                             actionButton("add_all_extras_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping")),
@@ -200,9 +249,9 @@ shinyplus <- function() {
                             uiOutput("extra_items_list")
                           )
                    ),
-                   column(4,
+                   column(3,
                           card(class = "basket-card-4",
-                            h3("4. Mandje"), # Step 4 ----
+                            h3("4. Mandje"), ## Step 4 ----
                             uiOutput("basket_overview_table"),
                             br(),
                             actionButton("send_basket_to_cart", "Mandje in PLUS Winkelwagen plaatsen", class = "btn-success"),
@@ -213,7 +262,7 @@ shinyplus <- function() {
                )
       ),
 
-      tabPanel("PLUS Winkelwagen",
+      tabPanel("PLUS Winkelwagen", # UI: PLUS Cart ----
                fluidRow(
                  column(8,
                         uiOutput("online_cart_summary"),
@@ -222,66 +271,71 @@ shinyplus <- function() {
                  )
                )
       ),
-      tabPanel("Gerechten beheren",
+      tabPanel("Gerechten beheren", # UI: Manage dishes ----
                fluidRow(
-                 column(4,
+                 column(3,
                         wellPanel(
                           h4("Gerecht selecteren"),
                           selectInput("selected_dish", NULL, choices = NULL),
-                          actionButton("new_dish", "Nieuw gerecht", icon = icon("plus")),
                           actionButton("delete_dish", "Gerecht verwijderen", icon = icon("trash")),
+                          hr(),
+                          h5("Nieuw gerecht"),
+                          textInput("new_dish_name", NULL, placeholder = "Naam van het gerecht"),
+                          actionButton("new_dish", "Nieuw gerecht", icon = icon("plus")),
                         )
                  ),
-                 column(8,
+                 column(3,
                         wellPanel(
                           h4("Gerecht bewerken"),
-                          textInput("dish_name_edit", "Naam gerecht"),
-                          numericInput("dish_people_edit", "Personen", value = 2, min = 1),
-                          div(
-                            tags$label("Geschikt voor dagen:"),
-                            div(
-                              style = "display: flex; gap: 6px;",
-                              lapply(c("Alle", "Ma", "Di", "Wo", "Do", "Vr", "Za", "Zo", "Vr-Za"), function(day) {
-                                div(
-                                  style = "display: flex; align-items: center;",
-                                  checkboxInput(inputId = paste0("day_", day), label = day, value = FALSE, width = "40px")
-                                )
-                              })
-                            )
-                          ),
-                          actionButton("save_dish", "Gerecht opslaan"),
-
-                          tags$hr(),
+                          div(style = "display: none;", numericInput("dish_id", NULL, value = 0)),
+                          textInput("dish_name", "Naam gerecht:"),
+                          checkboxGroupInput("dish_days", "Geschikt voor:", choices = c("Doordeweeks", "Weekend"), selected = NULL),
+                          radioButtons("dish_preptime", "Bereidingstijd (minuten):", choices = c(20, 40, 60, 120) |> stats::setNames(c("0-20", "20-40", "40-60", "60-120")), inline = TRUE, selected = NULL),
+                          radioButtons("dish_vegetables", "Hoeveelheid groenten:", choices = c(0:3) |> stats::setNames(c("\U0001F6AB", "\U0001F966", "\U0001F966\U0001F966", "\U0001F966\U0001F966\U0001F966")), inline = TRUE, selected = NULL),
+                          radioButtons("dish_meat", "Vlees:",
+                                       choices = c("Kip", "Rund", "Varken", "Vegetarisch", "Gecombineerd") |>
+                                         stats::setNames(c("\U0001F413", # chicken emoji
+                                                           "\U0001F404", # cow emoji
+                                                           "\U0001F416", # pig emoji
+                                                           "\U0001F331", # leaf emoji
+                                                           "Combi")), inline = TRUE,
+                                       selected = NULL),
+                        )
+                 ),
+                 column(6,
+                        wellPanel(
                           h5("Ingredi\u00EBnten bewerken"),
-                          selectizeInput("ingredient_name_edit", "Ingredi\u00EBnt",
+                          selectizeInput("ingredient_name", "Ingredi\u00EBnt",
                                          choices = recently_bought$name,
                                          options = list(placeholder = 'Type om te zoeken...',
                                                         onInitialize = I('function() { this.setValue(""); }'))),
                           uiOutput("ingredient_unit_text"),
-                          numericInput("ingredient_amount_edit", "Aantal", 1),
-                          actionButton("add_ingredient_edit", "Toevoegen en opslaan"),
+                          numericInput("ingredient_amount", "Aantal", 1),
+                          actionButton("add_ingredient", "Toevoegen en opslaan"),
 
                           tags$hr(),
-                          DTOutput("dish_ingredients_table_edit")
+                          uiOutput("dish_ingredients_table")
                         )
                  )
                )
       ),
-      tabPanel(title = uiOutput("account_tab_title"), value = "account",
+      tabPanel(title = uiOutput("account_tab_title"), value = "account",  # UI: Login ----
                uiOutput("login_ui")
       )
     )
   )
 
   server <- function(input, output, session) {
+    # Server: Setup ----
     values <- reactiveValues(
-      dishes = tibble(dish_id = numeric(), name = character(), people = numeric(), days = character()),
+      dishes = tibble(dish_id = numeric(), name = character(), days = character(), preptime = integer(), vegetables = integer(), meat = character()),
       dish_ingredients = tibble(dish_id = numeric(), product = character(), amount = numeric(), unit = character()),
       weekplan = tibble(day = character(), dish = character()),
       fixed_products = character(),
       fixed_items = character(),
       extra_items = character(),
       basket = tibble(product = character(), quantity = integer(), source = character()),
+      new_dish_name = NULL,
       logged_in = FALSE
     )
 
@@ -356,7 +410,7 @@ shinyplus <- function() {
     }
 
 
-    # Login ----
+    # Server: Login ----
 
     observe({
       showModal(modalDialog(
@@ -444,20 +498,90 @@ shinyplus <- function() {
     })
 
 
-    # TAB 1: Basket ----
+    # Server: Basket ----
 
     ## Step 1 ----
     # Populate weekmenu dish choices
     observe({
       for (day in weekdays_list) {
-        dishes <- values$dishes |>
-          filter(grepl(day, days))
+        # Determine day type
+        day_type <- if (day %in% c("Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag")) {
+          "Doordeweeks"
+        } else {
+          "Weekend"
+        }
+
+        # Filter matching dishes
+        dishes <- values$dishes |> filter(grepl(day_type, days))
         if (nrow(dishes) == 0) next
-        updateSelectInput(session, paste0("dish_day_", day),
-                          choices = c("", dishes$name) |> stats::setNames(c("", paste0(dishes$name, " (", dishes$people, "p)"))),
-                          selected = NULL)
+
+        req(input$sort_weekmenu)
+        if (!is.null(input$sort_weekmenu)) {
+          sort_field <- switch(input$sort_weekmenu,
+                               "Naam" = "name",
+                               "Bereidingstijd" = "preptime",
+                               "Hoeveelheid groenten" = "vegetables",
+                               "Type vlees" = "meat",
+                               "preptime")
+          if (sort_field == "name") {
+            dishes <- dishes |> arrange(name)
+          } else if (sort_field == "preptime") {
+            dishes <- dishes |> arrange(preptime, desc(vegetables))
+          } else if (sort_field == "vegetables") {
+            dishes <- dishes |> arrange(desc(vegetables), preptime)
+          } else if (sort_field == "meat") {
+            dishes <- dishes |> arrange(meat, desc(vegetables), preptime)
+          }
+        }
+
+        preptime_display <- function(x) {
+          switch(as.character(x),
+                 "20" = "0-20",
+                 "40" = "20-40",
+                 "60" = "40-60",
+                 "120" = "60-120",
+                 paste0(x, "+"))
+        }
+
+        meat_icon <- function(type) {
+          switch(tolower(type),
+                 "kip" = "\U0001F413",
+                 "rund" = "\U0001F404",
+                 "varken" = "\U0001F416",
+                 "vegetarisch" = "\U0001F331",
+                 "gecombineerd" = "Combi",
+                 type)
+        }
+
+        vegetables_icon <- function(type) {
+          switch(as.character(type),
+                 "0" = "\U0001F6AB geen groente",
+                 "1" = "\U0001F966",
+                 "2" = "\U0001F966\U0001F966",
+                 "3" = "\U0001F966\U0001F966\U0001F966",
+                 type)
+        }
+
+        # Build list of choices with label, value, and subtext
+        choices_list <- lapply(seq_len(nrow(dishes)), function(i) {
+          dish <- dishes[i, ]
+          list(
+            label = dish$name,
+            value = dish$name,
+            subtext = paste0(meat_icon(dish$meat), " | ",
+                             preptime_display(dish$preptime), " min | ",
+                             vegetables_icon(dish$vegetables))
+          )
+        })
+
+        # Send choices to custom handler for updating selectize
+        session$sendCustomMessage("updateSelectizeChoices", list(
+          inputId = paste0("dish_day_", day),
+          choices = choices_list
+        ))
       }
     })
+
 
     observeEvent(input$save_weekplan, {
       values$weekplan <- bind_rows(lapply(weekdays_list, function(day) {
@@ -694,7 +818,7 @@ shinyplus <- function() {
     })
 
 
-    # TAB 2: PLUS Cart ----
+    # Server: PLUS Cart ----
 
     output$online_cart_summary <- renderUI({
       if (!values$logged_in) {
@@ -751,29 +875,103 @@ shinyplus <- function() {
       )
     })
 
+    observeEvent(input$checkout, {
+      session$sendCustomMessage("openCheckout", "https://www.plus.nl/checkout")
+    })
+
     observeEvent(input$refresh_online_cart, {
       req(values$logged_in)
       values$online_cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
     })
 
 
-    # TAB 3: Manage dishes ----
+    # Server: Manage dishes ----
 
+    # helper: generate unique dish_id
+    generate_dish_id <- function() {
+      if (nrow(values$dishes) == 0) return(1L)
+      max(values$dishes$dish_id, na.rm = TRUE) + 1L
+    }
+
+    # update dish selector dropdown
     observe({
-      updateSelectInput(session, "selected_dish", choices = values$dishes$name)
+      selected <- input$selected_dish
+      choices <- values$dishes$name
+      updateSelectInput(session, "selected_dish",
+                        choices = choices,
+                        selected = if (selected %in% choices) selected else NULL)
     })
 
+
+    # new dish = clear form
     observeEvent(input$new_dish, {
-      updateTextInput(session, "dish_name_edit", value = "")
-      updateNumericInput(session, "dish_people_edit", value = 2)
-
-      # Uncheck all weekday toggles
-      for (d in c("Alle", weekdays_short, "Vr-Za")) {
-        updateCheckboxInput(session, paste0("day_", d), value = FALSE)
+      if (input$new_dish_name == "") {
+        showNotification("Vul naam van gerecht in.", type = "error")
+        return(invisible())
       }
-      updateSelectInput(session, "selected_dish", selected = "")
+      new_id <- generate_dish_id()
+      values$dishes <- bind_rows(
+        values$dishes,
+        tibble(dish_id = new_id,
+               name = input$new_dish_name,
+               days = paste0(weekdays_list, collapse = ","))
+      )
+      updateTextInput(session, "new_dish_name", value = "")
+      values$new_dish_name <- input$new_dish_name
+      updateSelectInput(session, "selected_dish", choices = values$dishes$name)
+      saveRDS(values$dishes, dishes_file())
+    })
+    observeEvent(values$new_dish_name, {
+      # required to updaste the select list when clicking new_dish
+      req(values$new_dish_name %in% values$dishes$name)
+      updateSelectInput(session, "selected_dish", selected = values$new_dish_name)
+      values$new_dish_name <- NULL  # reset
+    })
+    # updating existing fields
+    observeEvent(input$dish_name, {
+      req(input$dish_id)
+      values$dishes <- values$dishes |>
+        mutate(name = if_else(dish_id == input$dish_id, input$dish_name, name))
+      saveRDS(values$dishes, dishes_file())
+    })
+    observeEvent(input$dish_days, {
+      req(input$dish_id)
+      values$dishes <- values$dishes |>
+        mutate(days = if_else(dish_id == input$dish_id, paste(input$dish_days, collapse = ","), days))
+      saveRDS(values$dishes, dishes_file())
+    })
+    observeEvent(input$dish_preptime, {
+      req(input$dish_id)
+      values$dishes <- values$dishes |>
+        mutate(preptime = if_else(dish_id == input$dish_id, as.integer(input$dish_preptime), preptime))
+      saveRDS(values$dishes, dishes_file())
+    })
+    observeEvent(input$dish_vegetables, {
+      req(input$dish_id)
+      values$dishes <- values$dishes |>
+        mutate(vegetables = if_else(dish_id == input$dish_id, as.integer(input$dish_vegetables), vegetables))
+      saveRDS(values$dishes, dishes_file())
+    })
+    observeEvent(input$dish_meat, {
+      req(input$dish_id)
+      values$dishes <- values$dishes |>
+        mutate(meat = if_else(dish_id == input$dish_id, input$dish_meat, meat))
+      saveRDS(values$dishes, dishes_file())
     })
 
+    # select existing dish
+    observeEvent(input$selected_dish, {
+      sel <- values$dishes |> filter(name == input$selected_dish)
+      if (nrow(sel) != 1) return()
+      updateNumericInput(session, "dish_id", value = sel$dish_id)
+      updateTextInput(session, "dish_name", value = sel$name)
+      updateCheckboxGroupInput(session, "dish_days", selected = unlist(strsplit(sel$days, ",")))
+      updateRadioButtons(session, "dish_preptime", selected = sel$preptime)
+      updateRadioButtons(session, "dish_vegetables", selected = sel$vegetables)
+      updateRadioButtons(session, "dish_meat", selected = sel$meat)
+    })
+
+    # delete dish
     observeEvent(input$delete_dish, {
       req(input$selected_dish)
 
@@ -783,131 +981,85 @@ shinyplus <- function() {
         easyClose = FALSE,
         footer = tagList(
           modalButton("Annuleren"),
-          actionButton("confirm_delete", "Verwijderen", class = "btn-danger")
+          actionButton("confirm_delete_dish", "Verwijderen", class = "btn-danger")
         )
       ))
     })
 
-    observeEvent(input$confirm_delete, {
-      removeModal()
-      dish_current <- values$dishes |> filter(name == input$selected_dish) |> pull(dish_id)
-
-      values$dishes <- values$dishes |> filter(name != input$selected_dish)
-      values$dish_ingredients <- values$dish_ingredients |> filter(dish_id != dish_current)
-
-      saveRDS(values$dishes, dishes_file())
-      saveRDS(values$dish_ingredients, dish_ingredients_file())
-
-      updateSelectInput(session, "selected_dish", choices = values$dishes$name, selected = "")
-      updateTextInput(session, "dish_name_edit", value = "")
-      updateNumericInput(session, "dish_people_edit", value = 2)
-    })
-
-    observeEvent(input$selected_dish, {
-      selected <- values$dishes |> filter(name == input$selected_dish)
-      if (nrow(selected) == 1) {
-        updateTextInput(session, "dish_name_edit", value = selected$name)
-        updateNumericInput(session, "dish_people_edit", value = selected$people)
-      }
-    })
-
-    observeEvent(input$save_dish, {
-      selected_days <- weekdays_short[vapply(weekdays_short, function(d) input[[paste0("day_", d)]], logical(1))]
-      if (input$day_Alle) selected_days <- weekdays_short
-      if (input$`day_Vr-Za`) selected_days <- unique(c(selected_days, "Vr", "Za"))
-      selected_days <- weekdays_list[match(selected_days, weekdays_short)]
-
-      values$dishes <- values$dishes |>
-        mutate(
-          name = if_else(name == input$selected_dish, input$dish_name_edit, name),
-          people = if_else(name == input$selected_dish, input$dish_people_edit, people),
-          days = if_else(name == input$selected_dish, paste(selected_days, collapse = ","), days)
-        )
-      saveRDS(values$dishes, dishes_file())
-      updateSelectInput(session, "selected_dish", choices = values$dishes$name, selected = input$dish_name_edit)
-    })
-
-    output$ingredient_unit_text <- renderUI({
-      req(input$ingredient_name_edit)
-      unit <- recently_bought |>
-        filter(name == input$ingredient_name_edit) |>
-        pull(unit) |>
-        unique()
-      p(HTML(paste("<small>Eenheid:", unit[1], "</small>")))
-    })
-
-    observeEvent(input$add_ingredient_edit, {
-      selected_id <- values$dishes |> filter(name == input$selected_dish) |> pull(dish_id)
-      unit <- recently_bought |> filter(name == input$ingredient_name_edit) |> pull(unit)
-      values$dish_ingredients <- bind_rows(values$dish_ingredients, tibble(
-        dish_id = selected_id,
-        product = input$ingredient_name_edit,
-        amount = input$ingredient_amount_edit,
-        unit = unit[1]
-      ))
-      saveRDS(values$dish_ingredients, dish_ingredients_file())
-    })
-
-    output$dish_ingredients_table_edit <- renderDT({
+    observeEvent(input$confirm_delete_dish, {
       req(input$selected_dish)
-      selected_id <- values$dishes |> filter(name == input$selected_dish) |> pull(dish_id)
-      values$dish_ingredients |>
-        filter(dish_id == selected_id) |>
-        select("Ingredi\u00EBnt" = product, Aantal = amount, Eenheid = unit) |>
-        datatable(options = list(dom = 't'))
+      sel_id <- values$dishes |> filter(name == input$selected_dish) |> pull(dish_id)
+      values$dishes <- values$dishes |> filter(name != input$selected_dish)
+      values$dish_ingredients <- values$dish_ingredients |> filter(dish_id != sel_id)
+
+      saveRDS(values$dishes, dishes_file())
+      saveRDS(values$dish_ingredients, dish_ingredients_file())
+
+      removeModal()
+      updateSelectInput(session, "selected_dish", choices = values$dishes$name, selected = "")
     })
 
-    observeEvent(input$send_to_cart, {
-      if (!values$logged_in) return()
-      selected_dishes <- values$weekplan$dish[!is.na(values$weekplan$dish)]
-      dish_ingredients_to_add <- values$dish_ingredients |>
-        inner_join(values$dishes |> filter(name %in% selected_dishes), by = "dish_id") |>
-        pull(product)
+    # add ingredient
+    observeEvent(input$add_ingredient, {
+      req(input$selected_dish)
+      sel_id <- values$dishes |> filter(name == input$selected_dish) |> pull(dish_id)
+      unit <- recently_bought |> filter(name == input$ingredient_name) |> pull(unit)
 
-      all_items <- unique(c(dish_ingredients_to_add, input$fixed_selection, values$extra_items))
+      values$dish_ingredients <- bind_rows(values$dish_ingredients, tibble(
+        dish_id = sel_id,
+        product = input$ingredient_name,
+        amount = input$ingredient_amount,
+        unit = unit
+      ))
 
-      for (product_name in all_items) {
-        product_url <- get_product_url(product_name)
-        plus_add_products(product_url, quantity = 1, credentials = values$credentials, info = FALSE)
-      }
+      saveRDS(values$dish_ingredients, dish_ingredients_file())
     })
 
-    output$cart_table_ui <- renderUI({
-      req(values$logged_in)
-      cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
-
-      output$cart_table <- renderDT({
-        cart |>
-          select(Artikel = product, Prijs = price, Aantal = quantity, Totaal = price_total) |>
-          arrange(Artikel) |>
-          datatable(options = list(dom = 't'))
-      })
-
-      DTOutput("cart_table")
+    # show unit info
+    output$ingredient_unit_text <- renderUI({
+      req(input$ingredient_name)
+      unit <- recently_bought |> filter(name == input$ingredient_name) |> pull(unit)
+      p(HTML(paste("<small>Eenheid:", unit, "</small>")))
     })
 
-    output$cart_summary <- renderDT({
-      req(values$logged_in)
-      cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
+    # render ingredient table with remove buttons
+    output$dish_ingredients_table <- renderUI({
+      req(input$selected_dish)
+      sel_id <- values$dishes |> filter(name == input$selected_dish) |> pull(dish_id)
+      if (length(sel_id) != 1) return(p(""))
 
-      total_items <- sum(cart$quantity, na.rm = TRUE)
-      unique_items <- nrow(cart)
-      total_price <- sum(cart$price_total, na.rm = TRUE)
+      df <- values$dish_ingredients |> filter(dish_id == sel_id)
+      if (nrow(df) == 0) return(p("Nog geen ingredi\u00EBnten toegevoegd."))
 
-      summary_df <- tibble(
-        Samenvatting = c("Aantal artikelen", "Uniek", "Totale prijs"),
-        Waarde = c(
-          formatC(total_items, big.mark = ".", decimal.mark = ",", format = "d"),
-          formatC(unique_items, big.mark = ".", decimal.mark = ",", format = "d"),
-          paste0("\u20ac ", format(round(total_price, 2), nsmall = 2, big.mark = ".", decimal.mark = ","))
-        )
+      tagList(
+        lapply(seq_len(nrow(df)), function(i) {
+          row <- df[i, ]
+          remove_id <- paste0("remove_ingr_", i)
+
+          fluidRow(
+            class = "row products-list-row",
+            column(2, div(class = "products-list-img", img(src = get_product_image(row$product), width = "100%"))),
+            column(9, div(class = "products-list-p", p(HTML(paste0("<strong>", row$amount, "x</strong> ", get_product_name_unit(row$product)))))),
+            column(1, actionButton(remove_id, "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;"))
+          )
+        })
       )
-
-      datatable(summary_df, options = list(dom = 't'), rownames = FALSE)
     })
 
-    observeEvent(input$checkout, {
-      session$sendCustomMessage("openCheckout", "https://www.plus.nl/checkout")
+    # remove ingredient listener
+    observe({
+      if (is.null(input$selected_dish) || input$selected_dish == "") return()
+      sel_id <- values$dishes |> filter(name == input$selected_dish) |> pull(dish_id)
+      if (length(sel_id) != 1) return()
+
+      df <- values$dish_ingredients |> filter(dish_id == sel_id)
+
+      lapply(seq_len(nrow(df)), function(i) {
+        observeEvent(input[[paste0("remove_ingr_", i)]], {
+          values$dish_ingredients <- values$dish_ingredients[-i, ]
+          saveRDS(values$dish_ingredients, dish_ingredients_file())
+        }, ignoreInit = TRUE)
+      })
     })
 
   }

@@ -12,11 +12,14 @@ globalVariables(c("aantal_personen",
                   "gerecht_id",
                   "hoeveelheid",
                   "ingredient",
+                  "meat",
                   "name",
                   "people",
+                  "preptime",
                   "price",
                   "price_total",
-                  "quantity"))
+                  "quantity",
+                  "vegetables"))
 
 as_euro <- function(x) {
   paste("\u20ac", format(round(x, 2), nsmall = 2, decimal.mark = ",", big.mark = "."))
