@@ -251,7 +251,13 @@ shinyplus <- function() {
                                            choices = recently_bought$name |> stats::setNames(get_product_name_unit(recently_bought$name)),
                                            options = list(placeholder = 'Type om te zoeken...',
                                                           dropdownParent = 'body',
-                                                          onInitialize = I('function() { this.setValue(""); }')),
+                                                          onInitialize = I('function() { this.setValue(""); }'),
+                                                          inputAttr = list(
+                                                            autocomplete = "off",
+                                                            autocorrect = "off",
+                                                            autocapitalize = "off",
+                                                            spellcheck = "false"
+                                                          )),
                                            width = "100%"),
                             actionButton("add_fixed_product_button", "Toevoegen aan vaste producten", icon = icon("plus")),
                             actionButton("remove_fixed_product_button", "Verwijderen uit vaste producten", icon = icon("trash"))
@@ -269,6 +275,12 @@ shinyplus <- function() {
                                                               this.setValue('');
                                                             }
                                                           "),
+                                                          inputAttr = list(
+                                                            autocomplete = "off",
+                                                            autocorrect = "off",
+                                                            autocapitalize = "off",
+                                                            spellcheck = "false"
+                                                          ),
                                                           onChange = I("
                                                             function(value) {
                                                               if (value !== '') {
@@ -348,11 +360,16 @@ shinyplus <- function() {
                         wellPanel(
                           h5("Ingredi\u00EBnten bewerken"),
                           selectizeInput("ingredient_name", "Ingredi\u00EBnt",
-                                         choices = recently_bought$name,
+                                         choices = recently_bought$name |> stats::setNames(get_product_name_unit(recently_bought$name)),
                                          options = list(placeholder = 'Type om te zoeken...',
                                                         dropdownParent = 'body',
-                                                        onInitialize = I('function() { this.setValue(""); }'))),
-                          uiOutput("ingredient_unit_text"),
+                                                        onInitialize = I('function() { this.setValue(""); }'),
+                                                        inputAttr = list(
+                                                          autocomplete = "off",
+                                                          autocorrect = "off",
+                                                          autocapitalize = "off",
+                                                          spellcheck = "false"
+                                                        ))),
                           numericInput("ingredient_amount", "Aantal", 1),
                           actionButton("add_ingredient", "Toevoegen en opslaan"),
 
@@ -944,13 +961,6 @@ shinyplus <- function() {
       ))
 
       saveRDS(values$dish_ingredients, dish_ingredients_file())
-    })
-
-    # show unit info
-    output$ingredient_unit_text <- renderUI({
-      req(input$ingredient_name)
-      unit <- recently_bought |> filter(name == input$ingredient_name) |> pull(unit)
-      p(HTML(paste("<small>Eenheid:", unit, "</small>")))
     })
 
     # render ingredient table with remove buttons
