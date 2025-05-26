@@ -20,7 +20,9 @@ Imports:
   tibble,
   yaml
 Suggests:
-  rvest
+  rvest,
+  tidymodels,
+  xgboost
 License: GPL-2 | file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)

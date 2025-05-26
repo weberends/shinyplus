@@ -5,6 +5,7 @@
 #' @importFrom tibble tibble
 #' @importFrom stringr str_detect
 #' @importFrom DT datatable DTOutput renderDT
+#' @importFrom cli symbol
 #' @encoding UTF-8
 #' @export
 shinyplus <- function() {
@@ -215,7 +216,7 @@ shinyplus <- function() {
                             }),
                             # actionButton("save_weekplan", "Weekmenu opslaan", icon = icon("save")),
                             actionButton("add_weekplan_products_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping")),
-                            radioButtons("sort_weekmenu", "Gerechten sorteren op", choices = c("Bereidingstijd", "Naam", "Hoeveelheid groenten", "Type vlees"), selected = "Bereidingstijd", width = "100%"),
+                            radioButtons("sort_dishes", "Gerechten sorteren op", choices = c("Bereidingstijd", "Naam", "Hoeveelheid groenten", "Type vlees"), selected = "Bereidingstijd", width = "100%"),
                             p(HTML("<small>Producten worden toegevoegd met een apart label 'Weekmenu'.</small>")),
                           ),
                    ),
@@ -290,16 +291,30 @@ shinyplus <- function() {
                           div(style = "display: none;", numericInput("dish_id", NULL, value = 0)),
                           textInput("dish_name", "Naam gerecht:"),
                           checkboxGroupInput("dish_days", "Geschikt voor:", choices = c("Doordeweeks", "Weekend"), selected = NULL),
-                          radioButtons("dish_preptime", "Bereidingstijd (minuten):", choices = c(20, 40, 60, 120) |> stats::setNames(c("0-20", "20-40", "40-60", "60-120")), inline = TRUE, selected = NULL),
-                          radioButtons("dish_vegetables", "Hoeveelheid groenten:", choices = c(0:3) |> stats::setNames(c("\U0001F6AB", "\U0001F966", "\U0001F966\U0001F966", "\U0001F966\U0001F966\U0001F966")), inline = TRUE, selected = NULL),
-                          radioButtons("dish_meat", "Vlees:",
-                                       choices = c("Kip", "Rund", "Varken", "Vegetarisch", "Gecombineerd") |>
-                                         stats::setNames(c("\U0001F413", # chicken emoji
-                                                           "\U0001F404", # cow emoji
-                                                           "\U0001F416", # pig emoji
-                                                           "\U0001F331", # leaf emoji
-                                                           "Combi")), inline = TRUE,
-                                       selected = NULL),
+                          radioButtons("dish_preptime", "Bereidingstijd (minuten):", choices = c(20, 40, 60, 120) |> stats::setNames(c("0-20", "20-40", "40-60", "60-120")), inline = TRUE, selected = 20),
+                          fluidRow(
+                            column(6,
+                                   radioButtons("dish_vegetables", "Hoeveelheid groenten:",
+                                                choices = c(0:3) |>
+                                                  stats::setNames(c("\U0001F6AB",                       # red round sign emoji
+                                                                    "\U0001F966",                       # 2 brocolli emojis
+                                                                    "\U0001F966\U0001F966",             # 2 brocolli emojis
+                                                                    "\U0001F966\U0001F966\U0001F966")), # 3 brocolli emojis
+                                                inline = FALSE,
+                                                selected = 0)
+                            ),
+                            column(6,
+                                   radioButtons("dish_meat", "Vlees:",
+                                                choices = c("Vegetarisch", "Kip", "Rund", "Varken", "Gecombineerd") |>
+                                                  stats::setNames(c("\U0001F331", # leaf emoji
+                                                                    "\U0001F413", # chicken emoji
+                                                                    "\U0001F404", # cow emoji
+                                                                    "\U0001F416", # pig emoji
+                                                                    "Combi")),
+                                                inline = FALSE,
+                                                selected = "Vegetarisch")
+                            )
+                          )
                         )
                  ),
                  column(6,
@@ -501,38 +516,39 @@ shinyplus <- function() {
     # Server: Basket ----
 
     ## Step 1 ----
-    # Populate weekmenu dish choices
-    observe({
+    get_current_weekmenu_selections <- function() {
+      isolate(setNames(lapply(weekdays_list, function(day) input[[paste0("dish_day_", day)]]), weekdays_list))
+    }
+    sort_dish_df <- function(dishes, method) {
+      sort_field <- switch(method,
+                           "Naam" = "name",
+                           "Bereidingstijd" = "preptime",
+                           "Hoeveelheid groenten" = "vegetables",
+                           "Type vlees" = "meat",
+                           "preptime")
+
+      if (sort_field == "name") {
+        arrange(dishes, name)
+      } else if (sort_field == "preptime") {
+        arrange(dishes, preptime, desc(vegetables))
+      } else if (sort_field == "vegetables") {
+        arrange(dishes, desc(vegetables), preptime)
+      } else if (sort_field == "meat") {
+        arrange(dishes, meat, desc(vegetables), preptime)
+      } else {
+        dishes
+      }
+    }
+    rebuild_weekmenu_inputs <- function(sorted_dishes) {
+      current_selections <- get_current_weekmenu_selections()
+      # print(current_selections)
+
       for (day in weekdays_list) {
-        # Determine day type
-        day_type <- if (day %in% c("Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag")) {
-          "Doordeweeks"
-        } else {
-          "Weekend"
-        }
+        # Filter dishes by day-type
+        day_type <- if (day %in% c("Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag")) "Doordeweeks" else "Weekend"
+        dishes <- sorted_dishes |> filter(grepl(day_type, days))
 
-        # Filter matching dishes
-        dishes <- values$dishes |> filter(grepl(day_type, days))
         if (nrow(dishes) == 0) next
-
-        req(input$sort_weekmenu)
-        if (!is.null(input$sort_weekmenu)) {
-          sort_field <- switch(input$sort_weekmenu,
-                               "Naam" = "name",
-                               "Bereidingstijd" = "preptime",
-                               "Hoeveelheid groenten" = "vegetables",
-                               "Type vlees" = "meat",
-                               "preptime")
-          if (sort_field == "name") {
-            dishes <- dishes |> arrange(name)
-          } else if (sort_field == "preptime") {
-            dishes <- dishes |> arrange(preptime, desc(vegetables))
-          } else if (sort_field == "vegetables") {
-            dishes <- dishes |> arrange(desc(vegetables), preptime)
-          } else if (sort_field == "meat") {
-            dishes <- dishes |> arrange(meat, desc(vegetables), preptime)
-          }
-        }
 
         preptime_display <- function(x) {
           switch(as.character(x),
@@ -555,7 +571,7 @@ shinyplus <- function() {
 
         vegetables_icon <- function(type) {
           switch(as.character(type),
-                 "0" = "\U0001F6AB geen groente",
+                 "0" = "\U0001F6AB",
                  "1" = "\U0001F966",
                  "2" = "\U0001F966\U0001F966",
                  "3" = "\U0001F966\U0001F966\U0001F966",
@@ -568,28 +584,40 @@ shinyplus <- function() {
           list(
             label = dish$name,
             value = dish$name,
-            subtext = paste0(meat_icon(dish$meat), " | ",
-                             preptime_display(dish$preptime), " min | ",
+            subtext = paste0(meat_icon(dish$meat), " ", symbol$bullet, " ",
+                             preptime_display(dish$preptime), " min ", symbol$bullet, " ",
                              vegetables_icon(dish$vegetables))
           )
         })
 
-        # Send choices to custom handler for updating selectize
         session$sendCustomMessage("updateSelectizeChoices", list(
           inputId = paste0("dish_day_", day),
-          choices = choices_list
+          choices = choices_list #,
+          #selected = current_selections[[day]]
         ))
+
+        updateSelectInput(session, paste0("dish_day_", day), selected = current_selections[[day]])
       }
+    }
+
+    observeEvent(input$sort_dishes, {
+      # print("CLICK SORT")
+      sorted_dishes <- sort_dish_df(values$dishes, input$sort_dishes)
+      rebuild_weekmenu_inputs(sorted_dishes)
+    })
+    observeEvent(values$dishes, {
+      # print("CHANGE DISHES")
+      sorted_dishes <- sort_dish_df(values$dishes, input$sort_dishes %||% "Bereidingstijd")
+      rebuild_weekmenu_inputs(sorted_dishes)
     })
 
-
-    observeEvent(input$save_weekplan, {
-      values$weekplan <- bind_rows(lapply(weekdays_list, function(day) {
-        dish <- input[[paste0("dish_day_", day)]]
-        tibble(day = day, dish = ifelse(is.null(dish) || dish == "", NA_character_, dish))
-      }))
-      saveRDS(values$weekplan, weekplan_file())
-    })
+    # observeEvent(input$save_weekplan, {
+    #   values$weekplan <- bind_rows(lapply(weekdays_list, function(day) {
+    #     dish <- input[[paste0("dish_day_", day)]]
+    #     tibble(day = day, dish = ifelse(is.null(dish) || dish == "", NA_character_, dish))
+    #   }))
+    #   saveRDS(values$weekplan, weekplan_file())
+    # })
 
     observeEvent(input$add_weekplan_products_to_basket, {
       selected_dishes <- unlist(lapply(weekdays_list, function(day) input[[paste0("dish_day_", day)]]))
