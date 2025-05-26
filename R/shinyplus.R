@@ -9,8 +9,13 @@
 #' @encoding UTF-8
 #' @export
 shinyplus <- function() {
-  data_dir <- system.file("plus_data", package = "shinyplus")
-  if (!dir.exists(data_dir)) dir.create(data_dir)
+  if (is.null(getOption("plus_data_folder", default = NULL)) || !dir.exists(getOption("plus_data_folder"))) {
+    data_dir <- system.file("plus_data", package = "shinyplus")
+    warning("!! SETTING DATA FOLDER TO PACKAGE/INST - WILL BE ERASED UPON PACKAGE UPDATE !!", immediate. = TRUE)
+  } else {
+    data_dir <- getOption("plus_data_folder")
+  }
+  if (!dir.exists(data_dir)) dir.create(data_dir, recursive = TRUE)
 
   weekdays_list <- c("Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag", "Zondag")
   weekdays_short <- substr(weekdays_list, 1, 2)
@@ -193,8 +198,8 @@ shinyplus <- function() {
     theme = bs_theme(version = 5, base_font = font_google("Open Sans")),
     navbarPage(
       title = div(
-        tags$img(src = "https://upload.wikimedia.org/wikipedia/commons/9/92/PLUS_supermarket_logo.svg", height = "40px", style = "margin-right: 10px;"),
-        tags$span("ShinyPLUS", style = "font-weight: bold; font-size: 1.2rem; vertical-align: middle;")
+        img(src = "https://upload.wikimedia.org/wikipedia/commons/9/92/PLUS_supermarket_logo.svg", height = "40px", style = "margin-right: 10px;"),
+        span("ShinyPLUS", style = "font-weight: bold; font-size: 1.2rem; vertical-align: middle;")
       ),
       tabPanel("Mandje", # UI: Basket ----
                fluidPage(
@@ -351,7 +356,7 @@ shinyplus <- function() {
                           numericInput("ingredient_amount", "Aantal", 1),
                           actionButton("add_ingredient", "Toevoegen en opslaan"),
 
-                          tags$hr(),
+                          hr(),
                           uiOutput("dish_ingredients_table")
                         )
                  )
@@ -619,7 +624,7 @@ shinyplus <- function() {
         lapply(values$fixed_products, function(prod) {
           fluidRow(
             class = "row products-list-row",
-            column(2, div(class = "products-list-img", height = "100%", img(src = get_product_image(prod), width = "100%"))),
+            column(2, div(class = "products-list-img", height = "100%", a(href = get_product_image(prod), target = "_blank", img(src = get_product_image(prod), width = "100%")))),
             column(7, div(class = "products-list-p", height = "100%", p(get_product_name_unit(prod)))),
             column(3, div(class = "products-list-qty", height = "100%", numericInput(paste0("qty_fixed_", make.names(prod)), NULL, value = 0, min = 0, step = 1, width = "100%")))
           )
@@ -686,7 +691,7 @@ shinyplus <- function() {
 
           fluidRow(
             class = "row products-list-row",
-            column(2, div(class = "products-list-img", img(src = get_product_image(prod), width = "100%"))),
+            column(2, div(class = "products-list-img", a(href = get_product_image(prod), target = "_blank", img(src = get_product_image(prod), width = "100%")))),
             column(6, div(class = "products-list-p", p(HTML(paste0(get_product_name_unit(prod), "<span class='basket-source ", tolower(src), "'>", src, "</span>"))))),
             column(2, div(class = "products-list-qty", numericInput(input_id, NULL, value = qty, min = 0, step = 1, width = "100%"))),
             column(2, actionButton(remove_id, "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;"))
@@ -964,7 +969,7 @@ shinyplus <- function() {
 
           fluidRow(
             class = "row products-list-row",
-            column(2, div(class = "products-list-img", img(src = get_product_image(row$product), width = "100%"))),
+            column(2, div(class = "products-list-img", a(href = get_product_image(row$product), target = "_blank", img(src = get_product_image(row$product), width = "100%")))),
             column(9, div(class = "products-list-p", p(HTML(paste0("<strong>", row$amount, "x</strong> ", get_product_name_unit(row$product)))))),
             column(1, actionButton(remove_id, "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;"))
           )
