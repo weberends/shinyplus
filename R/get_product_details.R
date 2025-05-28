@@ -2,6 +2,7 @@
 #' @param x Name or URL of a product.
 #' @name get_product_details
 #' @rdname get_product_details
+#' @inheritSection shinyplus-package Disclaimer
 #' @export
 get_product_url <- function(x) {
   plus_get_urls(x, offline_only = TRUE)

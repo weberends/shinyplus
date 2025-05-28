@@ -9,9 +9,9 @@ plus_env <- new.env()
                              "This package folder will be {.strong erased} upon package update and all settings (dishes / products) {.strong will be lost}.",
                              "Set the R option `plus_data_folder` to any local folder to prevent this.",
                              sep = "\n"))
-    } else {
-      plus_env$data_dir <- getOption("plus_data_folder", default = system.file("plus_data", package = "shinyplus"))
     }
+  } else {
+    plus_env$data_dir <- getOption("plus_data_folder", default = system.file("plus_data", package = "shinyplus"))
   }
 
   if (!dir.exists(plus_env$data_dir)) {
@@ -38,6 +38,6 @@ plus_env <- new.env()
       }
     }, silent = TRUE)
   } else if (interactive()) {
-    cli_warn("No product list! Refer to {.url https://github.com/weberends/shinyplus/blob/main/data-raw/update_product_list.R}.")
+    cli_warn("No product list! Refer to {.help update_current_product_list_from_html}.")
   }
 }

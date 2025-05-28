@@ -10,3 +10,10 @@ shinyplus()
 \description{
 Launch PLUS Weekly Grocery App
 }
+\section{Disclaimer}{
+
+This open-source R package, \emph{shinyplus}, is independently developed and has no affiliation with, endorsement by, or association with PLUS Retail B.V. or the website \href{https://www.plus.nl}{plus.nl}.
+
+The package merely uses \emph{client-side browser automation} via the \href{https://rstudio.github.io/chromote/}{\code{chromote}} package to interact with publicly available content on plus.nl, simulating user behaviour (such as logging in, browsing, and selecting products) in a private, ephemeral local browser session. This package does not contain any product info or data from PLUS. Any icons or images used (e.g. the PLUS logo) are sourced from \href{https://nl.wikipedia.org/wiki/PLUS_(Nederlandse_supermarkt)}{Wikipedia} under appropriate free-use licensing. All trademarks, product names, and brand assets remain the property of their respective owners.
+}
+

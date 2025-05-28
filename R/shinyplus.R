@@ -1,5 +1,5 @@
 #' Launch PLUS Weekly Grocery App
-#' @importFrom shiny fluidPage HTML div img p icon h5 h3 h4 hr br span fluidRow wellPanel textInput a strong tagList reactiveVal passwordInput checkboxInput column navbarPage tabPanel selectInput selectizeInput numericInput actionButton uiOutput renderUI shinyApp observe observeEvent updateSelectInput updateNumericInput updateCheckboxInput updateTextInput updateSelectizeInput reactiveValues reactive req isolate tags modalDialog showModal removeModal modalButton showNotification conditionalPanel checkboxGroupInput updateCheckboxGroupInput radioButtons updateRadioButtons
+#' @importFrom shiny a actionButton br checkboxGroupInput checkboxInput column conditionalPanel div fluidPage fluidRow h3 h4 h5 hr HTML icon img isolate modalButton modalDialog navbarPage numericInput observe observeEvent p passwordInput radioButtons reactive reactiveVal reactiveValues removeModal renderUI req selectInput selectizeInput shinyApp showModal showNotification span strong tabPanel tagList tags textInput uiOutput updateCheckboxGroupInput updateCheckboxInput updateNumericInput updateRadioButtons updateSelectInput updateSelectizeInput updateTextInput wellPanel
 #' @importFrom bslib bs_theme font_google card
 #' @importFrom dplyr filter pull mutate select arrange desc inner_join bind_rows distinct if_else left_join count row_number
 #' @importFrom tibble tibble
@@ -7,6 +7,7 @@
 #' @importFrom DT datatable DTOutput renderDT
 #' @importFrom cli symbol
 #' @encoding UTF-8
+#' @inheritSection shinyplus-package Disclaimer
 #' @export
 shinyplus <- function() {
 

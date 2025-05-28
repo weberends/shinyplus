@@ -31,6 +31,7 @@
 #' @importFrom rvest html_attr html_children html_element html_elements html_text read_html
 #' @importFrom tibble tibble
 #' @importFrom dplyr filter bind_rows distinct arrange
+#' @inheritSection shinyplus-package Disclaimer
 #' @export
 update_current_product_list_from_html <- function(html_txt) {
   items_html <- paste(html_txt, collapse = "") |> rvest::read_html() |> rvest::html_element(".plp-results-list") |> rvest::html_elements("a")

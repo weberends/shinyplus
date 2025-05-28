@@ -14,6 +14,7 @@
 #' @rdname plus_remote_functions
 #' @name plus_remote_functions
 #' @aliases plus_login plus_logout plus_add_products plus_open_browser
+#' @inheritSection shinyplus-package Disclaimer
 #' @export
 #' @examples
 #' \dontrun{
