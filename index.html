@@ -69,27 +69,33 @@
 <div class="section level2">
 <h2 id="a-shiny-app-to-automate-grocery-shopping-at-plusnl">A Shiny App to Automate Grocery Shopping at PLUS.nl<a class="anchor" aria-label="anchor" href="#a-shiny-app-to-automate-grocery-shopping-at-plusnl"></a>
 </h2>
-<ol style="list-style-type: decimal">
-<li>Create an account at <a href="https://www.plus.nl" class="external-link uri">https://www.plus.nl</a>
-</li>
-<li>Select your local PLUS store in your account</li>
-<li>Save your email address and password to a <code>.yaml</code> file and set its location with <code>options(plus_credentials = "your_file.yaml")</code>
-</li>
-<li>Run <code>shinyplus::open_app()</code> to open the app</li>
-</ol>
-</div>
-<div class="section level2">
-<h2 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
-</h2>
+<div class="section level3">
+<h3 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
+</h3>
 <p>You can install the development version of shinyplus like so:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">remotes</span><span class="fu">::</span><span class="fu">install_github</span><span class="op">(</span><span class="st">"weberends/shinyplus"</span><span class="op">)</span></span></code></pre></div>
+</div>
+<div class="section level3">
+<h3 id="getting-started">Getting Started<a class="anchor" aria-label="anchor" href="#getting-started"></a>
+</h3>
+<ol style="list-style-type: decimal">
+<li>Create an account at <a href="https://www.plus.nl" class="external-link uri">https://www.plus.nl</a>
+</li>
+<li>Select your local PLUS Store in your account</li>
+<li>Save your email address and password to a <code>.yaml</code> file and set its location with <code>options(plus_credentials = "your_file.yaml")</code>
+</li>
+<li>Create the product list, following the instructions in of <code><a href="reference/update_current_product_list_from_html.html">shinyplus::update_current_product_list_from_html()</a></code>
+</li>
+<li>Run <code><a href="reference/shinyplus.html">shinyplus::shinyplus()</a></code> to open the app</li>
+</ol>
 <hr>
 <p><small></small></p>
 <p><strong>Disclaimer:</strong></p>
 <p>This open-source R package, <em>shinyplus</em>, is independently developed and has no affiliation with, endorsement by, or association with PLUS Retail B.V. or the website <a href="https://www.plus.nl" class="external-link">plus.nl</a>.</p>
 <p>The package merely uses <em>client-side browser automation</em> via the <a href="https://rstudio.github.io/chromote/" class="external-link"><code>chromote</code></a> package to interact with publicly available content on plus.nl, simulating user behaviour (such as logging in, browsing, and selecting products) in a private, ephemeral local browser session. This package does not contain any product info or data from PLUS. Any icons or images used (e.g. the PLUS logo) are sourced from <a href="https://nl.wikipedia.org/wiki/PLUS_(Nederlandse_supermarkt)" class="external-link">Wikipedia</a> under appropriate free-use licensing. All trademarks, product names, and brand assets remain the property of their respective owners.</p>
 <p></p>
+</div>
 </div>
 </div>
   </div>
