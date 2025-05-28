@@ -28,12 +28,16 @@ plus_env <- new.env()
     }
   }
 
-  if (!file.exists(file.path(plus_env$data_dir, "product_list.rds")) && interactive()) {
+  product_list_path <- file.path(plus_env$data_dir, "product_list.rds")
+
+  if (file.exists(product_list_path)) {
+    try({
+      plus_env$product_list <- readRDS(product_list_path)
+      if (interactive()) {
+        cli_alert_success(paste("Imported", NROW(plus_env$product_list), "products"))
+      }
+    }, silent = TRUE)
+  } else if (interactive()) {
     cli_warn("No product list! Refer to {.url https://github.com/weberends/shinyplus/blob/main/data-raw/update_product_list.R}.")
-  } else {
-    plus_env$product_list <- readRDS(file.path(plus_env$data_dir, "product_list.rds"))
-    if (interactive()) {
-      cli_alert_success(paste("Imported", NROW(plus_env$product_list), "products"))
-    }
   }
 }
