@@ -1,5 +1,3 @@
-plus_env <- new.env()
-
 globalVariables(c("aantal_personen",
                   "amount",
                   "Artikel",
@@ -23,6 +21,44 @@ globalVariables(c("aantal_personen",
 
 as_euro <- function(x) {
   paste("\u20ac", format(round(x, 2), nsmall = 2, decimal.mark = ",", big.mark = "."))
+}
+
+#' @importFrom tibble tibble
+#' @importFrom dplyr filter
+get_product_tbl <- function(html_txt) {
+  items_html <- paste(html_txt, collapse = "") |> rvest::read_html() |> rvest::html_element(".plp-results-list") |> rvest::html_elements("a")
+  product_list <- tibble()
+
+  for (i in seq_along(items_html)) {
+    item <- items_html[[i]]
+    unit <- item |> rvest::html_element(".plp-item-complementary") |> rvest::html_children()
+    if (length(unit) == 0) {
+      product_list[i, "name"] <- NA_character_
+      next
+    }
+
+    product_list[i, "name"] <- item |> rvest::html_element(".plp-item-name") |> rvest::html_text()
+    unit <- unit[[1]] |> rvest::html_text() |> gsub("^Per ", "", x = _)
+    unit <- strsplit(unit, " ")[[1]]
+    unit_amount <- as.numeric(gsub(",", ".", unit[1]))
+    unit[2] <- gsub("ml", "ml", unit[2], ignore.case = TRUE)
+    unit[2] <- gsub("gram", "g", unit[2])
+    if (unit_amount >= 1000 && unit[2] == "g") {
+      unit[1] <- trimws(format(unit_amount / 1000, decimal.mark = ",", big.mark = "."))
+      unit[2] <- "kg"
+    } else if (unit_amount >= 1000 && unit[2] == "ml") {
+      unit[1] <- trimws(format(unit_amount / 1000, decimal.mark = ",", big.mark = "."))
+      unit[2] <- "L"
+    }
+    unit <- paste(unit, collapse = " ")
+    product_list[i, "unit"] <- unit
+    product_list[i, "url"] <- item |> rvest::html_attr("href")
+    product_list[i, "img"] <- item |> rvest::html_element("img") |> rvest::html_attr("src") |> gsub("[?].*$", "", x = _)
+  }
+  product_list <- product_list |> filter(!is.na(name))
+
+  message(nrow(product_list), " producten gevonden")
+  return(product_list)
 }
 
 # AMR:::get_n_cores()

@@ -1,6 +1,6 @@
 Package: shinyplus
 Title: Automatische boodschappen van PLUS
-Version: 0.0.2
+Version: 0.0.3
 Authors@R: c(
   person(given = c("Wikje", "E."),    family = "Berends-Hoekstra",  role = c("aut", "cre"), comment = c(ORCID = "0000-0001-7620-1800"), email = "w.e.berends-hoekstra@umcg.nl"),
   person(given = c("Matthijs", "S."), family = "Berends",           role = c("aut"),        comment = c(ORCID = "0000-0001-7620-1800")))
@@ -15,12 +15,13 @@ Imports:
   dplyr,
   DT,
   pillar,
+  rvest,
   shiny,
   stringr,
   tibble,
   yaml
 Suggests:
-  rvest,
+  clipr,
   tidymodels,
   xgboost
 License: GPL-2 | file LICENSE

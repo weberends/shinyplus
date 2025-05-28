@@ -161,9 +161,9 @@ plus_get_urls <- function(x, ..., info = interactive(), b = plus_env$browser, of
   x <- trimws(as.character(x))
   x <- gsub("https://www.plus.nl", "", x, fixed = TRUE)
   out <- rep(NA_character_, length(x))
-  out[x %in% trimws(recently_bought$name)] <- recently_bought$url[match(x[x %in% trimws(recently_bought$name)], trimws(recently_bought$name))]
-  out[x %in% recently_bought$url] <- x[x %in% recently_bought$url]
-  out[x %in% recently_bought$img] <- recently_bought$url[match(x[x %in% recently_bought$img], recently_bought$img)]
+  out[x %in% trimws(plus_env$product_list$name)] <- plus_env$product_list$url[match(x[x %in% trimws(plus_env$product_list$name)], trimws(plus_env$product_list$name))]
+  out[x %in% plus_env$product_list$url] <- x[x %in% plus_env$product_list$url]
+  out[x %in% plus_env$product_list$img] <- plus_env$product_list$url[match(x[x %in% plus_env$product_list$img], plus_env$product_list$img)]
   if (anyNA(out) && !offline_only) {
     # we need to search these on the PLUS website
     if (!plus_ascertain_logged_in(info = info)) return(invisible())

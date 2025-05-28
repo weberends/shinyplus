@@ -25,12 +25,3 @@ get_product_image(x)
 \description{
 Get Product Details
 }
-\examples{
-get_product_url("PLUS Aardbeien")
-
-get_product_name("/product/plus-aardbeien-doos-225-g-244585")
-
-get_product_name_unit("PLUS Aardbeien")
-
-get_product_image("PLUS Aardbeien")
-}

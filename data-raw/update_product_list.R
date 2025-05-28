@@ -1,40 +1,23 @@
-# 1. Ga naar https://www.plus.nl/producten
-# 2. Scroll zo ver naar beneden als je wilt
-# 3. Zoek het HTML element 'plp-results-list' en kopieer het als HTML (zodat alle <a> elementen eronder gekopieerd worden)
-# 4. Run onderstaand command
+# 1. Go to:
+#    * https://www.plus.nl/producten for all products
+#    * https://plus.nl/eerder-gekochte-producten for previously purchased products
+#    * https://www.plus.nl/zoekresultaten?SearchTerm=YOURSEARCHTERM to search for products
+# 2. Scroll down as far as you like to load more products
+# 3. Open the Web Info panel and copy a high-level HTML element to the clipboard (so that all <a> elements of products are contained within)
+# 4. Run the syntax below
 
-x <- clipr::read_clip()
-x <- paste(x, collapse = "")
-items <- strsplit(x, "<a data-link")[[1]]
+library(dplyr)
 
-saveRDS(items, "data-raw/products_raw.rds")
+new_product_list <- clipr::read_clip() |>
+  shinyplus:::create_product_tbl_from_html() |>
+  shinyplus:::update_current_product_tbl()
 
+# compare to plus_env$product_list, then:
+file.copy()
+saveRDS(product_list,
+        file.path(plus_env$data_dir, "product_list.rds"))
 
-# eerste item is niks
-items <- items[-1]
-# split-item terugbrengen zodat we met rvest kunnen inlezen
-items <- paste0("<a data-link", items)
-
-product_list <- tibble()
-
-for (i in seq_along(items)) {
-  item <- items[i]
-  product_list[i, "name"] <- item |> read_html() |> html_element(".plp-item-name") |> html_text()
-  product_list[i, "unit"] <- item |> read_html() |> html_element(".plp-item-complementary") |> html_children() |> magrittr::extract2(1) |> html_text()
-  product_list[i, "unit"] <- gsub("^Per ", "", product_list[i, "unit"])
-  product_list[i, "url"] <- item |> read_html() |> html_element("a") |> html_attr("href")
-  product_list[i, "img"] <- gsub("[?].*$", "", item |> read_html() |> html_element("img") |> html_attr("src"))
-}
-
-product_list <- product_list |>
-  dplyr::bind_rows(recently_bought) |>
-  distinct() |>
-  dplyr::arrange(name, unit)
-
-recently_bought <- product_list
-usethis::use_data(recently_bought, internal = TRUE, overwrite = TRUE)
-
-saveRDS("~/product_list.rds")
+# done.
 
 
 
@@ -42,9 +25,7 @@ saveRDS("~/product_list.rds")
 
 
 
-
-
-# TRY LATER AUTOMATIC SCROLLING
+# TRY LATER AUTOMATIC SCROLLING ----------------------------------
 
 
 

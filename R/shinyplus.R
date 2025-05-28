@@ -9,13 +9,6 @@
 #' @encoding UTF-8
 #' @export
 shinyplus <- function() {
-  if (is.null(getOption("plus_data_folder", default = NULL)) || !dir.exists(getOption("plus_data_folder"))) {
-    data_dir <- system.file("plus_data", package = "shinyplus")
-    warning("!! SETTING DATA FOLDER TO PACKAGE/INST - WILL BE ERASED UPON PACKAGE UPDATE !!", immediate. = TRUE)
-  } else {
-    data_dir <- getOption("plus_data_folder")
-  }
-  if (!dir.exists(data_dir)) dir.create(data_dir, recursive = TRUE)
 
   weekdays_list <- c("Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag", "Zondag")
   weekdays_short <- substr(weekdays_list, 1, 2)
@@ -248,7 +241,7 @@ shinyplus <- function() {
                             hr(),
                             h5("Beheer vaste producten:"),
                             selectizeInput("add_fixed_product", NULL,
-                                           choices = recently_bought$name |> stats::setNames(get_product_name_unit(recently_bought$name)),
+                                           choices = plus_env$product_list$name |> stats::setNames(get_product_name_unit(plus_env$product_list$name)),
                                            options = list(placeholder = 'Type om te zoeken...',
                                                           dropdownParent = 'body',
                                                           onInitialize = I('function() { this.setValue(""); }'),
@@ -267,7 +260,7 @@ shinyplus <- function() {
                           card(class = "basket-card-3 stretch-with-margin",
                             h3("3. Mandje"), ## Step 3 ----
                             selectizeInput("add_extra_product", "Extra artikel toevoegen:",
-                                           choices = recently_bought$name |> stats::setNames(get_product_name_unit(recently_bought$name)),
+                                           choices = plus_env$product_list$name |> stats::setNames(get_product_name_unit(plus_env$product_list$name)),
                                            options = list(placeholder = 'Type om te zoeken...',
                                                           dropdownParent = 'body',
                                                           onInitialize = I("
@@ -360,7 +353,7 @@ shinyplus <- function() {
                         wellPanel(
                           h5("Ingredi\u00EBnten bewerken"),
                           selectizeInput("ingredient_name", "Ingredi\u00EBnt",
-                                         choices = recently_bought$name |> stats::setNames(get_product_name_unit(recently_bought$name)),
+                                         choices = plus_env$product_list$name |> stats::setNames(get_product_name_unit(plus_env$product_list$name)),
                                          options = list(placeholder = 'Type om te zoeken...',
                                                         dropdownParent = 'body',
                                                         onInitialize = I('function() { this.setValue(""); }'),
@@ -402,23 +395,23 @@ shinyplus <- function() {
     # RDS files for saving
     dishes_file <- reactive({
       req(selected_email())
-      file.path(data_dir, paste0("dishes-", make.names(selected_email()), ".rds"))
+      file.path(plus_env$data_dir, paste0("dishes-", make.names(selected_email()), ".rds"))
     })
     dish_ingredients_file <- reactive({
       req(selected_email())
-      file.path(data_dir, paste0("dish_ingredients-", make.names(selected_email()), ".rds"))
+      file.path(plus_env$data_dir, paste0("dish_ingredients-", make.names(selected_email()), ".rds"))
     })
     weekplan_file <- reactive({
       req(selected_email())
-      file.path(data_dir, paste0("weekplan-", make.names(selected_email()), ".rds"))
+      file.path(plus_env$data_dir, paste0("weekplan-", make.names(selected_email()), ".rds"))
     })
     fixed_products_file <- reactive({
       req(selected_email())
-      file.path(data_dir, paste0("fixed_products-", make.names(selected_email()), ".rds"))
+      file.path(plus_env$data_dir, paste0("fixed_products-", make.names(selected_email()), ".rds"))
     })
     basket_file <- reactive({
       req(selected_email())
-      file.path(data_dir, paste0("basket-", make.names(selected_email()), ".rds"))
+      file.path(plus_env$data_dir, paste0("basket-", make.names(selected_email()), ".rds"))
     })
 
     selected_email <- reactiveVal(NULL)
@@ -789,7 +782,7 @@ shinyplus <- function() {
 
       cart <- values$online_cart |>
         arrange(product) |>
-        left_join(recently_bought, by = c("product" = "name")) |>
+        left_join(plus_env$product_list, by = c("product" = "name")) |>
         mutate(img = paste0(
                  "<div style='height: 70px; max-width: 100px;'>",
                  "<img src='", img, "' style='max-height: 70px; max-width: 100px; margin-left: auto; margin-right: auto;'>",
@@ -951,7 +944,7 @@ shinyplus <- function() {
     observeEvent(input$add_ingredient, {
       req(input$selected_dish)
       sel_id <- values$dishes |> filter(dish_id == input$selected_dish) |> pull(dish_id)
-      unit <- recently_bought |> filter(name == input$ingredient_name) |> pull(unit)
+      unit <- plus_env$product_list |> filter(name == input$ingredient_name) |> pull(unit)
 
       values$dish_ingredients <- bind_rows(values$dish_ingredients, tibble(
         dish_id = sel_id,
