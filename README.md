@@ -4,18 +4,21 @@
 
 ## A Shiny App to Automate Grocery Shopping at PLUS.nl
 
-1. Create an account at <https://www.plus.nl>
-2. Select your local PLUS store in your account
-3. Save your email address and password to a `.yaml` file and set its location with `options(plus_credentials = "your_file.yaml")`
-4. Run `shinyplus::open_app()` to open the app
-
-## Installation
+### Installation
 
 You can install the development version of shinyplus like so:
 
 ``` r
 remotes::install_github("weberends/shinyplus")
 ```
+
+### Getting Started
+
+1. Create an account at <https://www.plus.nl>
+2. Select your local PLUS Store in your account
+3. Save your email address and password to a `.yaml` file and set its location with `options(plus_credentials = "your_file.yaml")`
+4. Create the product list, following the instructions in of `shinyplus::update_current_product_list_from_html()`
+5. Run `shinyplus::shinyplus()` to open the app
 
 ---
 

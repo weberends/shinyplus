@@ -6,7 +6,7 @@ plus_env <- new.env()
     plus_env$data_dir <- system.file("plus_data", package = "shinyplus")
     if (interactive()) {
       cli_alert_danger(paste("DATA FOLDER SET TO {.path {plus_env$data_dir}}.",
-                             "This package folder will be {.strong erased} upon package update and all settings (dishes / products) {.strong will be lost}.",
+                             "This package folder will be {.strong erased} upon package {.strong update/re-installation} and all settings (dishes / products) {.strong will be lost}.",
                              "Set the R option `plus_data_folder` to any local folder to prevent this.",
                              sep = "\n"))
     }
@@ -21,7 +21,7 @@ plus_env <- new.env()
       if (interactive()) {
         cli_alert_danger("Folder {.path {plus_env$data_dir}} is not writable!")
         cli_alert_danger(paste("DATA FOLDER SET TO {.path {plus_env$data_dir}}.",
-                               "This package folder will be {.strong erased} upon package update and all settings (dishes / products) {.strong will be lost}.",
+                               "This package folder will be {.strong erased} upon package {.strong update/re-installation} and all settings (dishes / products) {.strong will be lost}.",
                                "Set the R option `plus_data_folder` to any local folder to prevent this.",
                                sep = "\n"))
       }

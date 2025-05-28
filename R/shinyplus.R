@@ -242,7 +242,7 @@ shinyplus <- function() {
                             hr(),
                             h5("Beheer vaste producten:"),
                             selectizeInput("add_fixed_product", NULL,
-                                           choices = plus_env$product_list$name |> stats::setNames(get_product_name_unit(plus_env$product_list$name)),
+                                           choices = plus_env$product_list$url |> stats::setNames(get_product_name_unit(plus_env$product_list$url)),
                                            options = list(placeholder = 'Type om te zoeken...',
                                                           dropdownParent = 'body',
                                                           onInitialize = I('function() { this.setValue(""); }'),
@@ -261,7 +261,7 @@ shinyplus <- function() {
                           card(class = "basket-card-3 stretch-with-margin",
                             h3("3. Mandje"), ## Step 3 ----
                             selectizeInput("add_extra_product", "Extra artikel toevoegen:",
-                                           choices = plus_env$product_list$name |> stats::setNames(get_product_name_unit(plus_env$product_list$name)),
+                                           choices = plus_env$product_list$url |> stats::setNames(get_product_name_unit(plus_env$product_list$url)),
                                            options = list(placeholder = 'Type om te zoeken...',
                                                           dropdownParent = 'body',
                                                           onInitialize = I("
@@ -353,8 +353,8 @@ shinyplus <- function() {
                  column(6,
                         wellPanel(
                           h5("Ingredi\u00EBnten bewerken"),
-                          selectizeInput("ingredient_name", "Ingredi\u00EBnt",
-                                         choices = plus_env$product_list$name |> stats::setNames(get_product_name_unit(plus_env$product_list$name)),
+                          selectizeInput("ingredient_url", "Ingredi\u00EBnt",
+                                         choices = plus_env$product_list$url |> stats::setNames(get_product_name_unit(plus_env$product_list$url)),
                                          options = list(placeholder = 'Type om te zoeken...',
                                                         dropdownParent = 'body',
                                                         onInitialize = I('function() { this.setValue(""); }'),
@@ -364,7 +364,7 @@ shinyplus <- function() {
                                                           autocapitalize = "off",
                                                           spellcheck = "false"
                                                         ))),
-                          numericInput("ingredient_amount", "Aantal", 1),
+                          numericInput("ingredient_quantity", "Aantal", 1),
                           actionButton("add_ingredient", "Toevoegen en opslaan"),
 
                           hr(),
@@ -383,12 +383,12 @@ shinyplus <- function() {
     # Server: Setup ----
     values <- reactiveValues(
       dishes = tibble(dish_id = numeric(), name = character(), days = character(), preptime = integer(), vegetables = integer(), meat = character()),
-      dish_ingredients = tibble(dish_id = numeric(), product = character(), amount = numeric(), unit = character()),
+      dish_ingredients = tibble(dish_id = numeric(), product_url = character(), quantity = numeric()),
       weekplan = tibble(day = character(), dish = character()),
       fixed_products = character(),
       fixed_items = character(),
       extra_items = character(),
-      basket = tibble(product = character(), quantity = integer(), source = character()),
+      basket = tibble(product_url = character(), quantity = integer(), source = character()),
       new_dish_name = NULL,
       logged_in = FALSE
     )
@@ -440,21 +440,21 @@ shinyplus <- function() {
     extra_input_count <- reactiveVal(1)
     extra_inputs <- reactiveValues(data = list(), expanded = list())
 
-    add_to_basket <- function(product, quantity = 1, source = "Extra") {
-      if (length(product) > 1 && length(quantity) == 1) {
-        quantity <- rep(quantity, length(product))
+    add_to_basket <- function(product_url, quantity = 1, source = "Extra") {
+      if (length(product_url) > 1 && length(quantity) == 1) {
+        quantity <- rep(quantity, length(product_url))
       }
-      if (length(product) != length(quantity)) stop("Mismatched product and quantity lengths")
+      if (length(product_url) != length(quantity)) stop("Mismatched product_url and quantity lengths")
 
-      df <- tibble(product, quantity, source) |>
-        filter(product != "", quantity > 0)
+      df <- tibble(product_url, quantity, source) |>
+        filter(product_url != "", quantity > 0)
 
       if (nrow(df) == 0) return(invisible())
 
       new_basket <- bind_rows(values$basket, df) |>
         # prevent sorting by using factors
-        mutate(product = factor(product, levels = unique(product), ordered = TRUE)) |>
-        group_by(product, source) |>
+        mutate(product_url = factor(product_url, levels = unique(product_url), ordered = TRUE)) |>
+        group_by(product_url, source) |>
         summarise(quantity = sum(quantity), .groups = "drop")
 
       # Only update if different
@@ -613,12 +613,12 @@ shinyplus <- function() {
       selected_dishes <- selected_dishes[selected_dishes != ""]
       dish_ingredients <- values$dish_ingredients |>
         inner_join(values$dishes |> filter(name %in% selected_dishes), by = "dish_id")
-      ingredients <- rep(dish_ingredients$product, dish_ingredients$amount)
+      ingredients <- rep(dish_ingredients$product_url, dish_ingredients$quantity)
 
       if (length(ingredients) == 0) {
         showNotification("Geen producten om toe te voegen.", type = "error")
       } else {
-        add_to_basket(product = ingredients, quantity = 1, source = "Weekmenu")
+        add_to_basket(product_url = ingredients, quantity = 1, source = "Weekmenu")
       }
     })
 
@@ -663,12 +663,12 @@ shinyplus <- function() {
       qtys <- lapply(values$fixed_products, function(prod) {
         qty <- input[[paste0("qty_fixed_", make.names(prod))]]
         if (is.null(qty) || qty <= 0) return(NULL)
-        tibble(product = prod, quantity = qty)
+        tibble(product_url = prod, quantity = qty)
       })
 
       qtys <- bind_rows(qtys)
       if (nrow(qtys) > 0) {
-        add_to_basket(product = qtys$product, quantity = qtys$quantity, source = "Vast")
+        add_to_basket(product_url = qtys$product_url, quantity = qtys$quantity, source = "Vast")
       }
     })
 
@@ -694,7 +694,7 @@ shinyplus <- function() {
       tagList(
         lapply(seq_len(nrow(values$basket)), function(i) {
           row <- values$basket[i, ]
-          prod <- row$product
+          prod <- row$product_url
           qty <- row$quantity
           src <- row$source
           input_id <- paste0("basket_qty_", make.names(prod))
@@ -714,18 +714,18 @@ shinyplus <- function() {
     # Make Remove buttons work
     observe({
       req(nrow(values$basket) > 0)
-      lapply(values$basket$product, function(prod) {
+      lapply(values$basket$product_url, function(prod) {
         observeEvent(input[[paste0("remove_", make.names(prod))]], {
-          values$basket <- values$basket |> filter(product != prod)
+          values$basket <- values$basket |> filter(product_url != prod)
         }, ignoreInit = TRUE)
       })
     })
 
     observeEvent(input$add_extra_product, {
       req(input$add_extra_product)
-      product <- input$add_extra_product
+      product_url <- input$add_extra_product
 
-      add_to_basket(product = product, quantity = 1, source = "Extra")
+      add_to_basket(product_url = product_url, quantity = 1, source = "Extra")
       updateSelectInput(session, "add_extra_product", selected = "")
     })
 
@@ -739,20 +739,17 @@ shinyplus <- function() {
       req(nrow(values$basket) > 0)
 
       for (i in seq_len(nrow(values$basket))) {
-        product <- values$basket$product[i]
+        url <- values$basket$product_url[i]
         quantity <- values$basket$quantity[i]
 
-        url <- tryCatch(get_product_url(product), error = function(e) NULL)
-        if (!is.null(url)) {
-          plus_add_products(url, quantity = quantity, credentials = values$credentials, info = FALSE)
-        }
+        plus_add_products(url, quantity = quantity, credentials = values$credentials, info = FALSE)
       }
 
       showNotification("Mandje in PLUS Winkelwagen geplaatst.", type = "message")
     })
 
     observeEvent(input$clear_basket, {
-      values$basket <- tibble(product = character(), quantity = integer(), source = character())
+      values$basket <- tibble(product_url = character(), quantity = integer(), source = character())
     })
 
 
@@ -782,8 +779,8 @@ shinyplus <- function() {
       req(values$online_cart)
 
       cart <- values$online_cart |>
-        arrange(product) |>
-        left_join(plus_env$product_list, by = c("product" = "name")) |>
+        arrange(product_url) |>
+        left_join(plus_env$product_list, by = c("product_url" = "url")) |>
         mutate(img = paste0(
                  "<div style='height: 70px; max-width: 100px;'>",
                  "<img src='", img, "' style='max-height: 70px; max-width: 100px; margin-left: auto; margin-right: auto;'>",
@@ -794,7 +791,7 @@ shinyplus <- function() {
                price_total = as_euro(price_total))
 
       display_cart <- cart |>
-        select(" " = img, Artikel = product, Prijs = price, Aantal = quantity, Totaal = price_total, Artikelinfo = url)
+        select(" " = img, Artikel = name, Prijs = price, Aantal = quantity, Totaal = price_total, Artikelinfo = url)
 
       datatable(
         display_cart,
@@ -945,13 +942,11 @@ shinyplus <- function() {
     observeEvent(input$add_ingredient, {
       req(input$selected_dish)
       sel_id <- values$dishes |> filter(dish_id == input$selected_dish) |> pull(dish_id)
-      unit <- plus_env$product_list |> filter(name == input$ingredient_name) |> pull(unit)
 
       values$dish_ingredients <- bind_rows(values$dish_ingredients, tibble(
         dish_id = sel_id,
-        product = input$ingredient_name,
-        amount = input$ingredient_amount,
-        unit = unit
+        product_url = input$ingredient_url,
+        quantity = input$ingredient_quantity
       ))
 
       saveRDS(values$dish_ingredients, dish_ingredients_file())
@@ -973,8 +968,8 @@ shinyplus <- function() {
 
           fluidRow(
             class = "row products-list-row",
-            column(2, div(class = "products-list-img", a(href = get_product_image(row$product), target = "_blank", img(src = get_product_image(row$product), width = "100%")))),
-            column(9, div(class = "products-list-p", p(HTML(paste0("<strong>", row$amount, "x</strong> ", get_product_name_unit(row$product)))))),
+            column(2, div(class = "products-list-img", a(href = get_product_image(row$product_url), target = "_blank", img(src = get_product_image(row$product_url), width = "100%")))),
+            column(9, div(class = "products-list-p", p(HTML(paste0("<strong>", row$quantity, "x</strong> ", get_product_name_unit(row$product_url)))))),
             column(1, actionButton(remove_id, "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;"))
           )
         })
