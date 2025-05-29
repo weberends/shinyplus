@@ -1,6 +1,6 @@
-#' PLUS.nl Remote Functions
+#' Interact with PLUS.nl via Headless Browser
 #'
-#' These functions allow remote access to the [PLUS.nl website](https://www.plus.nl) through the [`Chromote`][chromote::Chromote] class.
+#' Provides functions to log in, add products to the cart, retrieve the current cart, and navigate the [PLUS.nl website](https://www.plus.nl) using a [`Chromote`][chromote::Chromote] browser session.
 #' @param credentials Path to a YAML file containing fields `email` and `password`, or a [list] contains those names. Can be set with `options(plus_credentials = "...")`
 #' @param x Name of the product, such as "PLUS Houdbare Halfvolle Melk Pak 1000 ml", or URL of the product, such as "plus-houdbare-halfvolle-melk-pak-1000-ml-957806".
 #' @param quantity Number of items to add to cart.

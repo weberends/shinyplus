@@ -1,4 +1,33 @@
-#' Launch PLUS Weekly Grocery App
+#' Launch the ShinyPLUS App
+#'
+#' Starts the Shiny application for weekly grocery planning, including features for meal selection, fixed and extra products, basket management, and integration with PLUS.nl.
+#' @details
+#' The `shinyplus()` function launches a multi-tab Shiny application with the following core components:
+#'
+#' - **Weekmenu**: Allows users to select dishes for each day of the week. Each dish is linked to ingredients, which can be automatically added to the grocery basket.
+#' - **Vaste boodschappen**: Users can maintain and select from a list of fixed (recurring) products. Selected quantities are added to the basket.
+#' - **Extra artikelen**: Users can manually search and add additional products not linked to meals or fixed lists.
+#' - **Mandje**: A complete overview of all selected products is shown, grouped by source. Users can adjust quantities or remove items. The basket can then be sent to the online PLUS.nl shopping cart.
+#' - **PLUS Winkelwagen**: Displays the current contents of the user's PLUS.nl online cart, including quantities, prices, and product images. Includes a checkout button.
+#' - **Gerechten beheren**: Users can create and manage custom dishes, define their preparation details, and assign ingredients from the product list.
+#' - **Inloggen**: Supports login to PLUS.nl using [`Chromote`][chromote::Chromote] automation. This is required for sending the basket to the online cart or retrieving cart contents.
+#'
+#' ### Getting Started:
+#' 1. Create an account at <https://www.plus.nl> and select your preferred local store.
+#' 2. Save your PLUS.nl login credentials in a `.yaml` file with `email` and `password` fields.
+#' 3. Set the file path in your R session using:
+#'
+#'    ```r
+#'    options(plus_credentials = "path/to/your_file.yaml")
+#'    ```
+#' 4. Generate a local product list using `shinyplus::update_product_list_from_html()` (see its documentation for detailed steps).
+#' 5. Launch the app with:
+#'
+#'    ```r
+#'    shinyplus::shinyplus()
+#'    ```
+#'
+#' All user-specific data (e.g. dishes, baskets, fixed products) is saved locally as `.rds` files per user.
 #' @importFrom shiny a actionButton br checkboxGroupInput checkboxInput column conditionalPanel div fluidPage fluidRow h3 h4 h5 hr HTML icon img isolate modalButton modalDialog navbarPage numericInput observe observeEvent p passwordInput radioButtons reactive reactiveVal reactiveValues removeModal renderUI req selectInput selectizeInput shinyApp showModal showNotification span strong tabPanel tagList tags textInput uiOutput updateCheckboxGroupInput updateCheckboxInput updateNumericInput updateRadioButtons updateSelectInput updateSelectizeInput updateTextInput wellPanel
 #' @importFrom bslib bs_theme font_google card
 #' @importFrom dplyr filter pull mutate select arrange desc inner_join bind_rows distinct if_else left_join count row_number
@@ -365,7 +394,7 @@ shinyplus <- function() {
                                                           spellcheck = "false"
                                                         ))),
                           numericInput("ingredient_quantity", "Aantal", 1),
-                          actionButton("add_ingredient", "Toevoegen en opslaan"),
+                          actionButton("add_ingredient", "Toevoegen", icon = icon("plus")),
 
                           hr(),
                           uiOutput("dish_ingredients_table")
@@ -711,12 +740,12 @@ shinyplus <- function() {
       )
     })
 
-    # Make Remove buttons work
+    # Make remove buttons work
     observe({
       req(nrow(values$basket) > 0)
       lapply(values$basket$product_url, function(prod) {
         observeEvent(input[[paste0("remove_", make.names(prod))]], {
-          values$basket <- values$basket |> filter(product_url != prod)
+          values$basket <- values$basket |> filter(as.character(product_url) != as.character(prod))
         }, ignoreInit = TRUE)
       })
     })
@@ -938,33 +967,36 @@ shinyplus <- function() {
       updateSelectInput(session, "selected_dish", choices = sort(values$dishes$name), selected = "")
     })
 
+    # save to dish ingredients RDS if anything is changed
+    observeEvent(values$dish_ingredients, {
+      req(selected_email())
+      saveRDS(values$dish_ingredients, dish_ingredients_file())
+    }, ignoreInit = TRUE)
+
     # add ingredient
     observeEvent(input$add_ingredient, {
-      req(input$selected_dish)
-      sel_id <- values$dishes |> filter(dish_id == input$selected_dish) |> pull(dish_id)
-
+      req(input$ingredient_url)
       values$dish_ingredients <- bind_rows(values$dish_ingredients, tibble(
-        dish_id = sel_id,
+        dish_id = as.numeric(input$selected_dish),
         product_url = input$ingredient_url,
         quantity = input$ingredient_quantity
-      ))
-
-      saveRDS(values$dish_ingredients, dish_ingredients_file())
+      )) |>
+        arrange(product_url) |>
+        group_by(dish_id, product_url) |>
+        summarise(quantity = sum(quantity, na.rm = TRUE))
+      updateSelectInput(session, "ingredient_url", selected = "")
     })
 
     # render ingredient table with remove buttons
     output$dish_ingredients_table <- renderUI({
       req(input$selected_dish)
-      sel_id <- values$dishes |> filter(dish_id == input$selected_dish) |> pull(dish_id)
-      if (length(sel_id) != 1) return(p(""))
-
-      df <- values$dish_ingredients |> filter(dish_id == sel_id)
+      df <- values$dish_ingredients |> filter(dish_id == input$selected_dish)
       if (nrow(df) == 0) return(p("Nog geen ingredi\u00EBnten toegevoegd."))
 
       tagList(
         lapply(seq_len(nrow(df)), function(i) {
           row <- df[i, ]
-          remove_id <- paste0("remove_ingr_", i)
+          remove_id <- paste0("remove_ingr_", row$dish_id, "_", make.names(row$product_url))
 
           fluidRow(
             class = "row products-list-row",
@@ -976,21 +1008,33 @@ shinyplus <- function() {
       )
     })
 
-    # remove ingredient listener
+    # Make remove buttons work
     observe({
-      if (is.null(input$selected_dish) || input$selected_dish == 0 || input$selected_dish == "") return()
-      sel_id <- values$dishes |> filter(dish_id == input$selected_dish) |> pull(dish_id)
-      if (length(sel_id) != 1) return()
-
-      df <- values$dish_ingredients |> filter(dish_id == sel_id)
-
-      lapply(seq_len(nrow(df)), function(i) {
-        observeEvent(input[[paste0("remove_ingr_", i)]], {
-          values$dish_ingredients <- values$dish_ingredients[-i, ]
-          saveRDS(values$dish_ingredients, dish_ingredients_file())
+      req(NROW(values$dish_ingredients) > 0)
+      lapply(seq_len(nrow(values$dish_ingredients)), function(i) {
+        row <- values$dish_ingredients[i, ]
+        remove_id <- paste0("remove_ingr_", row$dish_id, "_", make.names(row$product_url))
+        observeEvent(input[[remove_id]], {
+          values$dish_ingredients <- values$dish_ingredients |> filter(!(dish_id == input$selected_dish & product_url == row$product_url))
         }, ignoreInit = TRUE)
       })
     })
+
+    # # remove ingredient listener
+    # observe({
+    #   if (is.null(input$selected_dish) || input$selected_dish == 0 || input$selected_dish == "") return()
+    #   sel_id <- input$selected_dish
+    #   if (length(sel_id) != 1) return()
+    #
+    #   df <- values$dish_ingredients |> filter(dish_id == sel_id)
+    #
+    #   lapply(seq_len(nrow(df)), function(i) {
+    #     observeEvent(input[[paste0("remove_ingr_", i)]], {
+    #       values$dish_ingredients <- values$dish_ingredients[-i, ]
+    #       saveRDS(values$dish_ingredients, dish_ingredients_file())
+    #     }, ignoreInit = TRUE)
+    #   })
+    # })
 
   }
 

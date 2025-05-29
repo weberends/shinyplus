@@ -1,4 +1,6 @@
-#' Get Product Details
+#' Retrieve Product Attributes from Local Data
+#'
+#' Provides offline access to product information such as name, unit, image, and URL that is available after running [update_product_list_from_html()].
 #' @param x Name or URL of a product.
 #' @name get_product_details
 #' @rdname get_product_details

@@ -1,6 +1,6 @@
-#' Update Product List
+#' Extract Product Information from HTML
 #'
-#' Update the product list to be used in [shinyplus()].
+#' Parses HTML content containing product listings from the PLUS website and updates the local product list with names, units, URLs, and images.
 #' @param html_txt Text to include in project list, as HTML element containing product entries as `<a>` elements.
 #' @details
 #' Steps to create local products list file:
@@ -15,7 +15,7 @@
 #'
 #'    ```r
 #'    html_txt <- clipr::read_clip()
-#'    new_product_list <- update_current_product_list_from_html(html_txt)
+#'    new_product_list <- update_product_list_from_html(html_txt)
 #'
 #'    # this is the local filepath for products (the R package does not contain product data)
 #'    path <- file.path(shinyplus:::plus_env$data_dir, "product_list.rds")
@@ -33,7 +33,7 @@
 #' @importFrom dplyr filter bind_rows distinct arrange
 #' @inheritSection shinyplus-package Disclaimer
 #' @export
-update_current_product_list_from_html <- function(html_txt) {
+update_product_list_from_html <- function(html_txt) {
   items_html <- paste(html_txt, collapse = "") |> rvest::read_html() |> rvest::html_element(".plp-results-list") |> rvest::html_elements("a")
   new_product_list <- tibble()
 

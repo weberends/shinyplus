@@ -1,10 +1,14 @@
 Package: shinyplus
-Title: Shiny-empowered Automatic Shopping at PLUS
-Version: 0.0.3
+Title: Weekly Grocery Planning with PLUS.nl Integration
+Version: 0.1.0
 Authors@R: c(
   person(given = c("Wikje", "E."),    family = "Berends-Hoekstra",  role = c("aut", "cre"), comment = c(ORCID = "0000-0001-7620-1800"), email = "w.e.berends-hoekstra@umcg.nl"),
   person(given = c("Matthijs", "S."), family = "Berends",           role = c("aut"),        comment = c(ORCID = "0000-0001-7620-1800")))
-Description: Automates grocery shopping at PLUS
+Description: A Shiny web application for planning weekly groceries. 
+    Users can select meals for each day, manage recurring and extra items, 
+    and combine them into a shopping basket. The app supports integration 
+    with the PLUS.nl online supermarket for sending the basket to the user's 
+    online shopping cart.
 URL: https://github.com/weberends/shinyplus
 BugReports: https://github.com/weberends/shinyplus/issues
 Depends: R (>= 4.4.0)

@@ -3,17 +3,52 @@
 \encoding{UTF-8}
 \name{shinyplus}
 \alias{shinyplus}
-\title{Launch PLUS Weekly Grocery App}
+\title{Launch the ShinyPLUS App}
 \usage{
 shinyplus()
 }
 \description{
-Launch PLUS Weekly Grocery App
+Starts the Shiny application for weekly grocery planning, including features for meal selection, fixed and extra products, basket management, and integration with PLUS.nl.
+}
+\details{
+The \code{shinyplus()} function launches a multi-tab Shiny application with the following core components:
+\itemize{
+\item \strong{Weekmenu}: Allows users to select dishes for each day of the week. Each dish is linked to ingredients, which can be automatically added to the grocery basket.
+\item \strong{Vaste boodschappen}: Users can maintain and select from a list of fixed (recurring) products. Selected quantities are added to the basket.
+\item \strong{Extra artikelen}: Users can manually search and add additional products not linked to meals or fixed lists.
+\item \strong{Mandje}: A complete overview of all selected products is shown, grouped by source. Users can adjust quantities or remove items. The basket can then be sent to the online PLUS.nl shopping cart.
+\item \strong{PLUS Winkelwagen}: Displays the current contents of the user's PLUS.nl online cart, including quantities, prices, and product images. Includes a checkout button.
+\item \strong{Gerechten beheren}: Users can create and manage custom dishes, define their preparation details, and assign ingredients from the product list.
+\item \strong{Inloggen}: Supports login to PLUS.nl using \code{\link[chromote:Chromote]{Chromote}} automation. This is required for sending the basket to the online cart or retrieving cart contents.
+}
+\subsection{Getting Started:}{
+\enumerate{
+\item Create an account at \url{https://www.plus.nl} and select your preferred local store.
+\item Save your PLUS.nl login credentials in a \code{.yaml} file with \code{email} and \code{password} fields.
+\item Set the file path in your R session using:
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{options(plus_credentials = "path/to/your_file.yaml")
+}\if{html}{\out{</div>}}
+\item Generate a local product list using \code{shinyplus::update_product_list_from_html()} (see its documentation for detailed steps).
+\item Launch the app with:
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{shinyplus::shinyplus()
+}\if{html}{\out{</div>}}
+}
+
+All user-specific data (e.g. dishes, baskets, fixed products) is saved locally as \code{.rds} files per user.
+}
 }
 \section{Disclaimer}{
 
-This open-source R package, \emph{shinyplus}, is independently developed and has no affiliation with, endorsement by, or association with PLUS Retail B.V. or the website \href{https://www.plus.nl}{plus.nl}.
 
-The package merely uses \emph{client-side browser automation} via the \href{https://rstudio.github.io/chromote/}{\code{chromote}} package to interact with publicly available content on plus.nl, simulating user behaviour (such as logging in, browsing, and selecting products) in a private, ephemeral local browser session. This package does not contain any product info or data from PLUS. Any icons or images used (e.g. the PLUS logo) are sourced from \href{https://nl.wikipedia.org/wiki/PLUS_(Nederlandse_supermarkt)}{Wikipedia} under appropriate free-use licensing. All trademarks, product names, and brand assets remain the property of their respective owners.
+
+This open-source R package, \emph{shinyplus}, is an independent software project and is not affiliated with, endorsed by, or associated in any way with PLUS Retail B.V. or the website \href{https://www.plus.nl}{plus.nl}.
+
+The package does \strong{not} collect, scrape, download, or store any data from plus.nl. It contains \strong{no product information, pricing data, or content} originating from PLUS Retail B.V. or its systems. Users are required to provide their own data (e.g., product lists) manually. This is typically done by copying HTML content from their personal shopping history or PLUS search result pages and importing it locally using \code{shinyplus::update_product_list_from_html()}.
+
+All interactions with plus.nl occur through \strong{local, client-side browser automation}, using the \href{https://rstudio.github.io/chromote/}{\code{chromote}} package. This mechanism emulates a user operating a private browser session on their own machine. For example, when a user submits a basket to their PLUS shopping cart, this package simply opens a browser in the background and automates user-visible steps — such as logging in, navigating to product pages, and clicking buttons — exactly as a person would. No API calls or server-side data access is used or implied.
+
+Any logos, icons, or brand references (e.g., the PLUS logo) used in the user interface are publicly available media assets sourced from \href{https://nl.wikipedia.org/wiki/PLUS_(Nederlandse_supermarkt)}{Wikipedia} under appropriate free-use licensing. All trademarks, service marks, and product names are the property of their respective owners.
 }
 
