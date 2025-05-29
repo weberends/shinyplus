@@ -12,8 +12,39 @@ globalVariables(c("Artikel",
                   "vegetables"))
 
 as_euro <- function(x) {
-  paste("\u20ac", format(round(x, 2), nsmall = 2, decimal.mark = ",", big.mark = "."))
+  paste("\u20ac", trimws(format(round(x, 2), nsmall = 2, decimal.mark = ",", big.mark = ".")))
 }
+
+format_unit <- function(units) {
+  sapply(units, function(unit) {
+    unit <- gsub("^Per ", "", x = unit)
+    parts <- strsplit(unit, " ")[[1]]
+
+    if (length(parts) > 1) {
+      unit_amount <- as.numeric(gsub(",", ".", parts[1]))
+      parts[2] <- gsub("ml", "ml", parts[2], ignore.case = TRUE)
+      parts[2] <- gsub("gram", "g", parts[2])
+
+      if (!is.na(unit_amount)) {
+        if (unit_amount >= 1000 && parts[2] == "g") {
+          parts[1] <- trimws(format(unit_amount / 1000, decimal.mark = ",", big.mark = "."))
+          parts[2] <- "kg"
+        } else if (unit_amount >= 1000 && parts[2] == "ml") {
+          parts[1] <- trimws(format(unit_amount / 1000, decimal.mark = ",", big.mark = "."))
+          parts[2] <- "L"
+        }
+      }
+      unit <- paste(parts, collapse = " ")
+    }
+
+    if (unit == "") {
+      unit <- "1 st"
+    }
+
+    unit
+  }, USE.NAMES = FALSE)
+}
+
 
 # AMR:::get_n_cores()
 # get_n_cores <- function(max_cores = Inf) {

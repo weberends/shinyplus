@@ -31,7 +31,7 @@
 #' @importFrom shiny a actionButton br checkboxGroupInput checkboxInput column conditionalPanel div fluidPage fluidRow h3 h4 h5 hr HTML icon img isolate modalButton modalDialog navbarPage numericInput observe observeEvent p passwordInput radioButtons reactive reactiveVal reactiveValues removeModal renderUI req selectInput selectizeInput shinyApp showModal showNotification span strong tabPanel tagList tags textInput uiOutput updateCheckboxGroupInput updateCheckboxInput updateNumericInput updateRadioButtons updateSelectInput updateSelectizeInput updateTextInput wellPanel
 #' @importFrom bslib bs_theme font_google card
 #' @importFrom dplyr filter pull mutate select arrange desc inner_join bind_rows distinct if_else left_join count row_number
-#' @importFrom tibble tibble
+#' @importFrom tibble tibble as_tibble
 #' @importFrom stringr str_detect
 #' @importFrom DT datatable DTOutput renderDT
 #' @importFrom cli symbol
@@ -88,12 +88,26 @@ shinyplus <- function() {
         border-color: rgb(208, 50, 44);
       }
       .btn-success {
-        background: rgb(140, 185, 64);
-        border-color: rgb(140, 185, 64);
+        background: rgb(127, 187, 29);
+        border-color: rgb(127, 187, 29);
       }
       .btn-success:hover {
-        background: rgba(140, 185, 64, 0.8);
-        border-color: rgb(140, 185, 64);
+        background: rgba(127, 187, 29, 0.8);
+        border-color: rgb(127, 187, 29);
+      }
+      .btn-primary {
+        background: rgb(85, 77, 167);
+        border-color: rgb(85, 77, 167);
+      }
+      .btn-primary:hover {
+        background: rgba(85, 77, 167, 0.8);
+        border-color: rgb(85, 77, 167);
+      }
+      .a {
+        color: rgb(85, 77, 167);
+      }
+      .a:hover {
+        color: rgba(85, 77, 167, 0.8);
       }
 
       .basket-card-1, .products-list-p .basket-source.weekmenu {
@@ -145,6 +159,12 @@ shinyplus <- function() {
         font-size: 0.8rem;
         display: inline-block;
         line-height: 1.2;
+      }
+
+      @media (max-width: 575.98px) {
+        .row.row.products-list-row {
+          display: inline;
+        }
       }
 
       .basket-card-3 .products-list-p p {
@@ -270,18 +290,7 @@ shinyplus <- function() {
                             actionButton("fixed_to_zero", "Alles op nul zetten", icon = icon("rotate-left")),
                             hr(),
                             h5("Beheer vaste producten:"),
-                            selectizeInput("add_fixed_product", NULL,
-                                           choices = plus_env$product_list$url |> stats::setNames(get_product_name_unit(plus_env$product_list$url)),
-                                           options = list(placeholder = 'Type om te zoeken...',
-                                                          dropdownParent = 'body',
-                                                          onInitialize = I('function() { this.setValue(""); }'),
-                                                          inputAttr = list(
-                                                            autocomplete = "off",
-                                                            autocorrect = "off",
-                                                            autocapitalize = "off",
-                                                            spellcheck = "false"
-                                                          )),
-                                           width = "100%"),
+                            selectizeInput('add_fixed_product', NULL, choices = NULL, width = "100%"),
                             actionButton("add_fixed_product_button", "Toevoegen aan vaste producten", icon = icon("plus")),
                             actionButton("remove_fixed_product_button", "Verwijderen uit vaste producten", icon = icon("trash"))
                           )
@@ -289,32 +298,7 @@ shinyplus <- function() {
                    column(6,
                           card(class = "basket-card-3 stretch-with-margin",
                             h3("3. Mandje"), ## Step 3 ----
-                            selectizeInput("add_extra_product", "Extra artikel toevoegen:",
-                                           choices = plus_env$product_list$url |> stats::setNames(get_product_name_unit(plus_env$product_list$url)),
-                                           options = list(placeholder = 'Type om te zoeken...',
-                                                          dropdownParent = 'body',
-                                                          onInitialize = I("
-                                                            function() {
-                                                              this.setValue('');
-                                                            }
-                                                          "),
-                                                          inputAttr = list(
-                                                            autocomplete = "off",
-                                                            autocorrect = "off",
-                                                            autocapitalize = "off",
-                                                            spellcheck = "false"
-                                                          ),
-                                                          onChange = I("
-                                                            function(value) {
-                                                              if (value !== '') {
-                                                                Shiny.setInputValue('add_extra_product', value, {priority: 'event'});
-                                                                this.setValue('');
-                                                                this.focus(); // Refocus after selection
-                                                              }
-                                                            }
-                                                          ")
-                                           ),
-                                           width = "100%"),
+                            selectizeInput('add_extra_product', "Extra artikel toevoegen:", choices = NULL, width = "100%"),
                             uiOutput("basket_overview_table"),
                             br(),
                             actionButton("send_basket_to_cart", "Mandje in PLUS Winkelwagen plaatsen", class = "btn-success"),
@@ -353,7 +337,13 @@ shinyplus <- function() {
                           div(style = "display: none;", numericInput("dish_id", NULL, value = 0)),
                           textInput("dish_name", "Naam gerecht:"),
                           checkboxGroupInput("dish_days", "Geschikt voor:", choices = c("Doordeweeks", "Weekend"), selected = NULL),
-                          radioButtons("dish_preptime", "Bereidingstijd (minuten):", choices = c(20, 40, 60, 120) |> stats::setNames(c("0-20", "20-40", "40-60", "60-120")), inline = TRUE, selected = 20),
+                          radioButtons("dish_preptime", "Bereidingstijd (minuten):",
+                                       choices = c(20, 40, 60, 120) |>
+                                         stats::setNames(c("\U0001F552\U0001F642 = tot 20 minuten",
+                                                           "\U0001F552\U0001F610 = 20-40 minuten",
+                                                           "\U0001F552\U0001F641 = 40-60 minuten",
+                                                           "\U0001F552\U0001F975 = 60+ minuten")),
+                                       inline = FALSE, selected = 20),
                           fluidRow(
                             column(6,
                                    radioButtons("dish_vegetables", "Hoeveelheid groenten:",
@@ -382,17 +372,7 @@ shinyplus <- function() {
                  column(6,
                         wellPanel(
                           h5("Ingredi\u00EBnten bewerken"),
-                          selectizeInput("ingredient_url", "Ingredi\u00EBnt",
-                                         choices = plus_env$product_list$url |> stats::setNames(get_product_name_unit(plus_env$product_list$url)),
-                                         options = list(placeholder = 'Type om te zoeken...',
-                                                        dropdownParent = 'body',
-                                                        onInitialize = I('function() { this.setValue(""); }'),
-                                                        inputAttr = list(
-                                                          autocomplete = "off",
-                                                          autocorrect = "off",
-                                                          autocapitalize = "off",
-                                                          spellcheck = "false"
-                                                        ))),
+                          selectizeInput('ingredient_url', "Ingredi\u00EBnt", choices = NULL, width = "100%"),
                           numericInput("ingredient_quantity", "Aantal", 1),
                           actionButton("add_ingredient", "Toevoegen", icon = icon("plus")),
 
@@ -409,6 +389,52 @@ shinyplus <- function() {
   )
 
   server <- function(input, output, session) {
+    # set product lists in select fields according to https://shiny.posit.co/r/articles/build/selectize/ to save time
+    updateSelectizeInput(session, 'add_fixed_product', server = TRUE,
+                         choices = plus_env$product_list$url |> stats::setNames(get_product_name_unit(plus_env$product_list$url)),
+                         options = list(placeholder = 'Type om te zoeken...',
+                                        dropdownParent = 'body',
+                                        onInitialize = I('function() { this.setValue(""); }'),
+                                        inputAttr = list(
+                                          autocomplete = "off",
+                                          autocorrect = "off",
+                                          autocapitalize = "off",
+                                          spellcheck = "false")))
+    updateSelectizeInput(session, 'add_extra_product', server = TRUE,
+                         choices = plus_env$product_list$url |> stats::setNames(get_product_name_unit(plus_env$product_list$url)),
+                         options = list(placeholder = 'Type om te zoeken...',
+                                        dropdownParent = 'body',
+                                        onInitialize = I("
+                                                            function() {
+                                                              this.setValue('');
+                                                            }
+                                                          "),
+                                        inputAttr = list(
+                                          autocomplete = "off",
+                                          autocorrect = "off",
+                                          autocapitalize = "off",
+                                          spellcheck = "false"),
+                                        onChange = I("
+                                                            function(value) {
+                                                              if (value !== '') {
+                                                                Shiny.setInputValue('add_extra_product', value, {priority: 'event'});
+                                                                this.setValue('');
+                                                                this.focus(); // Refocus after selection
+                                                              }
+                                                            }
+                                                          ")))
+    updateSelectizeInput(session, 'ingredient_url', server = TRUE,
+                         choices = plus_env$product_list$url |> stats::setNames(get_product_name_unit(plus_env$product_list$url)),
+                         options = list(placeholder = 'Type om te zoeken...',
+                                        dropdownParent = 'body',
+                                        onInitialize = I('function() { this.setValue(""); }'),
+                                        inputAttr = list(
+                                          autocomplete = "off",
+                                          autocorrect = "off",
+                                          autocapitalize = "off",
+                                          spellcheck = "false")))
+
+
     # Server: Setup ----
     values <- reactiveValues(
       dishes = tibble(dish_id = numeric(), name = character(), days = character(), preptime = integer(), vegetables = integer(), meat = character()),
@@ -495,18 +521,19 @@ shinyplus <- function() {
 
     # Server: Login ----
 
-    observe({
-      showModal(modalDialog(
+    user_selection_modal <- function() {
+      modalDialog(
         title = "Selecteer een gebruiker",
         selectInput("selected_user_email", "Kies je e-mailadres",
                     choices = c(getOption("plus_credentials")$email, "Zonder inloggen"),
                     selected = NULL),
         easyClose = FALSE,
-        footer = tagList(
-          # modalButton("Annuleren"),
-          actionButton("confirm_user_email", "Doorgaan", class = "btn-primary")
-        )
-      ))
+        footer = actionButton("confirm_user_email", "Doorgaan", class = "btn-primary")
+      )
+    }
+
+    observe({
+      showModal(user_selection_modal())
     })
     observeEvent(input$confirm_user_email, {
       req(input$selected_user_email)
@@ -531,26 +558,37 @@ shinyplus <- function() {
       creds <- lapply(creds, function(x) x[1])
       if (!values$logged_in) {
         tagList(
+          actionButton("change_user", "Selecteer andere gebruiker", class = "btn-primary"),
+          hr(),
           p("Gebruik je PLUS inloggegevens om in te loggen."),
           if (all(unlist(creds) == ""))
             p(HTML("<small>Maak een account aan op "),
               a("plus.nl",
                 href = "https://aanmelden.plus.nl/plus/registration",
-                target = "_blank"),
-              HTML("</small>"))
+                target = "_blank",
+                .noWS = "outside"),
+              HTML(".</small>"))
           else
             p(HTML("<small>Inloggegevens ingevuld op basis van instelling <code>plus_credentials</code>.</small>"), class = "text-danger"),
-          textInput("login_email", "E-mail", value = creds$email),
+          # textInput("login_email", "E-mail", value = creds$email),
+          p(HTML(paste0("Email: <strong>", creds$email, "</strong>"))),
           passwordInput("login_password", "Wachtwoord", value = creds$password),
-          actionButton("do_login", "Inloggen")
+          actionButton("do_login", "Inloggen bij PLUS.nl", class = "btn-success")
         )
       } else {
         tagList(
+          actionButton("change_user", "Selecteer andere gebruiker", class = "btn-primary"),
+          hr(),
           strong("Ingelogd als: "), plus_env$email,
           br(),
-          actionButton("do_logout", "Uitloggen")
+          actionButton("do_logout", "Uitloggen bij PLUS.nl", class = "btn-danger")
         )
       }
+    })
+
+    observeEvent(input$change_user, {
+      selected_email(NULL)
+      showModal(user_selection_modal())
     })
 
     observeEvent(values$logged_in, {
@@ -560,7 +598,7 @@ shinyplus <- function() {
     })
 
     observeEvent(input$do_login, {
-      creds <- list(email = input$login_email, password = input$login_password)
+      creds <- list(email = plus_env$email, password = input$login_password)
       tryCatch({
         plus_login(credentials = creds)
         values$logged_in <- TRUE
@@ -604,7 +642,7 @@ shinyplus <- function() {
             label = dish$name,
             value = dish$name,
             subtext = paste0(meat_icon(dish$meat), " ", symbol$bullet, " ",
-                             preptime_display(dish$preptime), " min ", symbol$bullet, " ",
+                             preptime_icon(dish$preptime), " ", symbol$bullet, " ",
                              vegetables_icon(dish$vegetables))
           )
         })
@@ -619,12 +657,10 @@ shinyplus <- function() {
     }
 
     observeEvent(input$sort_dishes, {
-      # print("CLICK SORT")
       sorted_dishes <- sort_dish_df(values$dishes, input$sort_dishes)
       rebuild_weekmenu_inputs(sorted_dishes)
     })
     observeEvent(values$dishes, {
-      # print("CHANGE DISHES")
       sorted_dishes <- sort_dish_df(values$dishes, input$sort_dishes %||% "Bereidingstijd")
       rebuild_weekmenu_inputs(sorted_dishes)
     })
@@ -679,12 +715,16 @@ shinyplus <- function() {
         values$fixed_products <- unique(c(values$fixed_products, prod))
         saveRDS(values$fixed_products, fixed_products_file())
       }
+      updateSelectInput(session, "add_fixed_product", selected = "")
     })
 
     observeEvent(input$remove_fixed_product_button, {
       prod <- input$add_fixed_product
-      values$fixed_products <- setdiff(values$fixed_products, prod)
-      saveRDS(values$fixed_products, fixed_products_file())
+      if (!is.null(prod) && prod %in% values$fixed_products) {
+        values$fixed_products <- setdiff(values$fixed_products, prod)
+        saveRDS(values$fixed_products, fixed_products_file())
+      }
+      updateSelectInput(session, "add_fixed_product", selected = "")
     })
 
     # Add selected fixed items + quantities to planning basket
@@ -796,10 +836,19 @@ shinyplus <- function() {
       total_price <- sum(values$online_cart$price_total, na.rm = TRUE)
 
       tagList(
-        h3("Inhoud PLUS Winkelwagen (online)"),
+        h3("Inhoud PLUS Winkelwagen"),
+        p("De inhoud van deze winkelwagen is opgehaald van ",
+          a(href = "https://www.plus.nl/winkelwagen",
+            target= "_blank",
+            "www.plus.nl/winkelwagen", .noWS = "outside"), "."),
+        p("Wijzigingen kunnen hier niet aangebracht worden. Ga daarvoor naar de ",
+          a(href = "https://www.plus.nl/winkelwagen",
+            target= "_blank",
+            "online winkelwagen", .noWS = "outside"), "."),
+        br(),
         h4(HTML(paste0("<strong>Totale prijs:</strong> ", as_euro(sum(total_price, na.rm = TRUE))))),
         p(HTML(paste0("<strong>Totaal artikelen:</strong> ", total_items, " (uniek: ", unique_items, ")"))),
-        actionButton("checkout", "Afrekenen bij PLUS", class = "btn-success", icon = icon("right-from-bracket")),
+        actionButton("checkout", "Afrekenen bij PLUS.nl", class = "btn-success", icon = icon("right-from-bracket")),
         actionButton("refresh_online_cart", "Vernieuwen", icon = icon("refresh")),
       )
     })
@@ -808,19 +857,23 @@ shinyplus <- function() {
       req(values$online_cart)
 
       cart <- values$online_cart |>
-        arrange(product_url) |>
-        left_join(plus_env$product_list, by = c("product_url" = "url")) |>
-        mutate(img = paste0(
-                 "<div style='height: 70px; max-width: 100px;'>",
-                 "<img src='", img, "' style='max-height: 70px; max-width: 100px; margin-left: auto; margin-right: auto;'>",
-                 "</div>"),
-               url = paste0("<a href='https://www.plus.nl", url, "' target='_blank'>",
-                            "<i class='fas fa-right-from-bracket'></i></a>"),
+        arrange(product) |>
+        left_join(plus_env$product_list, by = c("product" = "name", "unit")) |>
+        mutate(img = if_else(is.na(img), img,
+                             paste0(
+                               "<div style='height: 70px; max-width: 100px;'>",
+                               "<img src='", img, "' style='max-height: 70px; max-width: 100px; margin-left: auto; margin-right: auto;'>",
+                               "</div>")),
+               url = if_else(is.na(url), url,
+                             paste0("<a href='https://www.plus.nl", url, "' target='_blank'>",
+                                    "<i class='fas fa-right-from-bracket'></i></a>")),
+               name_unit = paste0(product, " (", unit, ")"),
                price = as_euro(price),
-               price_total = as_euro(price_total))
+               price_total = as_euro(price_total)) |>
+        as_tibble()
 
       display_cart <- cart |>
-        select(" " = img, Artikel = name, Prijs = price, Aantal = quantity, Totaal = price_total, Artikelinfo = url)
+        select(" " = img, Artikel = name_unit, Prijs = price, Aantal = quantity, Totaal = price_total, Artikelinfo = url)
 
       datatable(
         display_cart,
@@ -983,7 +1036,7 @@ shinyplus <- function() {
       )) |>
         arrange(product_url) |>
         group_by(dish_id, product_url) |>
-        summarise(quantity = sum(quantity, na.rm = TRUE))
+        summarise(quantity = sum(quantity, na.rm = TRUE), .groups = "drop")
       updateSelectInput(session, "ingredient_url", selected = "")
     })
 
@@ -1062,12 +1115,12 @@ sort_dish_df <- function(dishes, method) {
   }
 }
 
-preptime_display <- function(x) {
+preptime_icon <- function(x) {
   switch(as.character(x),
-         "20" = "0-20",
-         "40" = "20-40",
-         "60" = "40-60",
-         "120" = "60-120",
+         "20" = "\U0001F552\U0001F642",
+         "40" = "\U0001F552\U0001F610",
+         "60" = "\U0001F552\U0001F641",
+         "120" = "\U0001F552\U0001F975",
          paste0(x, "+"))
 }
 

@@ -204,9 +204,10 @@ plus_current_cart <- function(..., info = interactive()) {
     cart <- plus_env$browser$Runtime$evaluate("
       Array.from(document.querySelectorAll('.cart-item-wrapper')).map(item => {
         var name = item.querySelector('.cart-item-name span')?.textContent.trim() || '';
+        var unit = item.querySelector('.cart-item-complementary span')?.textContent.trim() || '';
         var price = item.querySelector('.cart-item-price span')?.textContent.trim() || '';
         var quantity = item.querySelector('.cart-item-quantity span')?.textContent.trim() || '';
-        return { name, price, quantity };
+        return { name, unit, price, quantity };
       })
     ", returnByValue = TRUE)$result$value
     cart[vapply(FUN.VALUE = logical(1), cart, function(e) e$name != "")]
@@ -224,6 +225,7 @@ plus_current_cart <- function(..., info = interactive()) {
 
   out <- tibble(
     product = vapply(FUN.VALUE = character(1), cart_data, function(e) as.character(e$name)),
+    unit = format_unit(vapply(FUN.VALUE = character(1), cart_data, function(e) as.character(e$unit))),
     price = vapply(FUN.VALUE = double(1), cart_data, function(e) as.double(e$price)),
     quantity = vapply(FUN.VALUE = integer(1), cart_data, function(e) as.integer(e$quantity)),
     price_total = round(price * quantity, 2)

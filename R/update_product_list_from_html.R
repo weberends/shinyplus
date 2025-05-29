@@ -48,24 +48,7 @@ update_product_list_from_html <- function(html_txt) {
     }
 
     new_product_list[i, "name"] <- item |> rvest::html_element(".plp-item-name") |> rvest::html_text()
-    unit <- unit[[1]] |> rvest::html_text() |> gsub("^Per ", "", x = _)
-    unit <- strsplit(unit, " ")[[1]]
-    if (length(unit) > 1) {
-      unit_amount <- as.numeric(gsub(",", ".", unit[1]))
-      unit[2] <- gsub("ml", "ml", unit[2], ignore.case = TRUE)
-      unit[2] <- gsub("gram", "g", unit[2])
-      if (unit_amount >= 1000 && unit[2] == "g") {
-        unit[1] <- trimws(format(unit_amount / 1000, decimal.mark = ",", big.mark = "."))
-        unit[2] <- "kg"
-      } else if (unit_amount >= 1000 && unit[2] == "ml") {
-        unit[1] <- trimws(format(unit_amount / 1000, decimal.mark = ",", big.mark = "."))
-        unit[2] <- "L"
-      }
-    }
-    unit <- paste(unit, collapse = " ")
-    if (unit == "") {
-      unit <- "1 st"
-    }
+    unit <- unit[[1]] |> rvest::html_text() |> format_unit()
     new_product_list[i, "unit"] <- unit
     new_product_list[i, "url"] <- item |> rvest::html_attr("href")
     new_product_list[i, "img"] <- item |> rvest::html_element("img") |> rvest::html_attr("src") |> gsub("[?].*$", "", x = _)
