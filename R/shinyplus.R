@@ -28,14 +28,14 @@
 #'    ```
 #'
 #' All user-specific data (e.g. dishes, baskets, fixed products) is saved locally as `.rds` files per user.
-#' @importFrom shiny a actionButton br checkboxGroupInput checkboxInput column conditionalPanel div fluidPage fluidRow h3 h4 h5 hr HTML icon img isolate modalButton modalDialog navbarPage numericInput observe observeEvent p passwordInput radioButtons reactive reactiveVal reactiveValues removeModal renderUI req selectInput selectizeInput shinyApp showModal showNotification span strong tabPanel tagList tags textInput uiOutput updateActionButton updateCheckboxGroupInput updateCheckboxInput updateNumericInput updateRadioButtons updateSelectInput updateSelectizeInput updateTextInput wellPanel
+#' @importFrom shiny a actionButton br checkboxGroupInput checkboxInput column conditionalPanel div fluidPage fluidRow h3 h4 h5 hr HTML icon img isolate modalButton modalDialog navbarPage numericInput observe observeEvent p passwordInput radioButtons reactive reactiveVal reactiveValues removeModal renderUI req selectInput selectizeInput shinyApp showModal showNotification span strong tabPanel tagList tags textInput uiOutput updateActionButton updateCheckboxGroupInput updateCheckboxInput updateNumericInput updateRadioButtons updateSelectInput updateSelectizeInput updateTextInput wellPanel withProgress incProgress
 #' @importFrom bslib bs_theme font_google card
 #' @importFrom dplyr filter pull mutate select arrange desc inner_join bind_rows distinct if_else left_join count row_number
 #' @importFrom tibble tibble as_tibble
 #' @importFrom stringr str_detect
 #' @importFrom DT datatable DTOutput renderDT
 #' @importFrom cli symbol
-#' @importFrom shinyjs hide show useShinyjs
+#' @importFrom shinyjs hide show useShinyjs runjs
 #' @encoding UTF-8
 #' @inheritSection shinyplus-package Disclaimer
 #' @export
@@ -236,6 +236,21 @@ shinyplus <- function() {
         max-height: 500px !important;  /* same as .card.stretch-with-margin */
       }
 
+      #sale-column {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 120px);
+        overflow: hidden;
+      }
+      #sale-list {
+        flex-grow: 1;
+        overflow-y: auto;
+        min-height: 0; /* required for flex child to shrink correctly */
+        margin-bottom: 1rem;
+      }
+      #sale-column > .card:first-child {
+        flex-shrink: 0;
+      }
       #fixed-column {
         display: flex;
         flex-direction: column;
@@ -253,9 +268,6 @@ shinyplus <- function() {
         flex-shrink: 0;
       }
 
-      #sale-list {
-        height: 65vh;
-      }
       .sale-card {
         border: 1px solid #eee;
         border-radius: 12px;
@@ -270,18 +282,16 @@ shinyplus <- function() {
         margin-bottom: 10px;
       }
       .sale-txt {
-        font-weight: bold;
         color: #c00;
-        font-size: 0.85em;
+        font-size: 0.85rem;
         margin-bottom: 5px;
       }
       .sale-name {
-        font-weight: 600;
-        font-size: 1em;
+        font-size: 0.85rem;
       }
       .sale-unit {
-        color: #666;
-        font-size: 0.9em;
+        color: #888;
+        font-size: 0.8rem;
         margin-bottom: 8px;
       }
       .sale-qty * {
@@ -291,15 +301,14 @@ shinyplus <- function() {
         margin-top: 5px;
       }
       .price-current {
-        font-weight: bold;
-        font-size: 1.4em;
+        font-size: 1.1rem;
         color: #c00;
-        margin-right: 8px;
+        margin-right: 4px;
       }
       .price-previous {
         text-decoration: line-through;
-        color: #999;
-        font-size: 1em;
+        color: #888;
+        font-size: 0.9rem;
       }
 
     ")),
@@ -345,14 +354,14 @@ shinyplus <- function() {
                                radioButtons("sort_dishes", "Gerechten sorteren op", choices = c("Bereidingstijd", "Naam", "Hoeveelheid groenten", "Type vlees"), selected = "Bereidingstijd", width = "100%"),
                           ),
                    ),
-                   column(5,
+                   column(5, id = "sale-column",
                           card(class = "basket-card-2",
                                h3("2. Aanbiedingen"), ## 2. Aanbiedingen ----
                                div(id = "loading_spinner", style = "display:none;", p("Bezig met ophalen van aanbiedingen...")),
-                               uiOutput("sale_items_ui1"),
+                               uiOutput("sale_header_ui"),
                           ),
                           card(class = "basket-card-2", id = "sale-list",
-                               uiOutput("sale_items_ui2"),
+                               uiOutput("sale_items_ui"),
                           ),
                    ),
                    column(5, id = "fixed-column",
@@ -651,7 +660,7 @@ shinyplus <- function() {
       creds <- lapply(creds, function(x) x[1])
       if (!values$logged_in) {
         tagList(
-          actionButton("change_user", "Selecteer andere gebruiker", class = "btn-primary"),
+          actionButton("change_user", "Selecteer andere gebruiker", class = "btn-primary", icon = icon("user-xmark")),
           hr(),
           p("Gebruik je PLUS inloggegevens om in te loggen."),
           if (all(unlist(creds) == ""))
@@ -663,18 +672,16 @@ shinyplus <- function() {
               HTML(".</small>"))
           else
             p(HTML("<small>Inloggegevens ingevuld op basis van instelling <code>plus_credentials</code>.</small>"), class = "text-danger"),
-          # textInput("login_email", "E-mail", value = creds$email),
-          p(HTML(paste0("Email: <strong>", creds$email, "</strong>"))),
+          p(HTML(paste0("Email: <strong>", plus_env$email, "</strong>"))),
           passwordInput("login_password", "Wachtwoord", value = creds$password),
-          actionButton("do_login", "Inloggen bij PLUS.nl", class = "btn-success")
+          actionButton("do_login", "Inloggen bij PLUS.nl", class = "btn-success", icon = icon("right-to-bracket"))
         )
       } else {
         tagList(
-          actionButton("change_user", "Selecteer andere gebruiker", class = "btn-primary"),
-          hr(),
           strong("Ingelogd als: "), plus_env$email,
           br(),
-          actionButton("do_logout", "Uitloggen bij PLUS.nl", class = "btn-danger")
+          br(),
+          actionButton("do_logout", "Uitloggen", class = "btn-danger", icon = icon("right-from-bracket"))
         )
       }
     })
@@ -691,13 +698,16 @@ shinyplus <- function() {
     })
 
     observeEvent(input$do_login, {
+      hide("do_login")
       creds <- list(email = plus_env$email, password = input$login_password)
       tryCatch({
-        plus_login(credentials = creds)
+        showNotification("Inloggen bij PLUS...")
+        plus_login(credentials = creds, info = FALSE)
         values$logged_in <- TRUE
         values$credentials <- creds
         showNotification("Succesvol ingelogd.", type = "message")
       }, error = function(e) {
+        show("do_login")
         values$logged_in <- FALSE
         showNotification(
           paste("Inloggen mislukt. Probeer het over een paar seconden opnieuw via de knop 'Inloggen'.\nFoutmelding:", e$message),
@@ -707,7 +717,7 @@ shinyplus <- function() {
     })
 
     observeEvent(input$do_logout, {
-      plus_logout()
+      plus_logout(info = FALSE)
       values$logged_in <- FALSE
     })
 
@@ -781,7 +791,7 @@ shinyplus <- function() {
     })
 
     ## 2. Aanbiedingen ----
-    output$sale_items_ui1 <- renderUI({
+    output$sale_header_ui <- renderUI({
       if (is.null(values$sale_items)) {
         tagList(
           div(id = "div_sale_retrieve",
@@ -801,7 +811,7 @@ shinyplus <- function() {
         )
       }
       })
-    output$sale_items_ui2 <- renderUI({
+    output$sale_items_ui <- renderUI({
       if (!is.null(values$sale_items)) {
         df <- values$sale_items
         tagList(
@@ -1053,20 +1063,58 @@ shinyplus <- function() {
     # Send basket to cart
     observeEvent(input$send_basket_to_cart, {
       if (!values$logged_in) {
-        showNotification("Log eerst in om te verzenden naar winkelwagen.", type = "error")
+        showNotification("Log eerst in om te verzenden naar PLUS Winkelwagen.", type = "error")
         return()
       }
 
       req(nrow(values$basket) > 0)
 
-      for (i in seq_len(nrow(values$basket))) {
+      showModal(modalDialog(
+        title = "In PLUS Winkelwagen plaatsen...",
+        tagList(
+          div(
+            class = "progress",
+            div(
+              id = "progress_bar",
+              class = "progress-bar progress-bar-striped progress-bar-animated",
+              role = "progressbar",
+              style = "width: 0%; background-color: rgb(85, 77, 167);",
+              "0%"
+            )
+          ),
+          br(),
+          div(id = "progress_name", style = "text-align:center; font-weight:bold;")
+        ),
+        footer = NULL,
+        easyClose = FALSE
+      ))
+
+      n <- nrow(values$basket)
+
+      for (i in seq_len(n)) {
         url <- values$basket$product_url[i]
         quantity <- values$basket$quantity[i]
+        name <- escape_js_string(get_product_name_unit(url))
+        name_qty <- paste0(name, " x", quantity)
+        pct <- round(i / n * 100)
+
+        runjs(sprintf("
+          $('#progress_bar').css({
+            'width': '%d%%',
+            'background-color': 'rgb(85, 77, 167)'
+          });
+          $('#progress_bar').text('%d%%');
+          $('#progress_name').html('%s');
+        ", pct, pct, name_qty))
 
         plus_add_products(url, quantity = quantity, credentials = values$credentials, info = FALSE)
       }
 
-      showNotification("In PLUS Winkelwagen geplaatst.", type = "message")
+      removeModal()
+      showNotification("Artikelen in PLUS Winkelwagen geplaatst.", type = "message")
+
+      # Refresh cart summary + table
+      values$online_cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
     })
 
     observeEvent(input$clear_basket, {
@@ -1096,12 +1144,12 @@ shinyplus <- function() {
           a(href = "https://www.plus.nl/winkelwagen",
             target= "_blank",
             "www.plus.nl/winkelwagen", .noWS = "outside"), "."),
-        p("Wijzigingen kunnen hier niet aangebracht worden. Ook zijn kortingen niet zichtbaar. Ga daarvoor naar de ",
+        p(HTML("Wijzigingen kunnen hier niet aangebracht worden. Ook zijn <strong>kortingen niet zichtbaar</strong>. Ga daarvoor naar de "),
           a(href = "https://www.plus.nl/winkelwagen",
             target= "_blank",
             "online winkelwagen", .noWS = "outside"), "."),
         br(),
-        h4(HTML(paste0("<strong>Totale prijs:</strong> ", as_euro(sum(total_price, na.rm = TRUE))))),
+        h4(HTML(paste0("<strong>Totale prijs:</strong> ", as_euro(sum(total_price, na.rm = TRUE)), " <small>(zonder kortingen)</small>"))),
         p(HTML(paste0("<strong>Totaal artikelen:</strong> ", total_items, " (uniek: ", unique_items, ")"))),
         actionButton("checkout", "Afrekenen bij PLUS.nl", class = "btn-success", icon = icon("right-from-bracket")),
         actionButton("refresh_online_cart", "Vernieuwen", icon = icon("refresh")),
@@ -1124,11 +1172,19 @@ shinyplus <- function() {
                                     "<i class='fas fa-right-from-bracket'></i></a>")),
                name_unit = paste0(product, " (", unit, ")"),
                price = as_euro(price),
-               price_total = as_euro(price_total)) |>
+               price_total = as_euro(price_total),
+               per_kg_l_st = as_euro(per_kg_l_st)) |>
         as_tibble()
 
+
       display_cart <- cart |>
-        select(" " = img, Artikel = name_unit, Prijs = price, Aantal = quantity, Totaal = price_total, Artikelinfo = url)
+        select(" " = img,
+               Artikel = name_unit,
+               Prijs = price,
+               "Per kg|L|st" = per_kg_l_st,
+               Aantal = quantity,
+               Totaal = price_total,
+               Artikelinfo = url)
 
       datatable(
         display_cart,
@@ -1140,7 +1196,7 @@ shinyplus <- function() {
           columnDefs = list(
             list(className = 'dt-center', targets = 0),
             list(className = 'dt-left', targets = 1),
-            list(className = 'dt-center', targets = 2:5)
+            list(className = 'dt-center', targets = 2:6)
           ),
           stripeClasses = NULL # remove row striping
         )

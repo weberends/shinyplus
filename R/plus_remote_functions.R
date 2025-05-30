@@ -135,7 +135,7 @@ plus_add_products <- function(x, quantity = 1, info = interactive(), ...) {
   urls <- plus_get_urls(x, ..., info = info)
 
   for (i in seq_along(x)) {
-    cli_progress_message("Adding {.url {urls[i]}}...")
+    if (info) cli_progress_message("Adding {.url {urls[i]}}...")
     tryCatch({
       open_url_if_not_already_there(urls[i])
       wait_for_element("button.gtm-add-to-cart")
@@ -191,6 +191,8 @@ plus_get_urls <- function(x, ..., info = interactive(), b = plus_env$browser, of
 }
 
 #' @rdname plus_remote_functions
+#' @importFrom tibble tibble
+#' @importFrom dplyr case_when mutate
 #' @export
 plus_current_cart <- function(..., info = interactive()) {
   if (!plus_ascertain_logged_in(info = info)) return(invisible())
@@ -228,9 +230,18 @@ plus_current_cart <- function(..., info = interactive()) {
     product = vapply(FUN.VALUE = character(1), cart_data, function(e) as.character(e$name)),
     unit = format_unit(vapply(FUN.VALUE = character(1), cart_data, function(e) as.character(e$unit))),
     price = vapply(FUN.VALUE = double(1), cart_data, function(e) as.double(e$price)),
-    quantity = vapply(FUN.VALUE = integer(1), cart_data, function(e) as.integer(e$quantity)),
-    price_total = round(price * quantity, 2)
+    quantity = vapply(FUN.VALUE = integer(1), cart_data, function(e) as.integer(e$quantity))
   )
+
+  out <- out |>
+    mutate(
+      unit_dbl = as.double(gsub("[^0-9.,]", "", gsub(",", ".", unit))),
+      unit_fct = case_when(grepl(" (g|ml)$", unit) ~ unit_dbl / 1000,
+                           grepl(" (kg|L|st)$", unit) ~ unit_dbl,
+                           .default = 1),
+      per_kg_l_st = price / unit_fct,
+      price_total = round(price * quantity, 2)) |>
+    select(-c(unit_dbl, unit_fct))
 
   structure(out,
             class = c("plus_cart", class(out)))

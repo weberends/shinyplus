@@ -87,19 +87,27 @@ get_sales <- function() {
     url <- item |> html_attr("href")
     sale_tbl[i, "is_product"] <- grepl("^/product/", url)
     sale_tbl[i, "url"] <- url
-    img <- item |> html_element("img") |> html_attr("src") |> gsub("[?].*$", "", x = _)
+    img <- item |> html_element(".plp-item-image") |> html_element("img") |> html_attr("src") |> gsub("[?].*$", "", x = _)
     if (grepl("^//", img)) {
       img <- paste0("https:", img)
     }
     sale_tbl[i, "img"] <- img
   }
 
-  sale_tbl <- sale_tbl |> filter(!is.na(name))
+  sale_tbl <- sale_tbl |> filter(!trimws(name) %in% c("", NA))
 
   structure(sale_tbl,
             promo_period = promo_period)
 }
 
+escape_js_string <- function(x) {
+  x <- gsub("&", "&amp;", x, fixed = TRUE)
+  x <- gsub("<", "&lt;",  x, fixed = TRUE)
+  x <- gsub(">", "&gt;",  x, fixed = TRUE)
+  x <- gsub("\"", "&quot;", x, fixed = TRUE)
+  x <- gsub("'", "&#39;", x, fixed = TRUE)
+  x
+}
 
 # AMR:::get_n_cores()
 # get_n_cores <- function(max_cores = Inf) {
