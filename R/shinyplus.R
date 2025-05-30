@@ -236,6 +236,23 @@ shinyplus <- function() {
         max-height: 500px !important;  /* same as .card.stretch-with-margin */
       }
 
+      #fixed-column {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 120px);
+        overflow: hidden;
+      }
+      #fixed-list {
+        flex-grow: 1;
+        overflow-y: auto;
+        min-height: 0; /* required for flex child to shrink correctly */
+        margin-bottom: 1rem;
+      }
+      #fixed-column > .card:first-child,
+      #fixed-column > .card:last-child {
+        flex-shrink: 0;
+      }
+
       #sale-list {
         height: 65vh;
       }
@@ -338,15 +355,17 @@ shinyplus <- function() {
                                uiOutput("sale_items_ui2"),
                           ),
                    ),
-                   column(5,
+                   column(5, id = "fixed-column",
                           card(class = "basket-card-3",
                                h3("3. Vaste boodschappen"), ## 3. Vast ----
-
-                               h5("Selecteer uit je vaste producten:"),
-                               uiOutput("fixed_items_ui"),
                                actionButton("add_fixed_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping")),
                                actionButton("fixed_to_zero", "Alles op nul zetten", icon = icon("rotate-left")),
-                               hr(),
+                          ),
+                          card(class = "basket-card-3", id = "fixed-list",
+                               h5("Selecteer uit je vaste producten:"),
+                               uiOutput("fixed_items_ui"),
+                          ),
+                          card(class = "basket-card-3",
                                h5("Beheer vaste producten:"),
                                selectizeInput('add_fixed_product', NULL, choices = NULL, width = "100%"),
                                actionButton("add_fixed_product_button", "Toevoegen aan vaste producten", icon = icon("plus")),
@@ -996,7 +1015,7 @@ shinyplus <- function() {
       req(nrow(values$basket) > 0)
       current <- values$basket
 
-      base_levels <- c("Weekmenu", "Vast", "Extra")
+      base_levels <- c("Weekmenu", "Aanbieding", "Vast", "Extra")
       other_levels <- setdiff(sort(unique(values$basket$label)), base_levels)
       all_levels <- c(base_levels, other_levels)
 
