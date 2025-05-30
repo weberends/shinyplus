@@ -34,24 +34,24 @@
 #' @inheritSection shinyplus-package Disclaimer
 #' @export
 update_product_list_from_html <- function(html_txt) {
-  items_html <- paste(html_txt, collapse = "") |> rvest::read_html() |> rvest::html_element(".plp-results-list") |> rvest::html_elements("a")
+  items_html <- paste(html_txt, collapse = "") |> read_html() |> html_element(".plp-results-list") |> html_elements("a")
   new_product_list <- tibble()
 
   cli_alert_info("{length(items_html)} products in clipboard.")
 
   for (i in seq_along(items_html)) {
     item <- items_html[[i]]
-    unit <- item |> rvest::html_element(".plp-item-complementary") |> rvest::html_children()
+    unit <- item |> html_element(".plp-item-complementary") |> html_children()
     if (length(unit) == 0) {
       new_product_list[i, "name"] <- NA_character_
       next
     }
 
-    new_product_list[i, "name"] <- item |> rvest::html_element(".plp-item-name") |> rvest::html_text()
-    unit <- unit[[1]] |> rvest::html_text() |> format_unit()
+    new_product_list[i, "name"] <- item |> html_element(".plp-item-name") |> html_text()
+    unit <- unit[[1]] |> html_text() |> format_unit()
     new_product_list[i, "unit"] <- unit
-    new_product_list[i, "url"] <- item |> rvest::html_attr("href")
-    new_product_list[i, "img"] <- item |> rvest::html_element("img") |> rvest::html_attr("src") |> gsub("[?].*$", "", x = _)
+    new_product_list[i, "url"] <- item |> html_attr("href")
+    new_product_list[i, "img"] <- item |> html_element("img") |> html_attr("src") |> gsub("[?].*$", "", x = _)
   }
   new_product_list <- new_product_list |> filter(!is.na(name))
 

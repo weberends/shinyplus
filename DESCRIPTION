@@ -21,6 +21,7 @@ Imports:
   pillar,
   rvest,
   shiny,
+  shinyjs,
   stringr,
   tibble,
   yaml

@@ -214,6 +214,7 @@ plus_current_cart <- function(..., info = interactive()) {
   }
 
   cart_data <- get_cart()
+
   i <- 1
   if (length(cart_data) > 0 && all(is.na(vapply(FUN.VALUE = integer(1), cart_data, function(e) as.integer(e$quantity))))) {
     while (i <= 10 && length(cart_data) != 0 && all(is.na(vapply(FUN.VALUE = integer(1), cart_data, function(e) as.integer(e$quantity))))) {
@@ -230,7 +231,9 @@ plus_current_cart <- function(..., info = interactive()) {
     quantity = vapply(FUN.VALUE = integer(1), cart_data, function(e) as.integer(e$quantity)),
     price_total = round(price * quantity, 2)
   )
-  structure(out, class = c("plus_cart", class(out)))
+
+  structure(out,
+            class = c("plus_cart", class(out)))
 }
 
 #' @importFrom pillar tbl_sum
