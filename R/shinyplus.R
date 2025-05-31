@@ -1298,7 +1298,8 @@ shinyplus <- function() {
     observeEvent(input$dish_name, {
       req(input$dish_id)
       values$dishes <- values$dishes |>
-        mutate(name = if_else(dish_id == input$dish_id, input$dish_name, name))
+        mutate(name = if_else(dish_id == input$dish_id, input$dish_name, name)) |>
+        arrange(name)
       saveRDS(values$dishes, dishes_file())
     })
     observeEvent(input$dish_days, {
@@ -1330,7 +1331,7 @@ shinyplus <- function() {
     observeEvent(input$selected_dish, {
       sel <- values$dishes |> filter(dish_id == input$selected_dish)
       if (nrow(sel) != 1) return()
-      updateNumericInput(session, "dish_id", value = sel$dish_id)
+      updateNumericInput(session, "dish_id", value = input$selected_dish)
       updateTextInput(session, "dish_name", value = sel$name)
       updateCheckboxGroupInput(session, "dish_days", selected = unlist(strsplit(sel$days, ",")))
       updateRadioButtons(session, "dish_preptime", selected = sel$preptime)
