@@ -15,9 +15,9 @@ globalVariables(c("Artikel",
                   "unit",
                   "vegetables"))
 
-as_euro <- function(x) {
+as_euro <- function(x, trim = FALSE) {
   x.bak <- x
-  out <- paste("\u20ac", trimws(format(round(as.numeric(gsub(",", ".", x, fixed = TRUE)), 2), nsmall = 2, decimal.mark = ",", big.mark = ".")))
+  out <- paste0("\u20ac", ifelse(trim, "", " "), trimws(format(round(as.numeric(gsub(",", ".", x, fixed = TRUE)), 2), nsmall = 2, decimal.mark = ",", big.mark = ".")))
   out[x.bak %in% c("", NA)] <- ""
   out
 }

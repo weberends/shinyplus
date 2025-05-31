@@ -33,7 +33,7 @@
 #' @importFrom dplyr filter pull mutate select arrange desc inner_join bind_rows distinct if_else left_join count row_number
 #' @importFrom tibble tibble as_tibble
 #' @importFrom stringr str_detect
-#' @importFrom DT datatable DTOutput renderDT
+#' @importFrom DT datatable DTOutput renderDT formatCurrency
 #' @importFrom cli symbol
 #' @importFrom shinyjs hide show useShinyjs runjs
 #' @encoding UTF-8
@@ -311,6 +311,9 @@ shinyplus <- function() {
         font-size: 0.9rem;
       }
 
+      #online_cart_table td:nth-child(6) {
+        font-weight: bold;
+      }
     ")),
     div(id = "background-image"),
     theme = bs_theme(version = 5, base_font = font_google("Open Sans")),
@@ -385,7 +388,7 @@ shinyplus <- function() {
                )
       ),
 
-      tabPanel("Mandje en PLUS Winkelwagen", # UI: PLUS Cart ----
+      tabPanel("Mandje en PLUS Winkelwagen", # UI: Mandje & PLUS Cart ----
                fluidRow(
                  column(5,
                         card(class = "basket-card-4 stretch-with-margin",
@@ -404,7 +407,8 @@ shinyplus <- function() {
                  ),
                  column(5,
                         uiOutput("online_cart_summary"),
-                        br(), br(),
+                        br(),
+                        br(),
                         DTOutput("online_cart_table"),
                  )
                )
@@ -428,13 +432,13 @@ shinyplus <- function() {
                           div(style = "display: none;", numericInput("dish_id", NULL, value = 0)),
                           textInput("dish_name", "Naam gerecht:"),
                           checkboxGroupInput("dish_days", "Geschikt voor:", choices = c("Doordeweeks", "Weekend"), selected = NULL),
-                          radioButtons("dish_preptime", "Bereidingstijd (minuten):",
+                          radioButtons("dish_preptime", "Bereidingstijd:",
                                        choices = c(20, 40, 60, 120) |>
                                          # stats::setNames(c("\U0001F552\U0001F642 = tot 20 minuten",
                                          #                   "\U0001F552\U0001F610 = 20-40 minuten",
                                          #                   "\U0001F552\U0001F641 = 40-60 minuten",
                                          #                   "\U0001F552\U0001F975 = 60+ minuten")),
-                                         stats::setNames(c("0+20 minuten",
+                                         stats::setNames(c("0-20 minuten",
                                                            "20-40 minuten",
                                                            "40-60 minuten",
                                                            "60+ minuten")),
@@ -671,7 +675,7 @@ shinyplus <- function() {
                 .noWS = "outside"),
               HTML(".</small>"))
           else
-            p(HTML("<small>Inloggegevens ingevuld op basis van instelling <code>plus_credentials</code>.</small>"), class = "text-danger"),
+            p(HTML("<small>Inloggegevens vooraf ingevuld op basis van instelling <code>plus_credentials</code>.</small>")),
           p(HTML(paste0("Email: <strong>", plus_env$email, "</strong>"))),
           passwordInput("login_password", "Wachtwoord", value = creds$password),
           actionButton("do_login", "Inloggen bij PLUS.nl", class = "btn-success", icon = icon("right-to-bracket"))
@@ -698,6 +702,7 @@ shinyplus <- function() {
     })
 
     observeEvent(input$do_login, {
+      hide("login_password")
       hide("do_login")
       creds <- list(email = plus_env$email, password = input$login_password)
       tryCatch({
@@ -707,6 +712,7 @@ shinyplus <- function() {
         values$credentials <- creds
         showNotification("Succesvol ingelogd.", type = "message")
       }, error = function(e) {
+        show("login_password")
         show("do_login")
         values$logged_in <- FALSE
         showNotification(
@@ -1070,6 +1076,23 @@ shinyplus <- function() {
       req(nrow(values$basket) > 0)
 
       showModal(modalDialog(
+        title = "In PLUS Winkelwagen plaatsen",
+        p(paste("Weet je zeker dat je",
+                ifelse(NROW(values$basket) == 1,
+                       "dit artikel",
+                       paste("deze", NROW(values$basket), "artikelen")),
+                "in de PLUS Winkelwagen wilt plaatsen? Dit kan even duren.")),
+        footer = tagList(
+          modalButton("Annuleren"),
+          actionButton("confirm_send_basket", "OK", class = "btn-primary")
+        )
+      ))
+    })
+
+    observeEvent(input$confirm_send_basket, {
+      removeModal()
+
+      showModal(modalDialog(
         title = "In PLUS Winkelwagen plaatsen...",
         tagList(
           div(
@@ -1115,6 +1138,11 @@ shinyplus <- function() {
 
       # Refresh cart summary + table
       values$online_cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
+      if (is.null(values$online_cart)) {
+        showNotification("PLUS Winkelwagen niet up-to-date, vernieuwen...", type = "message")
+        Sys.sleep(2)
+        values$online_cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
+      }
     })
 
     observeEvent(input$clear_basket, {
@@ -1136,20 +1164,22 @@ shinyplus <- function() {
 
       total_items <- sum(values$online_cart$quantity, na.rm = TRUE)
       unique_items <- nrow(values$online_cart)
-      total_price <- sum(values$online_cart$price_total, na.rm = TRUE)
+      original_total <- sum(values$online_cart$price_total, na.rm = TRUE)
+      actual_total <- attributes(values$online_cart)$final_total
+      saving_pct <- round(((original_total - actual_total) / original_total) * 100, 1)
 
       tagList(
         h3("PLUS Winkelwagen"),
-        p("De inhoud van deze winkelwagen is opgehaald van ",
+        p("De inhoud van deze winkelwagen is opgehaald van de ",
           a(href = "https://www.plus.nl/winkelwagen",
             target= "_blank",
-            "www.plus.nl/winkelwagen", .noWS = "outside"), "."),
-        p(HTML("Wijzigingen kunnen hier niet aangebracht worden. Ook zijn <strong>kortingen niet zichtbaar</strong>. Ga daarvoor naar de "),
-          a(href = "https://www.plus.nl/winkelwagen",
-            target= "_blank",
-            "online winkelwagen", .noWS = "outside"), "."),
+            "online PLUS Winkelwagen", .noWS = "outside"),
+          ". Wijzigingen kunnen alleen daar worden aangebracht."),
         br(),
-        h4(HTML(paste0("<strong>Totale prijs:</strong> ", as_euro(sum(total_price, na.rm = TRUE)), " <small>(zonder kortingen)</small>"))),
+        h4(HTML(paste0("<strong>Totale prijs:</strong> ",
+                       as_euro(sum(actual_total, na.rm = TRUE)),
+                       ifelse(original_total != actual_total, paste0(" <span class='price-previous'>", as_euro(original_total), "</span>"))))),
+        p(HTML(paste0("<strong>Korting:</strong> ", as_euro(original_total - actual_total), " (", format(saving_pct, nsmall = 1, big.interval = ".", decimal.mark = ","), "%)"))),
         p(HTML(paste0("<strong>Totaal artikelen:</strong> ", total_items, " (uniek: ", unique_items, ")"))),
         actionButton("checkout", "Afrekenen bij PLUS.nl", class = "btn-success", icon = icon("right-from-bracket")),
         actionButton("refresh_online_cart", "Vernieuwen", icon = icon("refresh")),
@@ -1170,10 +1200,7 @@ shinyplus <- function() {
                url = if_else(is.na(url), url,
                              paste0("<a href='https://www.plus.nl", url, "' target='_blank'>",
                                     "<i class='fas fa-right-from-bracket'></i></a>")),
-               name_unit = paste0(product, " (", unit, ")"),
-               price = as_euro(price),
-               price_total = as_euro(price_total),
-               per_kg_l_st = as_euro(per_kg_l_st)) |>
+               name_unit = paste0(product, " (", unit, ")")) |>
         as_tibble()
 
 
@@ -1200,7 +1227,9 @@ shinyplus <- function() {
           ),
           stripeClasses = NULL # remove row striping
         )
-      )
+      ) |>
+        formatCurrency(columns = c("Prijs", "Per kg|L|st", "Totaal"),
+                       currency = "\u20ac ", mark = ".", dec.mark = ",", digits = 2)
     })
 
     observeEvent(input$checkout, {
@@ -1210,6 +1239,11 @@ shinyplus <- function() {
     observeEvent(input$refresh_online_cart, {
       req(values$logged_in)
       values$online_cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
+      if (is.null(values$online_cart)) {
+        showNotification("PLUS Winkelwagen niet up-to-date, vernieuwen...", type = "message")
+        Sys.sleep(3)
+        values$online_cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
+      }
     })
 
 
@@ -1228,7 +1262,7 @@ shinyplus <- function() {
       updateSelectInput(
         session,
         "selected_dish",
-        choices = sort(choices),
+        choices = choices, # critical
         selected = if (current_id %in% values$dishes$dish_id) current_id else NULL
       )
     })
@@ -1247,7 +1281,8 @@ shinyplus <- function() {
         preptime = 20,
         vegetables = 0,
         meat = "Vegetarisch"
-      ))
+      )) |>
+        arrange(name)
       updateTextInput(session, "new_dish_name", value = "")
       values$new_dish_name <- input$new_dish_name
       updateSelectInput(session, "selected_dish", selected = new_id)

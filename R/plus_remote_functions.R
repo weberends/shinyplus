@@ -59,6 +59,10 @@ plus_login <- function(credentials = getOption("plus_credentials", default = sys
     if (!identical(login_url, plus_current_url(plus_env$browser)) && !grepl("aanmelden.plus.nl", plus_current_url(plus_env$browser), fixed = TRUE)) {
       # already logged in
       plus_env$email <- email
+      if (is.null(plus_env$browser_cart)) {
+        plus_env$browser_cart <- plus_env$browser$new_session()
+        open_url_if_not_already_there("https://www.plus.nl/winkelwagen", b = plus_env$browser_cart)
+      }
       if (info) cli_alert_success("Already logged in as {.val {plus_env$email}}.")
       return(invisible(TRUE))
     }
@@ -80,6 +84,8 @@ plus_login <- function(credentials = getOption("plus_credentials", default = sys
   if (info) cli_progress_message("Logged in, redirecting to PLUS home page...")
   # wait_for_element(".input-search input")
   plus_env$email <- email
+  plus_env$browser_cart <- plus_env$browser$new_session()
+  open_url_if_not_already_there("https://www.plus.nl/winkelwagen", b = plus_env$browser_cart)
   if (info) cli_alert_success("Succesfully logged in as {.val {plus_env$email}}.")
   return(invisible(TRUE))
 }
@@ -195,56 +201,56 @@ plus_get_urls <- function(x, ..., info = interactive(), b = plus_env$browser, of
 #' @importFrom dplyr case_when mutate
 #' @export
 plus_current_cart <- function(..., info = interactive()) {
-  if (!plus_ascertain_logged_in(info = info)) return(invisible())
+  if (!plus_ascertain_logged_in(info = info)) return(invisible(NULL))
 
-  # go to the cart page
-  open_url_if_not_already_there("https://www.plus.nl/winkelwagen")
+  if (is.null(plus_env$browser_cart)) {
+    plus_env$browser_cart <- plus_env$browser$new_session()
+    open_url_if_not_already_there("https://www.plus.nl/winkelwagen", b = plus_env$browser_cart)
+  }
+
+  # refresh cart page
+  plus_env$browser_cart$Page$reload()
+  wait_for_element("body", b = plus_env$browser_cart) # minimal page check
   # first wait for page to load
-  wait_for_element(".cart-title-wrapper h1")
-  # items are not loaded yet, run script until quantities appear
-  get_cart <- function() {
-    cart <- plus_env$browser$Runtime$evaluate("
-      Array.from(document.querySelectorAll('.cart-item-wrapper')).map(item => {
-        var name = item.querySelector('.cart-item-name span')?.textContent.trim() || '';
-        var unit = item.querySelector('.cart-item-complementary span')?.textContent.trim() || '';
-        var price = item.querySelector('.cart-item-price span')?.textContent.trim() || '';
-        var quantity = item.querySelector('.cart-item-quantity span')?.textContent.trim() || '';
-        return { name, unit, price, quantity };
-      })
-    ", returnByValue = TRUE)$result$value
-    cart[vapply(FUN.VALUE = logical(1), cart, function(e) e$name != "")]
-  }
+  wait_for_element(".cart-title-wrapper h1", b = plus_env$browser_cart)
 
-  cart_data <- get_cart()
+  html <- plus_env$browser_cart$Runtime$evaluate("document.documentElement.outerHTML", returnByValue = TRUE)$result$value
+  doc <- read_html(html)
+  items <- doc |> html_elements(".cart-item-wrapper")
 
-  i <- 1
-  if (length(cart_data) > 0 && all(is.na(vapply(FUN.VALUE = integer(1), cart_data, function(e) as.integer(e$quantity))))) {
-    while (i <= 10 && length(cart_data) != 0 && all(is.na(vapply(FUN.VALUE = integer(1), cart_data, function(e) as.integer(e$quantity))))) {
-      cart_data <- get_cart()
-      Sys.sleep(0.2)
-      i <- i + 1
-    }
-  }
+  final_total <- doc |>
+    html_element(".total-receipt-item") |>
+    html_text() |>
+    gsub(".*?([0-9]+[.,][0-9]+)$", "\\1", x = _) |>
+    as.numeric()
 
-  out <- tibble(
-    product = vapply(FUN.VALUE = character(1), cart_data, function(e) as.character(e$name)),
-    unit = format_unit(vapply(FUN.VALUE = character(1), cart_data, function(e) as.character(e$unit))),
-    price = vapply(FUN.VALUE = double(1), cart_data, function(e) as.double(e$price)),
-    quantity = vapply(FUN.VALUE = integer(1), cart_data, function(e) as.integer(e$quantity))
+  cart_data <- tibble(
+    product = items |> html_element(".cart-item-name span") |> html_text2(),
+    unit = items |> html_element(".cart-item-complementary span") |> html_text2(),
+    price = items |> html_element(".cart-item-price span") |> html_text2() |>
+      gsub("[^0-9,\\.]", "", x = _) |> gsub(",", ".", x = _) |> as.double(),
+    quantity = items |> html_element(".cart-item-quantity span") |> html_text2() |>
+      as.integer()
   )
 
-  out <- out |>
+  cart_data <- cart_data |>
+    filter(!is.na(product), nzchar(product)) |>
     mutate(
+      unit = format_unit(unit),
       unit_dbl = as.double(gsub("[^0-9.,]", "", gsub(",", ".", unit))),
-      unit_fct = case_when(grepl(" (g|ml)$", unit) ~ unit_dbl / 1000,
-                           grepl(" (kg|L|st)$", unit) ~ unit_dbl,
-                           .default = 1),
+      unit_fct = case_when(
+        grepl(" (g|ml)$", unit) ~ unit_dbl / 1000,
+        grepl(" (kg|L|st)$", unit) ~ unit_dbl,
+        .default = 1
+      ),
       per_kg_l_st = price / unit_fct,
-      price_total = round(price * quantity, 2)) |>
-    select(-c(unit_dbl, unit_fct))
+      price_total = round(price * quantity, 2)
+    ) |>
+    select(-unit_dbl, -unit_fct)
 
-  structure(out,
-            class = c("plus_cart", class(out)))
+  structure(cart_data,
+            class = c("plus_cart", class(cart_data)),
+            final_total = final_total)
 }
 
 #' @importFrom pillar tbl_sum
@@ -252,10 +258,15 @@ plus_current_cart <- function(..., info = interactive()) {
 tbl_sum.plus_cart<- function(x, ...) {
   cross_icon <- if (isTRUE(base::l10n_info()$`UTF-8`)) "\u00d7" else "x"
   dims <- paste(format(NROW(x), big.mark = ","), cross_icon, format(NCOL(x), big.mark = ","))
-  names(dims) <- "A PLUS cart"
-  dims <- c(dims, "Total Products" = paste0(sum(x$quantity, na.rm = TRUE), " (unique: ", NROW(x), ")"))
-  dims <- c(dims, "Total Price" = paste0("\u20AC ", format(round(sum(x$price_total, na.rm = TRUE), 2), nsmall = 2)))
-  dims <- c(dims, Account = plus_env$email)
+  names(dims) <- "A PLUS Cart"
+  dims <- c(
+    dims,
+    "Total Items"      = paste0(sum(x$quantity, na.rm = TRUE), " (unique products: ", NROW(x), ")"),
+    "Original Total"   = as_euro(sum(x$price_total, na.rm = TRUE), trim = TRUE),
+    "Savings"          = as_euro(sum(x$price_total, na.rm = TRUE) - attributes(x)$final_total, trim = TRUE),
+    "Final Total"      = as_euro(attributes(x)$final_total, trim = TRUE),
+    "Account"          = plus_env$email
+  )
   dims
 }
 
