@@ -52,23 +52,35 @@ shinyplus <- function() {
       });
     "))),
     tags$head(
-      tags$style(HTML("
-        #background-image {
-          position: fixed;
-          top: 0; left: 0;
-          width: 100vw;
-          height: 100vh;
-          background-image: url('https://upload.wikimedia.org/wikipedia/commons/2/2f/Plus_supermarkt_Delft.jpg');
-          /* background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/Truck_Spotting_on_the_A58_E312_Direction_Kruiningen-Netherlands_16_04_2020._%2849781332681%29.jpg/1280px-Truck_Spotting_on_the_A58_E312_Direction_Kruiningen-Netherlands_16_04_2020._%2849781332681%29.jpg'); */
-          background-size: cover;
-          background-position: center;
-          opacity: 0.05;
-          z-index: -1;
-        }
-      "))
+      # tags$style(HTML("
+      #   #background-image {
+      #     position: fixed;
+      #     top: 0; left: 0;
+      #     width: 100vw;
+      #     height: 100vh;
+      #     background-image: url('https://upload.wikimedia.org/wikipedia/commons/2/2f/Plus_supermarkt_Delft.jpg');
+      #     /* background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/Truck_Spotting_on_the_A58_E312_Direction_Kruiningen-Netherlands_16_04_2020._%2849781332681%29.jpg/1280px-Truck_Spotting_on_the_A58_E312_Direction_Kruiningen-Netherlands_16_04_2020._%2849781332681%29.jpg'); */
+      #     background-size: cover;
+      #     background-position: center;
+      #     opacity: 0.05;
+      #     z-index: -1;
+      #   }
+      # "))
     ),
     tags$script(HTML("
       Shiny.addCustomMessageHandler('updateSelectizeChoices', function(message) {
+        var input = $('#' + message.inputId)[0];
+        if (input && input.selectize) {
+          input.selectize.clearOptions();
+          message.choices.forEach(function(opt) {
+            input.selectize.addOption(opt);
+          });
+          input.selectize.refreshOptions(false);
+        }
+      });
+    ")),
+    tags$script(HTML("
+      Shiny.addCustomMessageHandler('updateSelectizeProductList', function(message) {
         var input = $('#' + message.inputId)[0];
         if (input && input.selectize) {
           input.selectize.clearOptions();
@@ -208,18 +220,18 @@ shinyplus <- function() {
         padding: 5px;
       }
 
-      .selectize-dropdown .option {
+      .dish-selector .selectize-dropdown .option {
         padding: 6px 12px !important;  /* More left/right padding */
         font-weight: normal !important;  /* Not bold */
       }
 
-      .selectize-dropdown .option:hover,
-      .selectize-dropdown .option.active {
+      .dish-selector .selectize-dropdown .option:hover,
+      .dish-selector .selectize-dropdown .option.active {
         background-color: #f0f0f0 !important;  /* Minimalist grey */
         color: #000 !important;
       }
 
-      .selectize-input, .selectize-dropdown {
+      .dish-selector .selectize-input, .selectize-dropdown {
         font-size: 0.9rem;
       }
 
@@ -328,30 +340,32 @@ shinyplus <- function() {
                    column(2,
                           card(class = "basket-card-1",
                                h3("1. Weekmenu"), ## 1. Weekmenu ----
-                               lapply(weekdays_list, function(day) {
-                                 selectizeInput(
-                                   inputId = paste0("dish_day_", day),
-                                   label = day,
-                                   width = "100%",
-                                   choices = NULL,
-                                   options = list(
-                                     render = I("
-                                    {
-                                      option: function(item, escape) {
-                                        return '<div style=\"padding-left: 5px;\">' +
-                                                 '' + escape(item.label) + '<br>' +
-                                                 '<small style=\"opacity: 0.8; padding-left: 20px;\">' +
-                                                 item.subtext + '</small>' +
-                                               '</div>';
-                                      },
-                                      item: function(item, escape) {
-                                        return '<div>' + escape(item.label) + '</div>';
-                                      }
-                                    }
-                                  ")
-                                   )
-                                 )
-                               }),
+                               div(class = "dish-selector",
+                                   lapply(weekdays_list, function(day) {
+                                     selectizeInput(
+                                       inputId = paste0("dish_day_", day),
+                                       label = day,
+                                       width = "100%",
+                                       choices = NULL,
+                                       options = list(
+                                         render = I("
+                                          {
+                                            option: function(item, escape) {
+                                              return '<div style=\"padding-left: 5px;\">' +
+                                                       '' + escape(item.label) + '<br>' +
+                                                       '<small style=\"opacity: 0.8; padding-left: 20px;\">' +
+                                                       item.subtext + '</small>' +
+                                                     '</div>';
+                                            },
+                                            item: function(item, escape) {
+                                              return '<div>' + escape(item.label) + '</div>';
+                                            }
+                                          }
+                                        ")
+                                       )
+                                     )
+                                   })
+                               ),
                                # actionButton("save_weekplan", "Weekmenu opslaan", icon = icon("save")),
                                actionButton("add_weekplan_products_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping")),
                                radioButtons("sort_dishes", "Gerechten sorteren op", choices = c("Bereidingstijd", "Naam", "Hoeveelheid groenten", "Type vlees"), selected = "Bereidingstijd", width = "100%"),
@@ -379,7 +393,34 @@ shinyplus <- function() {
                           ),
                           card(class = "basket-card-3",
                                h5("Beheer vaste producten:"),
-                               selectizeInput('add_fixed_product', NULL, choices = NULL, width = "100%"),
+                               selectizeInput('add_fixed_product', NULL,
+                                              choices = NULL,
+                                              width = "100%",
+                                              options = list(
+                                                placeholder = 'Type om te zoeken...',
+                                                dropdownParent = 'body',
+                                                onInitialize = I('function() { this.setValue(""); }'),
+                                                inputAttr = list(
+                                                  autocomplete = "off",
+                                                  autocorrect = "off",
+                                                  autocapitalize = "off",
+                                                  spellcheck = "false"
+                                                ),
+                                                render = I("{
+                                                  option: function(item, escape) {
+                                                    return '<div class=\"product-option\" style=\"display: flex; align-items: center; height: 50px;\">' +
+                                                             '<img src=\"' + escape(item.img) + '\" style=\"height: 40px; width: 40px; object-fit: contain; margin-right: 10px;\" />' +
+                                                             '<div style=\"flex: 1; min-width: 0;\">' +
+                                                               '<div style=\"font-weight: normal; text-align: left;\">' + escape(item.label) + '</div>' +
+                                                               '<div style=\"color: grey; font-size: 0.8em; text-align: left;\">' + escape(item.subtext) + '</div>' +
+                                                             '</div>' +
+                                                           '</div>';
+                                                  },
+                                                  item: function(item, escape) {
+                                                    return '<div>' + escape(item.label) + '</div>';
+                                                  }
+                                                }")
+                                              )),
                                actionButton("add_fixed_product_button", "Toevoegen aan vaste producten", icon = icon("plus")),
                                actionButton("remove_fixed_product_button", "Verwijderen uit vaste producten", icon = icon("trash"))
                           )
@@ -394,7 +435,34 @@ shinyplus <- function() {
                         card(class = "basket-card-4 stretch-with-margin",
                              h3("4. Mandje"),
                              uiOutput("basket_overview_table"),
-                             selectizeInput('add_extra_product', "Extra artikel toevoegen:", choices = NULL, width = "100%"),
+                             selectizeInput('add_extra_product', "Extra artikel toevoegen:",
+                                            choices = NULL,
+                                            width = "100%",
+                                            options = list(
+                                              placeholder = 'Type om te zoeken...',
+                                              dropdownParent = 'body',
+                                              onInitialize = I('function() { this.setValue(""); }'),
+                                              inputAttr = list(
+                                                autocomplete = "off",
+                                                autocorrect = "off",
+                                                autocapitalize = "off",
+                                                spellcheck = "false"
+                                              ),
+                                              render = I("{
+                                                  option: function(item, escape) {
+                                                    return '<div class=\"product-option\" style=\"display: flex; align-items: center; height: 50px;\">' +
+                                                             '<img src=\"' + escape(item.img) + '\" style=\"height: 40px; width: 40px; object-fit: contain; margin-right: 10px;\" />' +
+                                                             '<div style=\"flex: 1; min-width: 0;\">' +
+                                                               '<div style=\"font-weight: normal; text-align: left;\">' + escape(item.label) + '</div>' +
+                                                               '<div style=\"color: grey; font-size: 0.8em; text-align: left;\">' + escape(item.subtext) + '</div>' +
+                                                             '</div>' +
+                                                           '</div>';
+                                                  },
+                                                  item: function(item, escape) {
+                                                    return '<div>' + escape(item.label) + '</div>';
+                                                  }
+                                                }")
+                                            )),
                              hr(),
                              fluidRow(
                                column(4, actionButton("sort_basket_name", "Op naam", icon = icon("arrow-down-a-z"), width = "100%")),
@@ -471,7 +539,34 @@ shinyplus <- function() {
                  column(6,
                         wellPanel(
                           h5("Ingredi\u00EBnten bewerken"),
-                          selectizeInput('ingredient_url', "Ingredi\u00EBnt", choices = NULL, width = "100%"),
+                          selectizeInput('ingredient_url', "Ingredi\u00EBnt",
+                                         choices = NULL,
+                                         width = "100%",
+                                         options = list(
+                                           placeholder = 'Type om te zoeken...',
+                                           dropdownParent = 'body',
+                                           onInitialize = I('function() { this.setValue(""); }'),
+                                           inputAttr = list(
+                                             autocomplete = "off",
+                                             autocorrect = "off",
+                                             autocapitalize = "off",
+                                             spellcheck = "false"
+                                           ),
+                                           render = I("{
+                                                  option: function(item, escape) {
+                                                    return '<div class=\"product-option\" style=\"display: flex; align-items: center; height: 50px;\">' +
+                                                             '<img src=\"' + escape(item.img) + '\" style=\"height: 40px; width: 40px; object-fit: contain; margin-right: 10px;\" />' +
+                                                             '<div style=\"flex: 1; min-width: 0;\">' +
+                                                               '<div style=\"font-weight: normal; text-align: left;\">' + escape(item.label) + '</div>' +
+                                                               '<div style=\"color: grey; font-size: 0.8em; text-align: left;\">' + escape(item.subtext) + '</div>' +
+                                                             '</div>' +
+                                                           '</div>';
+                                                  },
+                                                  item: function(item, escape) {
+                                                    return '<div>' + escape(item.label) + '</div>';
+                                                  }
+                                                }")
+                                         )),
                           numericInput("ingredient_quantity", "Aantal", 1),
                           actionButton("add_ingredient", "Toevoegen", icon = icon("plus")),
 
@@ -491,54 +586,28 @@ shinyplus <- function() {
 
     hide("sale-list")
 
-    # set product lists in select fields according to https://shiny.posit.co/r/articles/build/selectize/ to save time
-    updateSelectizeInput(session, 'add_fixed_product', server = TRUE,
-                         choices = plus_env$product_list$url |> stats::setNames(get_product_name_unit(plus_env$product_list$url)),
-                         selected = "",
-                         options = list(placeholder = 'Type om te zoeken...',
-                                        dropdownParent = 'body',
-                                        onInitialize = I('function() { this.setValue(""); }'),
-                                        inputAttr = list(
-                                          autocomplete = "off",
-                                          autocorrect = "off",
-                                          autocapitalize = "off",
-                                          spellcheck = "false")))
-    updateSelectizeInput(session, 'add_extra_product', server = TRUE,
-                         choices = plus_env$product_list$url |> stats::setNames(get_product_name_unit(plus_env$product_list$url)),
-                         selected = "",
-                         options = list(placeholder = 'Type om te zoeken...',
-                                        dropdownParent = 'body',
-                                        onInitialize = I("
-                                                            function() {
-                                                              this.setValue('');
-                                                            }
-                                                          "),
-                                        inputAttr = list(
-                                          autocomplete = "off",
-                                          autocorrect = "off",
-                                          autocapitalize = "off",
-                                          spellcheck = "false"),
-                                        onChange = I("
-                                                            function(value) {
-                                                              if (value !== '') {
-                                                                Shiny.setInputValue('add_extra_product', value, {priority: 'event'});
-                                                                this.setValue('');
-                                                                this.focus(); // Refocus after selection
-                                                              }
-                                                            }
-                                                          ")))
-    updateSelectizeInput(session, 'ingredient_url', server = TRUE,
-                         choices = plus_env$product_list$url |> stats::setNames(get_product_name_unit(plus_env$product_list$url)),
-                         selected = "",
-                         options = list(placeholder = 'Type om te zoeken...',
-                                        dropdownParent = 'body',
-                                        onInitialize = I('function() { this.setValue(""); }'),
-                                        inputAttr = list(
-                                          autocomplete = "off",
-                                          autocorrect = "off",
-                                          autocapitalize = "off",
-                                          spellcheck = "false")))
+    observe({
+      product_choices <- lapply(seq_len(nrow(plus_env$product_list)), function(i) {
+        row <- plus_env$product_list[i, ]
+        list(
+          value = row$url,
+          label = row$name,
+          subtext = row$unit,
+          img = paste0(row$img, "?w=80&h=80")
+        )
+      })
+      session$sendCustomMessage("updateSelectizeProductList", list(
+        inputId = "add_fixed_product",
+        choices = product_choices))
 
+      session$sendCustomMessage("updateSelectizeProductList", list(
+        inputId = "add_extra_product",
+        choices = product_choices))
+
+      session$sendCustomMessage("updateSelectizeProductList", list(
+        inputId = "ingredient_url",
+        choices = product_choices))
+    })
 
     # Server: Setup ----
     values <- reactiveValues(
