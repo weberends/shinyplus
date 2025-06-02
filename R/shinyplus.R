@@ -91,12 +91,25 @@ shinyplus <- function() {
         }
       });
     ")),
+    tags$script(HTML("
+      Shiny.addCustomMessageHandler('updateBasketCount', function(count) {
+        document.getElementById('basket-count').textContent = count;
+      });
+    ")),
     tags$style(HTML("
       .navbar {
         background: none;
       }
       hr {
         margin: 1rem 0;
+      }
+
+      #basket-icon-wrapper {
+        position: absolute;
+        top: 10px;
+        right: 20px;
+        font-size: 2rem;
+        z-index: 999;
       }
 
       .btn-danger {
@@ -332,7 +345,12 @@ shinyplus <- function() {
     navbarPage(
       title = div(
         img(src = "https://upload.wikimedia.org/wikipedia/commons/9/92/PLUS_supermarket_logo.svg", height = "40px", style = "margin-right: 10px;"),
-        span("ShinyPLUS", style = "font-weight: bold; font-size: 1.2rem; vertical-align: middle;")
+        span("ShinyPLUS", style = "font-weight: bold; font-size: 1.2rem; vertical-align: middle;"),
+        span(
+          id = "basket-icon-wrapper",
+          icon("basket-shopping"),
+          span(id = "basket-count", class = "badge badge-danger", style = "position: absolute; top: 5px; right: -4px; background: rgb(208, 50, 44); color: white; border-radius: 50%; padding: 4px 7px; font-size: 0.75rem;", "0")
+        )
       ),
       tabPanel("Boodschappen doen", # UI: Boodschappen ----
                fluidPage(
@@ -691,6 +709,10 @@ shinyplus <- function() {
       if (!identical(new_basket, values$basket)) {
         values$basket <- new_basket
       }
+
+      showNotification(paste0(sum(df$quantity, na.rm = TRUE),
+                              " artikel", ifelse(sum(df$quantity, na.rm = TRUE) > 1, "en", ""),
+                              " aan mandje toegevoegd."))
     }
 
 
@@ -974,6 +996,7 @@ shinyplus <- function() {
 
     # Manage fixed_products (add/remove)
     observeEvent(input$add_fixed_product_button, {
+      req(input$add_fixed_product)
       prod <- input$add_fixed_product
       if (!is.null(prod) && !(prod %in% values$fixed_products)) {
         values$fixed_products <- unique(c(values$fixed_products, prod))
@@ -983,6 +1006,7 @@ shinyplus <- function() {
     })
 
     observeEvent(input$remove_fixed_product_button, {
+      req(input$add_fixed_product)
       prod <- input$add_fixed_product
       if (!is.null(prod) && prod %in% values$fixed_products) {
         values$fixed_products <- setdiff(values$fixed_products, prod)
@@ -1019,6 +1043,10 @@ shinyplus <- function() {
     observeEvent(values$basket, {
       req(selected_email())
       saveRDS(values$basket, basket_file())
+
+      # update number on basket icon
+      count <- sum(values$basket$quantity, na.rm = TRUE)
+      session$sendCustomMessage("updateBasketCount", count)
     }, ignoreInit = TRUE)
 
     # basket overview table
