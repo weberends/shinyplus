@@ -1,9 +1,9 @@
 Package: shinyplus
 Title: Weekly Grocery Planning with PLUS.nl Integration
-Version: 0.4.0
+Version: 0.5.0
 Authors@R: c(
-  person(given = c("Wikje", "E."),    family = "Berends-Hoekstra",  role = c("aut", "cre"), comment = c(ORCID = "0000-0001-7620-1800"), email = "w.e.berends-hoekstra@umcg.nl"),
-  person(given = c("Matthijs", "S."), family = "Berends",           role = c("aut"),        comment = c(ORCID = "0000-0001-7620-1800")))
+  person(given = c("Wikje", "E."),    family = "Berends-Hoekstra",  role = c("aut", "cre"), email = "w.e.berends-hoekstra@umcg.nl"),
+  person(given = c("Matthijs", "S."), family = "Berends",           role = c("aut")))
 Description: A Shiny web application for planning weekly groceries. 
     Users can select meals for each day, manage recurring and extra items, 
     and combine them into a shopping basket. The app supports integration 

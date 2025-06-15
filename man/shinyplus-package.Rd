@@ -29,11 +29,11 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: Wikje E. Berends-Hoekstra \email{w.e.berends-hoekstra@umcg.nl} (\href{https://orcid.org/0000-0001-7620-1800}{ORCID})
+\strong{Maintainer}: Wikje E. Berends-Hoekstra \email{w.e.berends-hoekstra@umcg.nl}
 
 Authors:
 \itemize{
-  \item Matthijs S. Berends (\href{https://orcid.org/0000-0001-7620-1800}{ORCID})
+  \item Matthijs S. Berends
 }
 
 }
