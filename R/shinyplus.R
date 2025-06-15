@@ -42,7 +42,9 @@
 shinyplus <- function() {
 
   weekdays_list <- c("Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag", "Zondag")
-  weekdays_short <- substr(weekdays_list, 1, 2)
+  weekdays_list_full <- c(weekdays_list, paste0("extra", 1:5))
+
+  addResourcePath("shinyplus-assets", system.file(package = "shinyplus"))
 
   ui <- fluidPage(
     useShinyjs(),
@@ -51,24 +53,8 @@ shinyplus <- function() {
         window.open(url, '_blank');
       });
     "))),
-    tags$head(
-      # tags$style(HTML("
-      #   #background-image {
-      #     position: fixed;
-      #     top: 0; left: 0;
-      #     width: 100vw;
-      #     height: 100vh;
-      #     background-image: url('https://upload.wikimedia.org/wikipedia/commons/2/2f/Plus_supermarkt_Delft.jpg');
-      #     /* background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/Truck_Spotting_on_the_A58_E312_Direction_Kruiningen-Netherlands_16_04_2020._%2849781332681%29.jpg/1280px-Truck_Spotting_on_the_A58_E312_Direction_Kruiningen-Netherlands_16_04_2020._%2849781332681%29.jpg'); */
-      #     background-size: cover;
-      #     background-position: center;
-      #     opacity: 0.05;
-      #     z-index: -1;
-      #   }
-      # "))
-    ),
     tags$script(HTML("
-      Shiny.addCustomMessageHandler('updateSelectizeChoices', function(message) {
+      Shiny.addCustomMessageHandler('updateSelectizeDishList', function(message) {
         var input = $('#' + message.inputId)[0];
         if (input && input.selectize) {
           input.selectize.clearOptions();
@@ -97,6 +83,14 @@ shinyplus <- function() {
       });
     ")),
     tags$style(HTML("
+      :root {
+        --plus-red: rgb(227, 19, 29);
+        --plus-green-light: rgb(128, 189, 29);
+        --plus-green-dark: rgb(34, 118, 71);
+        --plus-purple: rgb(85, 77, 167);
+        --plus-purple-bg: rgb(255, 231, 244);
+      }
+
       .navbar {
         background: none;
       }
@@ -113,59 +107,99 @@ shinyplus <- function() {
       }
 
       .btn-danger {
-        background: rgb(208, 50, 44);
-        border-color: rgb(208, 50, 44);
+        background: var(--plus-red);
+        border-color: var(--plus-red);
       }
-      .btn-danger:hover {
-        background: rgba(208, 50, 44, 0.8);
-        border-color: rgb(208, 50, 44);
+      .btn-danger:hover, .btn-danger:active, .btn-danger:focus {
+        background: color-mix(in srgb, var(--plus-red) 70%, black);
+        border-color: var(--plus-red);
       }
       .btn-success {
-        background: rgb(127, 187, 29);
-        border-color: rgb(127, 187, 29);
+        background: var(--plus-green-light);
+        border-color: var(--plus-green-light);
       }
-      .btn-success:hover {
-        background: rgba(127, 187, 29, 0.8);
-        border-color: rgb(127, 187, 29);
+      .btn-success:hover, .btn-success:active, .btn-success:focus {
+        background: color-mix(in srgb, var(--plus-green-light) 70%, black);
+        border-color: var(--plus-green-light);
       }
       .btn-primary {
-        background: rgb(85, 77, 167);
-        border-color: rgb(85, 77, 167);
+        background: var(--plus-purple);
+        border-color: var(--plus-purple);
       }
-      .btn-primary:hover {
-        background: rgba(85, 77, 167, 0.8);
-        border-color: rgb(85, 77, 167);
+      .btn-primary:hover, .btn-primary:active, .btn-primary:focus {
+        background: color-mix(in srgb, var(--plus-purple) 70%, black);
+        border-color: var(--plus-purple);
       }
-      .a {
-        color: rgb(85, 77, 167);
+      a {
+        color: var(--plus-purple);
       }
-      .a:hover {
-        color: rgba(85, 77, 167, 0.8);
+      a:hover, a:active, a:focus {
+        color: color-mix(in srgb, var(--plus-purple) 70%, black);
       }
 
-      .basket-card-1, .products-list-p .basket-label.weekmenu {
-        background: rgba(229, 240, 196, 0.45);
+      .text-danger {
+        color: var(--plus-red) !important;
       }
-      .basket-card-2, .products-list-p .basket-label.vast {
-        background: rgba(210, 232, 253, 0.25);
+
+      .shiny-input-container .checkbox input:checked,
+      .shiny-input-container .radio input:checked {
+        background-color: var(--plus-purple);
+        border-color: var(--plus-purple);
       }
-      .basket-card-3 {
-        background: rgba(246, 227, 208, 0.70);
+      .shiny-input-container input:focus {
+        box-shadow: none !important;
       }
-      .basket-card-4, .products-list-p .basket-label.extra  {
-        background: rgba(244, 240, 237, 0.80);
+      .selectize-dropdown .selected {
+        background-color: var(--plus-purple);
       }
-      .basket-card-1 h3, .products-list-p .basket-label.weekmenu {
-        color: #5a7c00; /* dark olive green to match light green bg */
+
+      #column-weekmenu .bslib-card {
+        background: color-mix(in srgb, var(--plus-green-light) 3%, white);
       }
-      .basket-card-2 h3, .products-list-p .basket-label.sale {
-        color: #2b73af; /* medium blue to match light blue bg */
+      #column-weekmenu .bslib-card h3,
+      #column-weekmenu .bslib-card h5 {
+        color: var(--plus-green-light);
       }
-      .basket-card-3 h3, .products-list-p .basket-label.vast {
-        color: #8c5a40; /* warm brown to match light taupe bg */
+      #column-weekmenu .btn:hover {
+        background-color: color-mix(in srgb, var(--plus-green-light) 25%, white);
+        border-color: inherit;
+        color: inherit;
       }
-      .basket-card-4 h3, .products-list-p .basket-label.extra {
-        color: #cc5c00; /* burnt orange to match peachy bg */
+      #column-sale .bslib-card {
+        background: color-mix(in srgb, var(--plus-red) 3%, white);
+      }
+      #column-sale .bslib-card h3,
+      #column-sale .bslib-card h5 {
+        color: var(--plus-red);
+      }
+      #column-sale .btn:hover {
+        background-color: color-mix(in srgb, var(--plus-red) 25%, white);
+        border-color: inherit;
+        color: inherit;
+      }
+      #column-fixed .bslib-card {
+        background: color-mix(in srgb, var(--plus-purple) 3%, white);
+      }
+      #column-fixed .bslib-card h3,
+      #column-fixed .bslib-card h5 {
+        color: var(--plus-purple);
+      }
+      #column-fixed .btn:hover {
+        background-color: color-mix(in srgb, var(--plus-purple) 25%, white);
+        border-color: inherit;
+        color: inherit;
+      }
+      #column-extra .bslib-card {
+        background: color-mix(in srgb, var(--plus-green-dark) 3%, white);
+      }
+      #column-extra .bslib-card h3,
+      #column-extra .bslib-card h5 {
+        color: var(--plus-green-dark);
+      }
+      #column-extra .btn:not(.btn-danger):not(.btn-success):hover {
+        background-color: color-mix(in srgb, var(--plus-green-dark) 25%, white);
+        border-color: inherit;
+        color: inherit;
       }
 
       .well {
@@ -201,27 +235,32 @@ shinyplus <- function() {
       }
 
       .basket-label {
-        font-size: 0.6rem;
+        font-size: 0.7em;
         margin-left: 5px;
         padding-left: 5px;
         padding-right: 5px;
         border-radius: 5px;
       }
-      .basket-label.weekmenu {
-        border: 1px solid rgb(90, 124, 0, 0.5);
-        color: rgb(90, 124, 0); /* #5a7c00 */
+
+      .products-list-p .basket-label.weekmenu {
+        color: white;
+        background: var(--plus-green-light);
+        border: 1px solid var(--plus-green-light);
       }
-      .basket-label.sale {
-        border: 1px solid rgb(43, 115, 175, 0.5);
-        color: rgb(43, 115, 175); /* #2b73af */
+      .products-list-p .basket-label.sale {
+        color: white;
+        background: var(--plus-red);
+        border: 1px solid var(--plus-red);
       }
-      .basket-label.vast {
-        border: 1px solid rgb(140, 90, 64, 0.5);
-        color: rgb(140, 90, 64); /* #8c5a40 */
+      .products-list-p .basket-label.fixed {
+        color: white;
+        background: var(--plus-purple);
+        border: 1px solid var(--plus-purple);
       }
-      .basket-label.extra {
-        border: 1px solid rgb(204, 92, 0, 0.5);
-        color: rgb(204, 92, 0); /* #8c5a40 */
+      .products-list-p .basket-label.extra {
+        color: white;
+        background: var(--plus-green-dark);
+        border: 1px solid var(--plus-green-dark);
       }
 
       .products-list-qty {
@@ -261,7 +300,7 @@ shinyplus <- function() {
         max-height: 500px !important;  /* same as .card.stretch-with-margin */
       }
 
-      #sale-column {
+      #column-sale {
         display: flex;
         flex-direction: column;
         height: calc(100vh - 120px);
@@ -273,23 +312,7 @@ shinyplus <- function() {
         min-height: 0; /* required for flex child to shrink correctly */
         margin-bottom: 1rem;
       }
-      #sale-column > .card:first-child {
-        flex-shrink: 0;
-      }
-      #fixed-column {
-        display: flex;
-        flex-direction: column;
-        height: calc(100vh - 120px);
-        overflow: hidden;
-      }
-      #fixed-list {
-        flex-grow: 1;
-        overflow-y: auto;
-        min-height: 0; /* required for flex child to shrink correctly */
-        margin-bottom: 1rem;
-      }
-      #fixed-column > .card:first-child,
-      #fixed-column > .card:last-child {
+      #column-sale > .card:first-child {
         flex-shrink: 0;
       }
 
@@ -297,7 +320,7 @@ shinyplus <- function() {
         border: 1px solid #eee;
         border-radius: 12px;
         padding: 12px;
-        background: rgba(255,255,255, 0.25);
+        background: rgba(255, 255, 255, 0.8);
         text-align: center;
         height: 100%;
       }
@@ -307,7 +330,7 @@ shinyplus <- function() {
         margin-bottom: 10px;
       }
       .sale-txt {
-        color: #c00;
+        color: var(--plus-red);
         font-size: 0.85rem;
         margin-bottom: 5px;
       }
@@ -327,13 +350,18 @@ shinyplus <- function() {
       }
       .price-current {
         font-size: 1.1rem;
-        color: #c00;
+        color: var(--plus-red);
         margin-right: 4px;
       }
       .price-previous {
         text-decoration: line-through;
         color: #888;
         font-size: 0.9rem;
+      }
+
+      .product-qty {
+        color: grey;
+        font-size: 0.9em;
       }
 
       #online_cart_table td:nth-child(6) {
@@ -344,21 +372,22 @@ shinyplus <- function() {
     theme = bs_theme(version = 5, base_font = font_google("Open Sans")),
     navbarPage(
       title = div(
-        img(src = "https://upload.wikimedia.org/wikipedia/commons/9/92/PLUS_supermarket_logo.svg", height = "40px", style = "margin-right: 10px;"),
-        span("ShinyPLUS", style = "font-weight: bold; font-size: 1.2rem; vertical-align: middle;"),
+        img(src = "shinyplus-assets/shinylogo.png", height = "40px", style = "margin-right: 10px;"),
         span(
           id = "basket-icon-wrapper",
           icon("basket-shopping"),
-          span(id = "basket-count", class = "badge badge-danger", style = "position: absolute; top: 5px; right: -4px; background: rgb(208, 50, 44); color: white; border-radius: 50%; padding: 4px 7px; font-size: 0.75rem;", "0")
+          span(id = "basket-count", class = "badge badge-danger", style = "position: absolute; top: 5px; right: -4px; background: var(--plus-green-light); color: white; border-radius: 50%; padding: 4px 7px; font-size: 0.75rem;", "0")
         )
       ),
       tabPanel("Boodschappen doen", # UI: Boodschappen ----
                fluidPage(
                  fluidRow(
-                   column(2,
+                   column(2, id = "column-weekmenu",
                           card(class = "basket-card-1",
                                h3("1. Weekmenu"), ## 1. Weekmenu ----
+                               actionButton("add_weekmenu_products_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping")),
                                div(class = "dish-selector",
+                                   h5("Avondeten"),
                                    lapply(weekdays_list, function(day) {
                                      selectizeInput(
                                        inputId = paste0("dish_day_", day),
@@ -384,12 +413,39 @@ shinyplus <- function() {
                                      )
                                    })
                                ),
+                               div(class = "dish-selector",
+                                   h5("Lunch / Extra"),
+                                   lapply(paste0("extra", 1:5), function(day) {
+                                     selectizeInput(
+                                       inputId = paste0("dish_day_", day),
+                                       label = NULL,
+                                       width = "100%",
+                                       choices = NULL,
+                                       options = list(
+                                         render = I("
+                                          {
+                                            option: function(item, escape) {
+                                              return '<div style=\"padding-left: 5px;\">' +
+                                                       '' + escape(item.label) + '<br>' +
+                                                       '<small style=\"opacity: 0.8; padding-left: 20px;\">' +
+                                                       item.subtext + '</small>' +
+                                                     '</div>';
+                                            },
+                                            item: function(item, escape) {
+                                              return '<div>' + escape(item.label) + '</div>';
+                                            }
+                                          }
+                                        ")
+                                       )
+                                     )
+                                   })
+                               ),
                                # actionButton("save_weekplan", "Weekmenu opslaan", icon = icon("save")),
-                               actionButton("add_weekplan_products_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping")),
+                               hr(),
                                radioButtons("sort_dishes", "Gerechten sorteren op", choices = c("Bereidingstijd", "Naam", "Hoeveelheid groenten", "Type vlees"), selected = "Bereidingstijd", width = "100%"),
                           ),
                    ),
-                   column(5, id = "sale-column",
+                   column(5, id = "column-sale",
                           card(class = "basket-card-2",
                                h3("2. Aanbiedingen"), ## 2. Aanbiedingen ----
                                div(id = "loading_spinner", style = "display:none;", p("Bezig met ophalen van aanbiedingen...")),
@@ -399,18 +455,17 @@ shinyplus <- function() {
                                uiOutput("sale_items_ui"),
                           ),
                    ),
-                   column(5, id = "fixed-column",
+                   column(5, id = "column-fixed",
                           card(class = "basket-card-3",
                                h3("3. Vaste boodschappen"), ## 3. Vast ----
-                               actionButton("add_fixed_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping")),
-                               actionButton("fixed_to_zero", "Alles op nul zetten", icon = icon("rotate-left")),
-                          ),
-                          card(class = "basket-card-3", id = "fixed-list",
-                               h5("Selecteer uit je vaste producten:"),
+                               fluidRow(
+                                 column(6, actionButton("add_fixed_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping"), width = "100%")),
+                                 column(6, actionButton("fixed_to_zero", "Alles op nul zetten", icon = icon("rotate-left"), width = "100%")),
+                               ),
+                               h5("Selecteer uit vaste producten"),
                                uiOutput("fixed_items_ui"),
-                          ),
-                          card(class = "basket-card-3",
-                               h5("Beheer vaste producten:"),
+                               hr(),
+                               h5("Beheer vaste producten"),
                                selectizeInput('add_fixed_product', NULL,
                                               choices = NULL,
                                               width = "100%",
@@ -439,8 +494,10 @@ shinyplus <- function() {
                                                   }
                                                 }")
                                               )),
-                               actionButton("add_fixed_product_button", "Toevoegen aan vaste producten", icon = icon("plus")),
-                               actionButton("remove_fixed_product_button", "Verwijderen uit vaste producten", icon = icon("trash"))
+                               fluidRow(
+                                 column(6, actionButton("add_fixed_product_button", "Toevoegen aan vaste producten", icon = icon("plus"), width = "100%")),
+                                 column(6, actionButton("remove_fixed_product_button", "Verwijderen uit vaste producten", icon = icon("trash"), width = "100%"))
+                               )
                           )
                    )
                  )
@@ -449,10 +506,9 @@ shinyplus <- function() {
 
       tabPanel("Mandje en PLUS Winkelwagen", # UI: Mandje & PLUS Cart ----
                fluidRow(
-                 column(5,
+                 column(6, id = "column-extra",
                         card(class = "basket-card-4 stretch-with-margin",
                              h3("4. Mandje"),
-                             uiOutput("basket_overview_table"),
                              selectizeInput('add_extra_product', "Extra artikel toevoegen:",
                                             choices = NULL,
                                             width = "100%",
@@ -481,17 +537,20 @@ shinyplus <- function() {
                                                   }
                                                 }")
                                             )),
+                             uiOutput("basket_overview_table"),
                              hr(),
                              fluidRow(
                                column(4, actionButton("sort_basket_name", "Op naam", icon = icon("arrow-down-a-z"), width = "100%")),
                                column(4, actionButton("sort_basket_label", "Op label", icon = icon("arrow-down-short-wide"), width = "100%")),
                                column(4, actionButton("sort_basket_quantity", "Op aantal", icon = icon("arrow-down-9-1"), width = "100%"))
                              ),
-                             actionButton("send_basket_to_cart", "In PLUS Winkelwagen plaatsen", icon = icon("cart-arrow-down"), class = "btn-success", width = "100%"),
-                             actionButton("clear_basket", "Mandje leegmaken", icon = icon("trash"),  class = "btn-danger", width = "100%"),
+                             fluidRow(
+                               column(6, actionButton("send_basket_to_cart", "In PLUS Winkelwagen plaatsen", icon = icon("cart-arrow-down"), class = "btn-success", width = "100%")),
+                               column(6, actionButton("clear_basket", "Mandje leegmaken", icon = icon("trash"),  class = "btn-danger", width = "100%")),
+                             )
                         ),
                  ),
-                 column(5,
+                 column(6,
                         uiOutput("online_cart_summary"),
                         br(),
                         br(),
@@ -517,7 +576,7 @@ shinyplus <- function() {
                           h4("Gerecht bewerken"),
                           div(style = "display: none;", numericInput("dish_id", NULL, value = 0)),
                           textInput("dish_name", "Naam gerecht:"),
-                          checkboxGroupInput("dish_days", "Geschikt voor:", choices = c("Doordeweeks", "Weekend"), selected = NULL),
+                          checkboxGroupInput("dish_days", "Geschikt voor:", choices = c("Doordeweeks", "Weekend", "Avondeten", "Lunch / Extra" = "Lunch"), selected = NULL),
                           radioButtons("dish_preptime", "Bereidingstijd:",
                                        choices = c(20, 40, 60, 120) |>
                                          # stats::setNames(c("\U0001F552\U0001F642 = tot 20 minuten",
@@ -664,6 +723,8 @@ shinyplus <- function() {
     })
 
     selected_email <- reactiveVal(NULL)
+    extra_input_count <- reactiveVal(1)
+    extra_inputs <- reactiveValues(data = list(), expanded = list())
 
     # fill in values from RDS files
     observeEvent(selected_email(), {
@@ -684,11 +745,7 @@ shinyplus <- function() {
       }
     })
 
-
-    extra_input_count <- reactiveVal(1)
-    extra_inputs <- reactiveValues(data = list(), expanded = list())
-
-    add_to_basket <- function(product_url, quantity = 1, label = "Extra") {
+    add_to_basket <- function(product_url, quantity = 1, label = "", on_top = FALSE) {
       if (length(product_url) > 1 && length(quantity) == 1) {
         quantity <- rep(quantity, length(product_url))
       }
@@ -699,9 +756,15 @@ shinyplus <- function() {
 
       if (nrow(df) == 0) return(invisible())
 
-      new_basket <- bind_rows(values$basket, df) |>
+      if (on_top == TRUE) {
+        new_basket <- bind_rows(df, values$basket)
+      } else {
+        new_basket <- bind_rows(values$basket, df)
+      }
+
+      new_basket <- new_basket |>
         # prevent sorting by using factors
-        mutate(product_url = factor(product_url, levels = unique(product_url), ordered = TRUE)) |>
+        mutate(product_url = factor(as.character(product_url), levels = unique(product_url), ordered = TRUE)) |>
         group_by(product_url, label) |>
         summarise(quantity = sum(quantity), .groups = "drop")
 
@@ -823,15 +886,25 @@ shinyplus <- function() {
 
     ## 1. Weekmenu ----
     get_current_weekmenu_selections <- function() {
-      isolate(stats::setNames(lapply(weekdays_list, function(day) input[[paste0("dish_day_", day)]]), weekdays_list))
+      isolate(stats::setNames(lapply(weekdays_list_full, function(day) input[[paste0("dish_day_", day)]]), weekdays_list_full))
     }
     rebuild_weekmenu_inputs <- function(sorted_dishes) {
       current_selections <- get_current_weekmenu_selections()
 
-      for (day in weekdays_list) {
+      for (day in weekdays_list_full) {
         # Filter dishes by day-type
-        day_type <- if (day %in% c("Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag")) "Doordeweeks" else "Weekend"
-        dishes <- sorted_dishes |> filter(grepl(day_type, days))
+        if (day %in% c("Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag") || grepl("extra", day)) {
+          dishes <- sorted_dishes |> filter(grepl("Doordeweeks", days))
+        } else {
+          dishes <- sorted_dishes |> filter(grepl("Weekend", days))
+        }
+        # Dinner / Lunch
+        if (grepl("extra", day)) {
+          dishes <- sorted_dishes |> filter(grepl("Lunch", days))
+        } else if (day %in% weekdays_list) {
+          dishes <- dishes |> filter(grepl("Avond", days))
+        }
+
 
         if (nrow(dishes) == 0) next
 
@@ -847,7 +920,7 @@ shinyplus <- function() {
           )
         })
 
-        session$sendCustomMessage("updateSelectizeChoices", list(
+        session$sendCustomMessage("updateSelectizeDishList", list(
           inputId = paste0("dish_day_", day),
           choices = choices_list
         ))
@@ -873,8 +946,8 @@ shinyplus <- function() {
     #   saveRDS(values$weekplan, weekplan_file())
     # })
 
-    observeEvent(input$add_weekplan_products_to_basket, {
-      selected_dishes <- unlist(lapply(weekdays_list, function(day) input[[paste0("dish_day_", day)]]))
+    observeEvent(input$add_weekmenu_products_to_basket, {
+      selected_dishes <- unlist(lapply(weekdays_list_full, function(day) input[[paste0("dish_day_", day)]]))
       selected_dishes <- selected_dishes[selected_dishes != ""]
       dish_ingredients <- values$dish_ingredients |>
         inner_join(values$dishes |> filter(name %in% selected_dishes), by = "dish_id")
@@ -907,7 +980,7 @@ shinyplus <- function() {
           actionButton("add_sale_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping"), width = "100%"),
         )
       }
-      })
+    })
     output$sale_items_ui <- renderUI({
       if (!is.null(values$sale_items)) {
         df <- values$sale_items
@@ -954,7 +1027,7 @@ shinyplus <- function() {
     observeEvent(input$sale_retrieve, {
       hide("div_sale_retrieve")
       show("loading_spinner")
-      df <- get_sales()  # this might take up to 10 seconds
+      df <- get_sales(replace_img = TRUE)  # this might take up to 5 seconds
       values$sale_items <- df
       hide("loading_spinner")
       show("sale-list")
@@ -987,7 +1060,7 @@ shinyplus <- function() {
           fluidRow(
             class = "row products-list-row",
             column(2, div(class = "products-list-img", height = "100%", a(href = get_product_image(prod), target = "_blank", img(src = get_product_image(prod), width = "100%")))),
-            column(8, div(class = "products-list-p", height = "100%", p(get_product_name_unit(prod)))),
+            column(8, div(class = "products-list-p", height = "100%", p(HTML(paste0(get_product_name(prod), " ", span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod)))))))),
             column(2, div(class = "products-list-qty", height = "100%", numericInput(paste0("qty_fixed_", make.names(prod)), NULL, value = 0, min = 0, step = 1, width = "100%")))
           )
         })
@@ -1059,13 +1132,18 @@ shinyplus <- function() {
           prod <- row$product_url
           qty <- row$quantity
           src <- row$label
+          src_label <- tolower(row$label)
+          if (src_label == "aanbieding") src_label <- "sale"
+          if (src_label == "vast") src_label <- "fixed"
           input_id <- paste0("basket_qty_", make.names(prod))
           remove_id <- paste0("basket_remove_", make.names(prod))
 
           fluidRow(
             class = "row products-list-row",
             column(2, div(class = "products-list-img", a(href = get_product_image(prod), target = "_blank", img(src = get_product_image(prod), width = "100%")))),
-            column(6, div(class = "products-list-p", p(HTML(paste0(get_product_name_unit(prod), "<span class='basket-label ", tolower(src), "'>", src, "</span>"))))),
+            column(6, div(class = "products-list-p", p(HTML(paste0(get_product_name(prod), " ",
+                                                                   span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod), " ", symbol$bullet)),
+                                                                   "<span class='basket-label ", src_label, "'>", src, "</span>"))))),
             column(2, div(class = "products-list-qty", numericInput(input_id, NULL, value = qty, min = 1, step = 1, width = "100%"))),
             column(2, actionButton(remove_id, "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;"))
           )
@@ -1098,7 +1176,7 @@ shinyplus <- function() {
       req(input$add_extra_product)
       product_url <- input$add_extra_product
 
-      add_to_basket(product_url = product_url, quantity = 1, label = "Extra")
+      add_to_basket(product_url = product_url, quantity = 1, label = "Extra", on_top = TRUE)
       updateSelectInput(session, "add_extra_product", selected = "")
     })
 
@@ -1119,9 +1197,6 @@ shinyplus <- function() {
                     by = c("product_url" = "url")) |>
           arrange(desc(name)) |>
           select(-name)
-        updateActionButton(session, "sort_basket_name", icon = icon("arrow-down-a-z"))
-      } else {
-        updateActionButton(session, "sort_basket_name", icon = icon("arrow-down-z-a"))
       }
     })
     observeEvent(input$sort_basket_label, {
@@ -1143,9 +1218,6 @@ shinyplus <- function() {
           mutate(label = factor(label, levels = all_levels, ordered = TRUE)) |>
           arrange(desc(label)) |>
           mutate(label = as.character(label))
-        updateActionButton(session, "sort_basket_label", icon = icon("arrow-down-short-wide"))
-      } else {
-        updateActionButton(session, "sort_basket_label", icon = icon("arrow-down-wide-short"))
       }
     })
     observeEvent(input$sort_basket_quantity, {
@@ -1157,9 +1229,6 @@ shinyplus <- function() {
       if (identical(current, values$basket)) {
         # sort ascending
         values$basket <- values$basket |> arrange(quantity)
-        updateActionButton(session, "sort_basket_quantity", icon = icon("arrow-down-9-1"))
-      } else {
-        updateActionButton(session, "sort_basket_quantity", icon = icon("arrow-down-1-9"))
       }
     })
 
@@ -1374,7 +1443,7 @@ shinyplus <- function() {
       values$dishes <- bind_rows(values$dishes, tibble(
         dish_id = new_id,
         name = input$new_dish_name,
-        days = "Doordeweeks,Weekend",
+        days = "Doordeweeks,Weekend,Avondeten",
         preptime = 20,
         vegetables = 0,
         meat = "Vegetarisch"
@@ -1499,7 +1568,9 @@ shinyplus <- function() {
           fluidRow(
             class = "row products-list-row",
             column(2, div(class = "products-list-img", a(href = get_product_image(row$product_url), target = "_blank", img(src = get_product_image(row$product_url), width = "100%")))),
-            column(9, div(class = "products-list-p", p(HTML(paste0("<strong>", row$quantity, "x</strong> ", get_product_name_unit(row$product_url)))))),
+            column(9, div(class = "products-list-p", p(HTML(paste0("<strong>", row$quantity, "x</strong> ",
+                                                                   get_product_name(row$product_url), " ",
+                                                                   span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(row$product_url)))))))),
             column(1, actionButton(remove_id, "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;"))
           )
         })
@@ -1517,23 +1588,6 @@ shinyplus <- function() {
         }, ignoreInit = TRUE)
       })
     })
-
-    # # remove ingredient listener
-    # observe({
-    #   if (is.null(input$selected_dish) || input$selected_dish == 0 || input$selected_dish == "") return()
-    #   sel_id <- input$selected_dish
-    #   if (length(sel_id) != 1) return()
-    #
-    #   df <- values$dish_ingredients |> filter(dish_id == sel_id)
-    #
-    #   lapply(seq_len(nrow(df)), function(i) {
-    #     observeEvent(input[[paste0("remove_ingr_", i)]], {
-    #       values$dish_ingredients <- values$dish_ingredients[-i, ]
-    #       saveRDS(values$dish_ingredients, dish_ingredients_file())
-    #     }, ignoreInit = TRUE)
-    #   })
-    # })
-
   }
 
   shinyApp(ui, server)

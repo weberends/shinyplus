@@ -55,14 +55,14 @@ format_unit <- function(units) {
 #' @importFrom chromote ChromoteSession
 #' @importFrom rvest read_html html_elements html_element html_text html_text2 html_attr
 #' @importFrom dplyr filter
-get_sales <- function() {
+get_sales <- function(replace_img = FALSE) {
   if (is.null(plus_env$browser)) {
     # initialise browser
     plus_env$browser <- ChromoteSession$new()
   }
   open_url_if_not_already_there("https://www.plus.nl/aanbiedingen")
   wait_for_element(".promotions-category-list")
-  # Sys.sleep(3)
+  Sys.sleep(3) # extra waiting time for images to load
   html <- plus_env$browser$Runtime$evaluate("document.documentElement.outerHTML", returnByValue = TRUE)$result$value
   html <- read_html(html)
 
@@ -88,6 +88,9 @@ get_sales <- function() {
     sale_tbl[i, "is_product"] <- grepl("^/product/", url)
     sale_tbl[i, "url"] <- url
     img <- item |> html_element(".plp-item-image") |> html_element("img") |> html_attr("src") |> gsub("[?].*$", "", x = _)
+    if (isTRUE(replace_img) && is.na(img)) {
+      img <- "shinyplus-assets/questionmark.png"
+    }
     if (grepl("^//", img)) {
       img <- paste0("https:", img)
     }
