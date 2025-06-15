@@ -32,7 +32,6 @@
 #' @importFrom bslib bs_theme font_google card
 #' @importFrom dplyr filter pull mutate select arrange desc inner_join bind_rows distinct if_else left_join count row_number
 #' @importFrom tibble tibble as_tibble
-#' @importFrom stringr str_detect
 #' @importFrom DT datatable DTOutput renderDT formatCurrency
 #' @importFrom cli symbol
 #' @importFrom shinyjs hide show useShinyjs runjs
@@ -48,11 +47,11 @@ shinyplus <- function() {
 
   ui <- fluidPage(
     useShinyjs(),
-    tags$head(tags$script(HTML("
+    tags$script(HTML("
       Shiny.addCustomMessageHandler('openCheckout', function(url) {
         window.open(url, '_blank');
       });
-    "))),
+    ")),
     tags$script(HTML("
       Shiny.addCustomMessageHandler('updateSelectizeDishList', function(message) {
         var input = $('#' + message.inputId)[0];
@@ -82,6 +81,37 @@ shinyplus <- function() {
         document.getElementById('basket-count').textContent = count;
       });
     ")),
+    tags$script(HTML("
+      (function waitForImagePreview() {
+        const preview = document.getElementById('imagePreview');
+        if (!preview) {
+          setTimeout(waitForImagePreview, 100); // wait and retry
+          return;
+        }
+
+        document.addEventListener('mousemove', function (e) {
+          if (preview.style.display === 'block') {
+            preview.style.left = (e.pageX + 10) + 'px';
+            preview.style.top = (e.pageY + 10) + 'px';
+          }
+        });
+
+        document.addEventListener('mouseover', function (e) {
+          const target = e.target.closest('img.hover-preview');
+          if (!target) return;
+
+          preview.src = target.src;
+          preview.style.display = 'block';
+        });
+
+        document.addEventListener('mouseout', function (e) {
+          const target = e.target.closest('img.hover-preview');
+          if (!target) return;
+
+          preview.style.display = 'none';
+        });
+      })();
+    ")),
     tags$style(HTML("
       :root {
         --plus-red: rgb(227, 19, 29);
@@ -89,6 +119,21 @@ shinyplus <- function() {
         --plus-green-dark: rgb(34, 118, 71);
         --plus-purple: rgb(85, 77, 167);
         --plus-purple-bg: rgb(255, 231, 244);
+      }
+
+      #imagePreview {
+        position: absolute;
+        max-width: 600px;
+        max-height: 400px;
+        pointer-events: none;
+        display: none;
+        padding: 8px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.3); /* translucent */
+        backdrop-filter: blur(12px); /* macOS-style blur */
+        -webkit-backdrop-filter: blur(12px); /* for Safari */
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        z-index: 9999;
       }
 
       .navbar {
@@ -368,7 +413,7 @@ shinyplus <- function() {
         font-weight: bold;
       }
     ")),
-    div(id = "background-image"),
+    tags$img(id = "imagePreview"), # preview image element
     theme = bs_theme(version = 5, base_font = font_google("Open Sans")),
     navbarPage(
       title = div(
@@ -994,7 +1039,7 @@ shinyplus <- function() {
                       width = 4,
                       div(class = "sale-card",
                           a(href = paste0("https://www.plus.nl", row$url), target = "_blank",
-                            img(src = row$img, class = "sale-img")
+                            img(src = row$img, class = "sale-img hover-preview")
                           ),
                           div(class = "sale-txt", row$sale_txt),
                           div(class = "sale-name", row$name),
@@ -1059,7 +1104,7 @@ shinyplus <- function() {
         lapply(values$fixed_products, function(prod) {
           fluidRow(
             class = "row products-list-row",
-            column(2, div(class = "products-list-img", height = "100%", a(href = get_product_image(prod), target = "_blank", img(src = get_product_image(prod), width = "100%")))),
+            column(2, div(class = "products-list-img", height = "100%", a(href = prod, target = "_blank", img(src = get_product_image(prod), width = "100%", class = "hover-preview")))),
             column(8, div(class = "products-list-p", height = "100%", p(HTML(paste0(get_product_name(prod), " ", span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod)))))))),
             column(2, div(class = "products-list-qty", height = "100%", numericInput(paste0("qty_fixed_", make.names(prod)), NULL, value = 0, min = 0, step = 1, width = "100%")))
           )
@@ -1140,7 +1185,7 @@ shinyplus <- function() {
 
           fluidRow(
             class = "row products-list-row",
-            column(2, div(class = "products-list-img", a(href = get_product_image(prod), target = "_blank", img(src = get_product_image(prod), width = "100%")))),
+            column(2, div(class = "products-list-img", a(href = prod, target = "_blank", img(src = get_product_image(prod), width = "100%", class = "hover-preview")))),
             column(6, div(class = "products-list-p", p(HTML(paste0(get_product_name(prod), " ",
                                                                    span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod), " ", symbol$bullet)),
                                                                    "<span class='basket-label ", src_label, "'>", src, "</span>"))))),
@@ -1567,7 +1612,7 @@ shinyplus <- function() {
 
           fluidRow(
             class = "row products-list-row",
-            column(2, div(class = "products-list-img", a(href = get_product_image(row$product_url), target = "_blank", img(src = get_product_image(row$product_url), width = "100%")))),
+            column(2, div(class = "products-list-img", a(href = row$product_url, target = "_blank", img(src = get_product_image(row$product_url), width = "100%", class = "hover-preview")))),
             column(9, div(class = "products-list-p", p(HTML(paste0("<strong>", row$quantity, "x</strong> ",
                                                                    get_product_name(row$product_url), " ",
                                                                    span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(row$product_url)))))))),

@@ -22,7 +22,6 @@ Imports:
   rvest,
   shiny,
   shinyjs,
-  stringr,
   tibble,
   yaml
 Suggests:
