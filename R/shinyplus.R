@@ -1013,7 +1013,7 @@ shinyplus <- function() {
               actionButton("sale_retrieve", "Aanbiedingen ophalen van PLUS.nl", icon = icon("cloud-arrow-down"), width = "100%"),
               br(),
               br()),
-          p("Dit haalt de aanbiedingen op van ", a(href = "https://www.plus.nl/aanbiedingen", "www.plus.nl/aanbiedingen", .noWS = "outside"), ".")
+          p("Dit haalt de aanbiedingen op van ", a(href = plus_url("aanbiedingen"), "www.plus.nl/aanbiedingen", .noWS = "outside"), ".")
         )
       } else {
         df <- values$sale_items
@@ -1038,7 +1038,7 @@ shinyplus <- function() {
                     column(
                       width = 4,
                       div(class = "sale-card",
-                          a(href = paste0("https://www.plus.nl", row$url), target = "_blank",
+                          a(href = plus_url(row$url), target = "_blank",
                             img(src = row$img, class = "sale-img hover-preview")
                           ),
                           div(class = "sale-txt", row$sale_txt),
@@ -1104,7 +1104,7 @@ shinyplus <- function() {
         lapply(values$fixed_products, function(prod) {
           fluidRow(
             class = "row products-list-row",
-            column(2, div(class = "products-list-img", height = "100%", a(href = prod, target = "_blank", img(src = get_product_image(prod), width = "100%", class = "hover-preview")))),
+            column(2, div(class = "products-list-img", height = "100%", a(href = plus_url(prod), target = "_blank", img(src = get_product_image(prod), width = "100%", class = "hover-preview")))),
             column(8, div(class = "products-list-p", height = "100%", p(HTML(paste0(get_product_name(prod), " ", span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod)))))))),
             column(2, div(class = "products-list-qty", height = "100%", numericInput(paste0("qty_fixed_", make.names(prod)), NULL, value = 0, min = 0, step = 1, width = "100%")))
           )
@@ -1185,7 +1185,7 @@ shinyplus <- function() {
 
           fluidRow(
             class = "row products-list-row",
-            column(2, div(class = "products-list-img", a(href = prod, target = "_blank", img(src = get_product_image(prod), width = "100%", class = "hover-preview")))),
+            column(2, div(class = "products-list-img", a(href = plus_url(prod), target = "_blank", img(src = get_product_image(prod), width = "100%", class = "hover-preview")))),
             column(6, div(class = "products-list-p", p(HTML(paste0(get_product_name(prod), " ",
                                                                    span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod), " ", symbol$bullet)),
                                                                    "<span class='basket-label ", src_label, "'>", src, "</span>"))))),
@@ -1382,7 +1382,7 @@ shinyplus <- function() {
       tagList(
         h3("PLUS Winkelwagen"),
         p("De inhoud van deze winkelwagen is opgehaald van de ",
-          a(href = "https://www.plus.nl/winkelwagen",
+          a(href = plus_url("winkelwagen"),
             target= "_blank",
             "online PLUS Winkelwagen", .noWS = "outside"),
           ". Wijzigingen kunnen alleen daar worden aangebracht."),
@@ -1444,7 +1444,7 @@ shinyplus <- function() {
     })
 
     observeEvent(input$checkout, {
-      session$sendCustomMessage("openCheckout", "https://www.plus.nl/checkout")
+      session$sendCustomMessage("openCheckout", plus_url("checkout"))
     })
 
     observeEvent(input$refresh_online_cart, {
@@ -1612,7 +1612,7 @@ shinyplus <- function() {
 
           fluidRow(
             class = "row products-list-row",
-            column(2, div(class = "products-list-img", a(href = row$product_url, target = "_blank", img(src = get_product_image(row$product_url), width = "100%", class = "hover-preview")))),
+            column(2, div(class = "products-list-img", a(href = plus_url(row$product_url), target = "_blank", img(src = get_product_image(row$product_url), width = "100%", class = "hover-preview")))),
             column(9, div(class = "products-list-p", p(HTML(paste0("<strong>", row$quantity, "x</strong> ",
                                                                    get_product_name(row$product_url), " ",
                                                                    span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(row$product_url)))))))),

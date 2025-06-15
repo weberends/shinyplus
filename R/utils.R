@@ -112,6 +112,13 @@ escape_js_string <- function(x) {
   x
 }
 
+plus_url <- function(x) {
+  prefix <- "https://www.plus.nl/"
+  x[!grepl(prefix, x, fixed = TRUE)] <- paste0(prefix, x[!grepl(prefix, x, fixed = TRUE)])
+  x <- gsub("//", "/", x, fixed = TRUE)
+  x
+}
+
 # AMR:::get_n_cores()
 # get_n_cores <- function(max_cores = Inf) {
 #   if ("parallelly" %in% rownames(utils::installed.packages())) {
