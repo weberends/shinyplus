@@ -28,7 +28,7 @@
 #'    ```
 #'
 #' All user-specific data (e.g. dishes, baskets, fixed products) is saved locally as `.rds` files per user.
-#' @importFrom shiny a actionButton br checkboxGroupInput checkboxInput column conditionalPanel div fluidPage fluidRow h3 h4 h5 hr HTML icon img isolate modalButton modalDialog navbarPage numericInput observe observeEvent p passwordInput radioButtons reactive reactiveVal reactiveValues removeModal renderUI req selectInput selectizeInput shinyApp showModal showNotification span strong tabPanel tagList tags textInput uiOutput updateActionButton updateCheckboxGroupInput updateCheckboxInput updateNumericInput updateRadioButtons updateSelectInput updateSelectizeInput updateTextInput wellPanel withProgress incProgress
+#' @importFrom shiny a actionButton addResourcePath br checkboxGroupInput checkboxInput column conditionalPanel div fluidPage fluidRow h3 h4 h5 hr HTML icon img isolate modalButton modalDialog navbarPage numericInput observe observeEvent p passwordInput radioButtons reactive reactiveVal reactiveValues removeModal renderUI req selectInput selectizeInput shinyApp showModal showNotification span strong tabPanel tagList tags textInput uiOutput updateActionButton updateCheckboxGroupInput updateCheckboxInput updateNumericInput updateRadioButtons updateSelectInput updateSelectizeInput updateTextInput wellPanel withProgress incProgress
 #' @importFrom bslib bs_theme font_google card
 #' @importFrom dplyr filter pull mutate select arrange desc inner_join bind_rows distinct if_else left_join count row_number
 #' @importFrom tibble tibble as_tibble
