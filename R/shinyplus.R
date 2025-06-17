@@ -47,6 +47,10 @@ shinyplus <- function() {
 
   ui <- fluidPage(
     useShinyjs(),
+    tags$head(
+      tags$title("Shiny PLUS"),
+      tags$link(rel = "icon", type = "image/x-icon", href = "shinyplus-assets/favicon.ico")
+    ),
     tags$script(HTML("
       Shiny.addCustomMessageHandler('openCheckout', function(url) {
         window.open(url, '_blank');
