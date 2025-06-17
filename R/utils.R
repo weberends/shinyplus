@@ -6,6 +6,10 @@ globalVariables(c("Artikel",
                   "label",
                   "meat",
                   "name",
+                   "is_product","per_kg_l_st","unit_dbl",
+"unit_fct",
+
+
                   "name_unit",
                   "preptime",
                   "price",
