@@ -600,7 +600,7 @@ shinyplus <- function() {
                                                 render = I("{
                                                   option: function(item, escape) {
                                                     return '<div class=\"product-option\" style=\"display: flex; align-items: center; height: 50px;\">' +
-                                                             '<img src=\"' + escape(item.img) + '\" style=\"height: 40px; width: 40px; object-fit: contain; margin-right: 10px;\" />' +
+                                                             '<img class=\"hover-preview\" src=\"' + escape(item.img) + '\" style=\"height: 40px; width: 40px; object-fit: contain; margin-right: 10px;\" />' +
                                                              '<div style=\"flex: 1; min-width: 0;\">' +
                                                                '<div style=\"font-weight: normal; text-align: left;\">' + escape(item.label) + '</div>' +
                                                                '<div style=\"color: grey; font-size: 0.8em; text-align: left;\">' + escape(item.subtext) + '</div>' +
@@ -798,7 +798,7 @@ shinyplus <- function() {
           value = row$url,
           label = row$name,
           subtext = row$unit,
-          img = paste0(row$img, "?w=80&h=80")
+          img = row$img
         )
       })
       session$sendCustomMessage("updateSelectizeProductList", list(

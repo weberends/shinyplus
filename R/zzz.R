@@ -35,8 +35,6 @@ plus_env <- new.env()
         cli_alert_success(paste("Imported", NROW(plus_env$product_list), "products"))
       }
     }, silent = TRUE)
-  } else if (interactive()) {
-    cli_warn("No product list! Refer to {.help update_product_list_from_html}.")
   }
 
   if (NROW(plus_env$product_list) == 0) {
@@ -44,6 +42,7 @@ plus_env <- new.env()
                                     unit = character(0),
                                     url = character(0),
                                     img = character(0))
+    cli_warn("No product list! Refer to {.help update_product_list_from_html}.")
   }
   plus_env$product_list$img[is.na(plus_env$product_list$img)] <- "shinyplus-assets/questionmark.png"
 }
