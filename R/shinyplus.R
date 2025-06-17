@@ -503,7 +503,7 @@ shinyplus <- function() {
       tabPanel("Boodschappen doen", # UI: Boodschappen ----
                fluidPage(
                  fluidRow(
-                   column(2, id = "column-weekmenu",
+                   column(3, id = "column-weekmenu",
                           card(class = "basket-card-1",
                                h3("1. Weekmenu"), ## 1. Weekmenu ----
                                actionButton("add_weekmenu_products_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping"), width = "100%"),
@@ -577,7 +577,7 @@ shinyplus <- function() {
                                uiOutput("sale_items_ui"),
                           ),
                    ),
-                   column(5, id = "column-fixed",
+                   column(4, id = "column-fixed",
                           card(class = "basket-card-3",
                                h3("3. Vaste boodschappen"), ## 3. Vast ----
                                fluidRow(
@@ -664,7 +664,7 @@ shinyplus <- function() {
                              fluidRow(
                                column(4, actionButton("sort_basket_name", "Op naam", icon = icon("arrow-down-a-z"), width = "100%")),
                                column(4, actionButton("sort_basket_label", "Op label", icon = icon("arrow-down-short-wide"), width = "100%")),
-                               column(4, actionButton("sort_basket_quantity", "Op aantal", icon = icon("arrow-down-9-1"), width = "100%"))
+                               column(4, actionButton("sort_basket_quantity", "Op aantal", icon = icon("arrow-down-1-9"), width = "100%"))
                              ),
                              fluidRow(
                                column(6, actionButton("send_basket_to_cart", "In PLUS Winkelwagen plaatsen", icon = icon("cart-arrow-down"), class = "btn-success", width = "100%")),
@@ -1284,6 +1284,10 @@ shinyplus <- function() {
       if (nrow(values$basket) == 0) return(p("Mandje is leeg."))
 
       tagList(
+        p("Aantal unieke producten: ", nrow(values$basket)),
+        p("Totaal aantal producten: ", sum(values$basket$quantity, na.rm = TRUE)),
+        br(),
+        br(),
         lapply(seq_len(nrow(values$basket)), function(i) {
           row <- values$basket[i, ]
           prod <- row$product_url
