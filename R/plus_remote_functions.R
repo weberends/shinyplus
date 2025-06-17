@@ -213,6 +213,8 @@ plus_current_cart <- function(..., info = interactive()) {
   wait_for_element("body", b = plus_env$browser_cart) # minimal page check
   # first wait for page to load
   wait_for_element(".cart-title-wrapper h1", b = plus_env$browser_cart)
+  # and wait some more time
+  Sys.sleep(3)
 
   html <- plus_env$browser_cart$Runtime$evaluate("document.documentElement.outerHTML", returnByValue = TRUE)$result$value
   doc <- read_html(html)

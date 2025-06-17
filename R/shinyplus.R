@@ -1494,8 +1494,14 @@ shinyplus <- function() {
           p("Om artikelen in de online PLUS Winkelwagen te zien, log eerst in via het menu 'Inloggen'.", class = "text-danger")
         ))
       }
-      req(values$logged_in)
-      req(values$online_cart)
+
+      if (NROW(values$online_cart) == 0) {
+        return(tagList(
+          h3("PLUS Winkelwagen"),
+          p("PLUS Winkelwagen kon niet vernieuwd worden, probeer opnieuw.", class = "text-danger"),
+          actionButton("refresh_online_cart", "Vernieuwen", icon = icon("refresh")),
+        ))
+      }
 
       total_items <- sum(values$online_cart$quantity, na.rm = TRUE)
       unique_items <- nrow(values$online_cart)
@@ -1513,7 +1519,9 @@ shinyplus <- function() {
         br(),
         h4(HTML(paste0("<strong>Totale prijs:</strong> ",
                        as_euro(sum(actual_total, na.rm = TRUE)),
-                       ifelse(original_total != actual_total, paste0(" <span class='price-previous'>", as_euro(original_total), "</span>"))))),
+                       ifelse(original_total != actual_total,
+                              paste0(" <span class='price-previous'>", as_euro(original_total), "</span>"),
+                              "")))),
         p(HTML(paste0("<strong>Korting:</strong> ", as_euro(original_total - actual_total), " (", format(saving_pct, nsmall = 1, big.interval = ".", decimal.mark = ","), "%)"))),
         p(HTML(paste0("<strong>Totaal artikelen:</strong> ", total_items, " (uniek: ", unique_items, ")"))),
         actionButton("checkout", "Afrekenen bij PLUS.nl", class = "btn-success", icon = icon("right-from-bracket")),
@@ -1574,8 +1582,8 @@ shinyplus <- function() {
     observeEvent(input$refresh_online_cart, {
       req(values$logged_in)
       values$online_cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
-      if (is.null(values$online_cart)) {
-        showNotification("PLUS Winkelwagen niet up-to-date, vernieuwen...", type = "message")
+      if (NROW(values$online_cart) == 0) {
+        showNotification("PLUS Winkelwagen niet up-to-date, vernieuwen...", type = "message", session = session)
         Sys.sleep(3)
         values$online_cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
       }
