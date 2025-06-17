@@ -1496,9 +1496,13 @@ shinyplus <- function() {
       }
 
       if (NROW(values$online_cart) == 0) {
+        Sys.sleep(1)
+        values$online_cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
+      }
+      if (NROW(values$online_cart) == 0) {
         return(tagList(
           h3("PLUS Winkelwagen"),
-          p("PLUS Winkelwagen kon niet vernieuwd worden, probeer opnieuw.", class = "text-danger"),
+          p("Klik op de knop om de PLUS Winkelwagen te vernieuwen."),
           actionButton("refresh_online_cart", "Vernieuwen", icon = icon("refresh")),
         ))
       }
