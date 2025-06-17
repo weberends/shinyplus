@@ -54,7 +54,7 @@ format_unit <- function(units) {
 
 #' @importFrom chromote ChromoteSession
 #' @importFrom rvest read_html html_elements html_element html_text html_text2 html_attr
-#' @importFrom dplyr filter
+#' @importFrom dplyr filter mutate select bind_rows arrange
 get_sales <- function(replace_img = FALSE) {
   if (is.null(plus_env$browser)) {
     # initialise browser
@@ -74,7 +74,7 @@ get_sales <- function(replace_img = FALSE) {
     item <- links[[i]]
     sale_tbl[i, "name"] <- item |> html_element(".plp-item-name") |> html_text()
     sale_tbl[i, "sale_txt"] <- item |> html_element(".plp-item-complementary-top") |> html_text2() |> gsub("(\n)+", ", ", x = _)
-    sale_tbl[i, "unit"] <- item |> html_element(".plp-item-complementary") |> html_text() |> gsub("^Per ", "", x = _)
+    sale_tbl[i, "unit"] <- item |> html_element(".plp-item-complementary") |> html_text2() |> gsub("[[:cntrl:]]", "; ", x = _) |> gsub("^Per ", "", x = _)
 
     price_current <- item |> html_elements(".product-header-price-integer, .product-header-price-decimals") |> html_text() |> paste(collapse = ".") |> gsub("[.]+", ".", x = _) |> trimws()
     if (price_current == ".") {
@@ -99,6 +99,19 @@ get_sales <- function(replace_img = FALSE) {
 
   sale_tbl <- sale_tbl |> filter(!trimws(name) %in% c("", NA))
 
+  # sale items not existing in product list must be added there
+  new_products <- sale_tbl |>
+    filter(is_product & !url %in% plus_env$product_list$url)
+  if (NROW(new_products) > 0) {
+    new_products <- new_products |>
+      mutate(unit = sub(";.*", "", unit),
+             unit = format_unit(unit)) |>
+      select(name, unit, url, img)
+    plus_env$product_list <- plus_env$product_list |>
+      bind_rows(new_products) |>
+      arrange(name)
+  }
+
   structure(sale_tbl,
             promo_period = promo_period)
 }
@@ -113,10 +126,18 @@ escape_js_string <- function(x) {
 }
 
 plus_url <- function(x) {
+  is_factor <- is.factor(x)
+  is_ordered <- is.ordered(x)
+  x <- as.character(x)
   prefix <- "https://www.plus.nl/"
   x[!grepl(prefix, x, fixed = TRUE)] <- paste0(prefix, x[!grepl(prefix, x, fixed = TRUE)])
   x <- gsub("//", "/", x, fixed = TRUE)
-  x
+  x <- gsub("https:/", "https://", x, fixed = TRUE)
+  if (is_factor) {
+    factor(x, unique(x), ordered = is_ordered)
+  } else {
+    x
+  }
 }
 
 # AMR:::get_n_cores()

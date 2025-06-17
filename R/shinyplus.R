@@ -30,7 +30,7 @@
 #' All user-specific data (e.g. dishes, baskets, fixed products) is saved locally as `.rds` files per user.
 #' @importFrom shiny a actionButton addResourcePath br checkboxGroupInput checkboxInput column conditionalPanel div fluidPage fluidRow h3 h4 h5 hr HTML icon img isolate modalButton modalDialog navbarPage numericInput observe observeEvent p passwordInput radioButtons reactive reactiveVal reactiveValues removeModal renderUI req selectInput selectizeInput shinyApp showModal showNotification span strong tabPanel tagList tags textInput uiOutput updateActionButton updateCheckboxGroupInput updateCheckboxInput updateNumericInput updateRadioButtons updateSelectInput updateSelectizeInput updateTextInput wellPanel withProgress incProgress
 #' @importFrom bslib bs_theme font_google card
-#' @importFrom dplyr filter pull mutate select arrange desc inner_join bind_rows distinct if_else left_join count row_number
+#' @importFrom dplyr filter pull mutate select arrange desc inner_join bind_rows distinct if_else left_join count row_number slice
 #' @importFrom tibble tibble as_tibble
 #' @importFrom DT datatable DTOutput renderDT formatCurrency
 #' @importFrom cli symbol
@@ -41,7 +41,7 @@
 shinyplus <- function() {
 
   weekdays_list <- c("Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag", "Zondag")
-  weekdays_list_full <- c(weekdays_list, paste0("extra", 1:5))
+  weekdays_list_full <- c(weekdays_list, paste0("lunch", 1:5))
 
   addResourcePath("shinyplus-assets", system.file(package = "shinyplus"))
 
@@ -134,6 +134,11 @@ shinyplus <- function() {
         -webkit-backdrop-filter: blur(12px); /* for Safari */
         border: 1px solid rgba(255, 255, 255, 0.5);
         z-index: 9999;
+      }
+      @media (max-width: 575.98px) {
+        #imagePreview {
+          display: none !important;
+        }
       }
 
       .navbar {
@@ -253,7 +258,7 @@ shinyplus <- function() {
         border-radius: 10px;
       }
 
-      .row.products-list-row {
+      .products-list-row {
         height: 75px;
         display: flex;
         align-items: center;
@@ -271,12 +276,6 @@ shinyplus <- function() {
         font-size: 0.95rem;
         display: inline-block;
         line-height: 1.2;
-      }
-
-      @media (max-width: 575.98px) {
-        .row.row.products-list-row {
-          display: inline;
-        }
       }
 
       .basket-label {
@@ -316,6 +315,79 @@ shinyplus <- function() {
         height: 35px;
         padding: 5px;
       }
+
+
+      @media (max-width: 575.98px) {
+        .products-list-row {
+          display: flex;
+          flex-direction: row;
+          flex-wrap: nowrap;
+          align-items: flex-start;
+          height: 70px;
+        }
+
+        .product-list-col1 {
+          width: 25%;
+          padding-right: 5px;
+          margin-top: auto;
+          margin-bottom: auto;
+        }
+
+        .product-list-col2 {
+          width: 50%;
+          margin-top: auto;
+          margin-bottom: auto;
+        }
+
+        #basket_overview_table .product-list-col2 {
+          width: 43%;
+        }
+
+        #dish_ingredients_table .product-list-col2 {
+          width: 60%;
+        }
+
+        .product-list-col3 {
+          width: 25%;
+          display: flex;
+          align-items: flex-start;
+          padding-top: 5px;
+        }
+
+        #basket_overview_table .product-list-col3 {
+          width: 20%;
+        }
+
+        #dish_ingredients_table .product-list-col3 {
+          width: 15%;
+          margin-top: auto;
+          margin-bottom: auto;
+        }
+
+        #basket_overview_table .product-list-col4 {
+          width: 10%;
+          margin-top: 23px;
+          margin-left: -5px;
+        }
+
+        .products-list-qty {
+          width: 100%;
+        }
+
+        .products-list-qty .form-group {
+          width: 100%;
+          margin-bottom: 0;
+        }
+
+        .products-list-p p {
+          font-size: 0.9rem;
+          line-height: 1.3;
+          margin-bottom: 6px;
+        }
+      }
+
+
+
 
       .dish-selector .selectize-dropdown .option {
         padding: 6px 12px !important;  /* More left/right padding */
@@ -430,7 +502,7 @@ shinyplus <- function() {
                    column(2, id = "column-weekmenu",
                           card(class = "basket-card-1",
                                h3("1. Weekmenu"), ## 1. Weekmenu ----
-                               actionButton("add_weekmenu_products_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping")),
+                               actionButton("add_weekmenu_products_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping"), width = "100%"),
                                div(class = "dish-selector",
                                    h5("Avondeten"),
                                    lapply(weekdays_list, function(day) {
@@ -458,9 +530,10 @@ shinyplus <- function() {
                                      )
                                    })
                                ),
+                               actionButton("weekmenu_refresh", "Willekeurige keuze", icon = icon("rotate"), width = "100%"),
                                div(class = "dish-selector",
-                                   h5("Lunch / Extra"),
-                                   lapply(paste0("extra", 1:5), function(day) {
+                                   h5("Lunch / Anders"),
+                                   lapply(paste0("lunch", 1:5), function(day) {
                                      selectizeInput(
                                        inputId = paste0("dish_day_", day),
                                        label = NULL,
@@ -614,7 +687,21 @@ shinyplus <- function() {
                           h5("Nieuw gerecht"),
                           textInput("new_dish_name", NULL, placeholder = "Naam van het gerecht"),
                           actionButton("new_dish", "Nieuw gerecht", icon = icon("plus")),
-                        )
+                          hr(),
+                          h5("Voorkeuren 'Willekeurige keuze'"),
+                          lapply(weekdays_list, function(day) {
+                            selectizeInput(
+                              inputId = paste0("prep_time_", day),
+                              label = paste("Bereidingstijd op", tolower(day)),
+                              choices = c(NA_real_, 20, 40, 60, 120) |>
+                                stats::setNames(c("Geen voorkeur",
+                                                  "0-20 minuten",
+                                                  "20-40 minuten",
+                                                  "40-60 minuten",
+                                                  "60+ minuten")),
+                              width = "100%")
+                          }),
+                        ),
                  ),
                  column(3,
                         wellPanel(
@@ -624,10 +711,6 @@ shinyplus <- function() {
                           checkboxGroupInput("dish_days", "Geschikt voor:", choices = c("Doordeweeks", "Weekend", "Avondeten", "Lunch / Extra" = "Lunch"), selected = NULL),
                           radioButtons("dish_preptime", "Bereidingstijd:",
                                        choices = c(20, 40, 60, 120) |>
-                                         # stats::setNames(c("\U0001F552\U0001F642 = tot 20 minuten",
-                                         #                   "\U0001F552\U0001F610 = 20-40 minuten",
-                                         #                   "\U0001F552\U0001F641 = 40-60 minuten",
-                                         #                   "\U0001F552\U0001F975 = 60+ minuten")),
                                          stats::setNames(c("0-20 minuten",
                                                            "20-40 minuten",
                                                            "40-60 minuten",
@@ -938,13 +1021,13 @@ shinyplus <- function() {
 
       for (day in weekdays_list_full) {
         # Filter dishes by day-type
-        if (day %in% c("Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag") || grepl("extra", day)) {
+        if (day %in% c("Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag") || grepl("lunch", day)) {
           dishes <- sorted_dishes |> filter(grepl("Doordeweeks", days))
         } else {
           dishes <- sorted_dishes |> filter(grepl("Weekend", days))
         }
         # Dinner / Lunch
-        if (grepl("extra", day)) {
+        if (grepl("lunch", day)) {
           dishes <- sorted_dishes |> filter(grepl("Lunch", days))
         } else if (day %in% weekdays_list) {
           dishes <- dishes |> filter(grepl("Avond", days))
@@ -969,11 +1052,36 @@ shinyplus <- function() {
           inputId = paste0("dish_day_", day),
           choices = choices_list
         ))
-
         updateSelectInput(session, paste0("dish_day_", day), selected = current_selections[[day]])
       }
     }
 
+    set_random_dish <- function(day, set_filter, df, session) {
+      dish <- df |>
+        filter({{set_filter}}) |>
+        filter(!name %in% plus_env$dishes) |>
+        pull(name)
+      if (length(dish) > 0) {
+        dish <- sample(dish, size = 1)
+        plus_env$dishes <- c(plus_env$dishes, dish)
+        updateSelectInput(session, paste0("dish_day_", day), selected = dish)
+      }
+    }
+
+    observeEvent(input$weekmenu_refresh, {
+      df <- values$dishes |> filter(grepl("Avondeten", days))
+      doordeweeks <- df |> filter(grepl("Doordeweeks", days))
+      weekend <- df |> filter(grepl("Weekend", days))
+
+      plus_env$dishes <- ""
+      set_random_dish("Maandag", preptime <= 20, doordeweeks, session)
+      set_random_dish("Dinsdag", preptime <= 20, doordeweeks, session)
+      set_random_dish("Woensdag", preptime <= 60, doordeweeks, session)
+      set_random_dish("Donderdag", preptime <= 60, doordeweeks, session)
+      set_random_dish("Vrijdag", TRUE, weekend, session)
+      set_random_dish("Zaterdag", TRUE, weekend, session)
+      set_random_dish("Zondag", preptime <= 120, doordeweeks, session)
+    })
     observeEvent(input$sort_dishes, {
       sorted_dishes <- sort_dish_df(values$dishes, input$sort_dishes)
       rebuild_weekmenu_inputs(sorted_dishes)
@@ -1104,9 +1212,9 @@ shinyplus <- function() {
         lapply(values$fixed_products, function(prod) {
           fluidRow(
             class = "row products-list-row",
-            column(2, div(class = "products-list-img", height = "100%", a(href = plus_url(prod), target = "_blank", img(src = get_product_image(prod), width = "100%", class = "hover-preview")))),
-            column(8, div(class = "products-list-p", height = "100%", p(HTML(paste0(get_product_name(prod), " ", span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod)))))))),
-            column(2, div(class = "products-list-qty", height = "100%", numericInput(paste0("qty_fixed_", make.names(prod)), NULL, value = 0, min = 0, step = 1, width = "100%")))
+            column(2, class = "product-list-col1", div(class = "products-list-img", height = "100%", a(href = plus_url(prod), target = "_blank", img(src = get_product_image(prod), width = "100%", class = "hover-preview")))),
+            column(8, class = "product-list-col2", div(class = "products-list-p", height = "100%", p(HTML(paste0(get_product_name(prod), " ", span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod)))))))),
+            column(2, class = "product-list-col3", div(class = "products-list-qty", height = "100%", numericInput(paste0("qty_fixed_", make.names(prod)), NULL, value = 0, min = 0, step = 1, width = "100%")))
           )
         })
       )
@@ -1185,12 +1293,12 @@ shinyplus <- function() {
 
           fluidRow(
             class = "row products-list-row",
-            column(2, div(class = "products-list-img", a(href = plus_url(prod), target = "_blank", img(src = get_product_image(prod), width = "100%", class = "hover-preview")))),
-            column(6, div(class = "products-list-p", p(HTML(paste0(get_product_name(prod), " ",
+            column(2, class = "product-list-col1", div(class = "products-list-img", a(href = plus_url(prod), target = "_blank", img(src = get_product_image(prod), width = "100%", class = "hover-preview")))),
+            column(6, class = "product-list-col2", div(class = "products-list-p", p(HTML(paste0(get_product_name(prod), " ",
                                                                    span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod), " ", symbol$bullet)),
                                                                    "<span class='basket-label ", src_label, "'>", src, "</span>"))))),
-            column(2, div(class = "products-list-qty", numericInput(input_id, NULL, value = qty, min = 1, step = 1, width = "100%"))),
-            column(2, actionButton(remove_id, "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;"))
+            column(2, class = "product-list-col3", div(class = "products-list-qty", numericInput(input_id, NULL, value = qty, min = 1, step = 1, width = "100%"))),
+            column(2, class = "product-list-col4", actionButton(remove_id, "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;"))
           )
         })
       )
@@ -1357,7 +1465,19 @@ shinyplus <- function() {
     })
 
     observeEvent(input$clear_basket, {
-      values$basket <- tibble(product_url = character(), quantity = integer(), label = character())
+      showModal(modalDialog(
+        title = "Weet je het zeker?",
+        "Hiermee wordt het mandje leeggemaakt. Dit kan niet ongedaan gemaakt worden.",
+        easyClose = FALSE,
+        footer = tagList(
+          modalButton("Annuleren"),
+          actionButton("confirm_clear_basket", "Leegmaken", class = "btn-danger")
+        )
+      ))
+    })
+    observeEvent(input$confirm_clear_basket, {
+      values$basket <- values$basket |> slice(0)
+      removeModal()
     })
 
 
@@ -1564,7 +1684,6 @@ shinyplus <- function() {
         )
       ))
     })
-
     observeEvent(input$confirm_delete_dish, {
       req(input$selected_dish)
       sel_id <- values$dishes |> filter(dish_id == input$selected_dish) |> pull(dish_id)
@@ -1612,11 +1731,11 @@ shinyplus <- function() {
 
           fluidRow(
             class = "row products-list-row",
-            column(2, div(class = "products-list-img", a(href = plus_url(row$product_url), target = "_blank", img(src = get_product_image(row$product_url), width = "100%", class = "hover-preview")))),
-            column(9, div(class = "products-list-p", p(HTML(paste0("<strong>", row$quantity, "x</strong> ",
+            column(2, class = "product-list-col1", div(class = "products-list-img", a(href = plus_url(row$product_url), target = "_blank", img(src = get_product_image(row$product_url), width = "100%", class = "hover-preview")))),
+            column(9, class = "product-list-col2", div(class = "products-list-p", p(HTML(paste0("<strong>", row$quantity, "x</strong> ",
                                                                    get_product_name(row$product_url), " ",
                                                                    span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(row$product_url)))))))),
-            column(1, actionButton(remove_id, "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;"))
+            column(1, class = "product-list-col3", actionButton(remove_id, "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;"))
           )
         })
       )
@@ -1653,7 +1772,7 @@ sort_dish_df <- function(dishes, method) {
   } else if (sort_field == "vegetables") {
     arrange(dishes, desc(vegetables), preptime)
   } else if (sort_field == "meat") {
-    arrange(dishes, meat, desc(vegetables), preptime)
+    arrange(dishes, desc(meat), desc(vegetables), preptime)
   } else {
     dishes
   }

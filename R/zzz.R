@@ -1,6 +1,7 @@
 plus_env <- new.env()
 
 #' @importFrom cli cli_alert_danger cli_warn cli_alert_success
+#' @importFrom tibble tibble
 .onLoad <- function(libname, pkgname) {
   if (is.null(getOption("plus_data_folder", default = NULL)) || !dir.exists(getOption("plus_data_folder"))) {
     plus_env$data_dir <- system.file("plus_data", package = "shinyplus")
@@ -37,4 +38,12 @@ plus_env <- new.env()
   } else if (interactive()) {
     cli_warn("No product list! Refer to {.help update_product_list_from_html}.")
   }
+
+  if (NROW(plus_env$product_list) == 0) {
+    plus_env$product_list <- tibble(name = character(0),
+                                    unit = character(0),
+                                    url = character(0),
+                                    img = character(0))
+  }
+  plus_env$product_list$img[is.na(plus_env$product_list$img)] <- "shinyplus-assets/questionmark.png"
 }
