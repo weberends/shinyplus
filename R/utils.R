@@ -3,20 +3,20 @@ globalVariables(c("Artikel",
                   "dish",
                   "dish_id",
                   "ingredient",
+                  "is_product",
                   "label",
                   "meat",
                   "name",
-                   "is_product","per_kg_l_st","unit_dbl",
-"unit_fct",
-
-
                   "name_unit",
+                  "per_kg_l_st",
                   "preptime",
                   "price",
                   "price_total",
                   "product",
                   "quantity",
                   "unit",
+                  "unit_dbl",
+                  "unit_fct",
                   "vegetables"))
 
 as_euro <- function(x, trim = FALSE) {
@@ -58,7 +58,7 @@ format_unit <- function(units) {
 
 #' @importFrom chromote ChromoteSession
 #' @importFrom rvest read_html html_elements html_element html_text html_text2 html_attr
-#' @importFrom dplyr filter mutate select bind_rows arrange
+#' @importFrom dplyr filter mutate select bind_rows arrange group_by ungroup n distinct
 get_sales <- function(replace_img = FALSE) {
   if (is.null(plus_env$browser)) {
     # initialise browser
@@ -71,37 +71,54 @@ get_sales <- function(replace_img = FALSE) {
   html <- read_html(html)
 
   promo_period <- html |> html_element(".promo-period-display") |> html_text()
-  links <- html |> html_element(".promotions-category-list") |> html_elements("a")
 
+  sections <- html |> html_elements(".content-section-full, .cf-product-promotion-banner")
   sale_tbl <- tibble()
-  for (i in seq_len(length(links))) {
-    item <- links[[i]]
-    sale_tbl[i, "name"] <- item |> html_element(".plp-item-name") |> html_text()
-    sale_tbl[i, "sale_txt"] <- item |> html_element(".plp-item-complementary-top") |> html_text2() |> gsub("(\n)+", ", ", x = _)
-    sale_tbl[i, "unit"] <- item |> html_element(".plp-item-complementary") |> html_text2() |> gsub("[[:cntrl:]]", "; ", x = _) |> gsub("^Per ", "", x = _)
 
-    price_current <- item |> html_elements(".product-header-price-integer, .product-header-price-decimals") |> html_text() |> paste(collapse = ".") |> gsub("[.]+", ".", x = _) |> trimws()
-    if (price_current == ".") {
-      price_current <- ""
+  for (section in sections) {
+    group <- section |> html_element("h2") |> html_text()
+    links <- section |> html_elements("a")
+    if (length(links) == 0) {
+      next
     }
-    price_previous <- item |> html_element(".product-header-price-previous") |> html_text() |> trimws()
-    sale_tbl[i, "price_current"] <- gsub(".", ",", price_current, fixed = TRUE)
-    sale_tbl[i, "price_previous"] <- gsub(".", ",", price_previous, fixed = TRUE)
 
-    url <- item |> html_attr("href")
-    sale_tbl[i, "is_product"] <- grepl("^/product/", url)
-    sale_tbl[i, "url"] <- url
-    img <- item |> html_element(".plp-item-image") |> html_element("img") |> html_attr("src") |> gsub("[?].*$", "", x = _)
-    if (isTRUE(replace_img) && is.na(img)) {
-      img <- "shinyplus-assets/questionmark.png"
+    for (i in seq_len(length(links))) {
+      item <- links[[i]]
+      new_row <- nrow(sale_tbl) + 1
+      sale_tbl[new_row, "group"] <- group
+      sale_tbl[new_row, "single_label"] <- FALSE
+      sale_tbl[new_row, "name"] <- item |> html_element(".plp-item-name") |> html_text()
+      sale_tbl[new_row, "sale_txt"] <- item |> html_element(".plp-item-complementary-top") |> html_text2() |> gsub("(\n)+", ", ", x = _)
+      sale_tbl[new_row, "unit"] <- item |> html_element(".plp-item-complementary") |> html_text2() |> gsub("[[:cntrl:]]", "; ", x = _) |> gsub("^Per ", "", x = _)
+
+      price_current <- item |> html_elements(".product-header-price-integer, .product-header-price-decimals") |> html_text() |> paste(collapse = ".") |> gsub("[.]+", ".", x = _) |> trimws()
+      if (price_current == ".") {
+        price_current <- ""
+      }
+      price_previous <- item |> html_element(".product-header-price-previous") |> html_text() |> trimws()
+      sale_tbl[new_row, "price_current"] <- gsub(".", ",", price_current, fixed = TRUE)
+      sale_tbl[new_row, "price_previous"] <- gsub(".", ",", price_previous, fixed = TRUE)
+
+      url <- item |> html_attr("href") |> gsub("https://www.plus.nl", "", x = _, fixed = TRUE)
+      sale_tbl[new_row, "is_product"] <- grepl("^/product/", url)
+      sale_tbl[new_row, "url"] <- url
+      img <- item |> html_element(".plp-item-image") |> html_element("img") |> html_attr("src") |> gsub("[?].*$", "", x = _)
+      if (isTRUE(replace_img) && is.na(img)) {
+        img <- "shinyplus-assets/questionmark.png"
+      }
+      if (grepl("^//", img)) {
+        img <- paste0("https:", img)
+      }
+      sale_tbl[new_row, "img"] <- img
     }
-    if (grepl("^//", img)) {
-      img <- paste0("https:", img)
-    }
-    sale_tbl[i, "img"] <- img
   }
 
-  sale_tbl <- sale_tbl |> filter(!trimws(name) %in% c("", NA))
+  sale_tbl <- sale_tbl |>
+    group_by(group) |>
+    mutate(single_label = n() == 1) |>
+    ungroup() |>
+    filter(single_label | !is.na(name)) |>
+    distinct(name, url, .keep_all = TRUE)
 
   # sale items not existing in product list must be added there
   new_products <- sale_tbl |>

@@ -151,6 +151,9 @@ shinyplus <- function() {
       hr {
         margin: 1rem 0;
       }
+      .well hr {
+        margin: 2rem 0;
+      }
 
       #basket-icon-wrapper {
         position: absolute;
@@ -221,6 +224,9 @@ shinyplus <- function() {
       }
       #column-sale .bslib-card {
         background: color-mix(in srgb, var(--plus-red) 3%, white);
+      }
+      #column-sale #sale-list {
+        background: color-mix(in srgb, var(--plus-red) 1%, white);
       }
       #column-sale .bslib-card h3,
       #column-sale .bslib-card h5 {
@@ -424,7 +430,7 @@ shinyplus <- function() {
       #column-sale {
         display: flex;
         flex-direction: column;
-        height: calc(100vh - 120px);
+        height: calc(100vh - 100px);
         overflow: hidden;
       }
       #sale-list {
@@ -438,12 +444,11 @@ shinyplus <- function() {
       }
 
       .sale-card {
-        border: 1px solid #eee;
-        border-radius: 12px;
         padding: 12px;
-        background: rgba(255, 255, 255, 0.8);
         text-align: center;
         height: 100%;
+        border-bottom: 1px solid #eee;
+        padding-top: 24px;
       }
       .sale-img {
         height: 120px;
@@ -454,6 +459,10 @@ shinyplus <- function() {
         color: var(--plus-red);
         font-size: 0.85rem;
         margin-bottom: 5px;
+        background-color: color-mix(in srgb, var(--plus-red) 10%, white);
+        border-radius: 10px;
+        width: 90%;
+        margin-left: 5%;
       }
       .sale-name {
         font-size: 0.85rem;
@@ -466,6 +475,29 @@ shinyplus <- function() {
       .sale-qty * {
         text-align: center;
       }
+      .sale-single-label {
+        width: 100%;
+        background: color-mix(in srgb, var(--plus-purple) 15%, white);
+        text-align: center;
+        padding: 2rem;
+        font-size: 1.25rem;
+        border-radius: 30px;
+        margin-top: 20px;
+        margin-bottom: 20px;
+      }
+      .sale-single-label a {
+        font-style: italic;
+        text-decoration: none;
+      }
+      .sale-single-label a:hover {
+        font-style: italic;
+        text-decoration: underline;
+      }
+      .sale-group-title {
+        color: black !important;
+        margin: 20px;
+      }
+
       .price-line {
         margin-top: 5px;
       }
@@ -795,7 +827,8 @@ shinyplus <- function() {
 
     hide("sale-list")
 
-    observe({
+    product_list_last_updated <- reactiveVal(Sys.time())
+    observeEvent(product_list_last_updated(), {
       product_choices <- lapply(seq_len(nrow(plus_env$product_list)), function(i) {
         row <- plus_env$product_list[i, ]
         list(
@@ -1111,7 +1144,7 @@ shinyplus <- function() {
       ingredients <- rep(dish_ingredients$product_url, dish_ingredients$quantity)
 
       if (length(ingredients) == 0) {
-        showNotification("Geen producten om toe te voegen.", type = "error")
+        showNotification("Geen artikelen om toe te voegen.", type = "error")
       } else {
         add_to_basket(product_url = ingredients, quantity = 1, label = "Weekmenu")
       }
@@ -1141,43 +1174,58 @@ shinyplus <- function() {
     output$sale_items_ui <- renderUI({
       if (!is.null(values$sale_items)) {
         df <- values$sale_items
+        groups <- unique(df$group)
+
         tagList(
-          div(class = "sale-rows",
-              lapply(seq(1, NROW(df), by = 3), function(i) {
-                fluidRow(
-                  lapply(i:min(i + 2, NROW(df)), function(j) {
-                    row <- df[j, ]
-                    column(
-                      width = 4,
-                      div(class = "sale-card",
-                          a(href = plus_url(row$url), target = "_blank",
-                            img(src = row$img, class = "sale-img hover-preview")
-                          ),
-                          div(class = "sale-txt", row$sale_txt),
-                          div(class = "sale-name", row$name),
-                          div(class = "sale-unit", row$unit),
-                          div(class = "price-line",
-                              span(class = "price-current", as_euro(row$price_current)),
-                              span(class = "price-previous", row$price_previous)
-                          ),
-                          if (isTRUE(row$is_product)) {
-                            div(class = "sale-qty",
-                                numericInput(
-                                  inputId = paste0("qty_sale_", make.names(row$url)),
-                                  label = NULL,
-                                  value = 0,
-                                  min = 0,
-                                  step = 1,
-                                  width = "100%"
-                                )
+          lapply(groups, function(grp) {
+            group_df <- df[df$group == grp, ]
+
+            if (nrow(group_df) == 1 && group_df$single_label == TRUE) {
+              div(class = "sale-single-label",
+                  a(href = plus_url(group_df$url), target = "_blank",
+                    group_df$group))
+            } else {
+              tagList(
+                h3(grp, class = "sale-group-title"),
+                div(class = "sale-rows",
+                    lapply(seq(1, nrow(group_df), by = 3), function(i) {
+                      fluidRow(
+                        lapply(i:min(i + 2, NROW(group_df)), function(j) {
+                          row <- group_df[j, ]
+                          column(
+                            width = 4,
+                            div(class = "sale-card",
+                                a(href = plus_url(row$url), target = "_blank",
+                                  img(src = row$img, class = "sale-img hover-preview")
+                                ),
+                                div(class = "sale-txt", row$sale_txt),
+                                div(class = "sale-name", row$name),
+                                div(class = "sale-unit", row$unit),
+                                div(class = "price-line",
+                                    span(class = "price-current", as_euro(row$price_current)),
+                                    span(class = "price-previous", row$price_previous)
+                                ),
+                                if (isTRUE(row$is_product)) {
+                                  div(class = "sale-qty",
+                                      numericInput(
+                                        inputId = paste0("qty_sale_", make.names(row$url)),
+                                        label = NULL,
+                                        value = 0,
+                                        min = 0,
+                                        step = 1,
+                                        width = "100%"
+                                      )
+                                  )
+                                }
                             )
-                          }
+                          )
+                        })
                       )
-                    )
-                  })
+                    })
                 )
-              })
-          )
+              )
+            }
+          })
         )
       }
     })
@@ -1188,6 +1236,8 @@ shinyplus <- function() {
       values$sale_items <- df
       hide("loading_spinner")
       show("sale-list")
+      # update product lists
+      product_list_last_updated(Sys.time())
     })
     observeEvent(input$add_sale_to_basket, {
       df <- values$sale_items
@@ -1200,7 +1250,9 @@ shinyplus <- function() {
         tibble(product_url = row$url, quantity = qty)
       })
       qtys <- bind_rows(qtys)
-      if (nrow(qtys) > 0) {
+      if (nrow(qtys) == 0) {
+        showNotification("Geen artikelen om toe te voegen.", type = "error")
+      } else {
         add_to_basket(product_url = qtys$product_url, quantity = qtys$quantity, label = "Aanbieding")
       }
     })
@@ -1254,7 +1306,9 @@ shinyplus <- function() {
       })
 
       qtys <- bind_rows(qtys)
-      if (nrow(qtys) > 0) {
+      if (nrow(qtys) == 0) {
+        showNotification("Geen artikelen om toe te voegen.", type = "error")
+      } else {
         add_to_basket(product_url = qtys$product_url, quantity = qtys$quantity, label = "Vast")
       }
     })
@@ -1272,10 +1326,12 @@ shinyplus <- function() {
     # save to basket RDS if anything is changed
     observeEvent(values$basket, {
       req(selected_email())
-      saveRDS(values$basket, basket_file())
-
-      # update number on basket icon
       count <- sum(values$basket$quantity, na.rm = TRUE)
+      if (count == 0) {
+        values$basket <- values$basket |> slice(0)
+      }
+      saveRDS(values$basket, basket_file())
+      # update number on basket icon
       session$sendCustomMessage("updateBasketCount", count)
     }, ignoreInit = TRUE)
 
@@ -1284,8 +1340,7 @@ shinyplus <- function() {
       if (nrow(values$basket) == 0) return(p("Mandje is leeg."))
 
       tagList(
-        p("Aantal unieke producten: ", nrow(values$basket)),
-        p("Totaal aantal producten: ", sum(values$basket$quantity, na.rm = TRUE)),
+        p(HTML(paste0("<strong>Totaal artikelen:</strong> ", sum(values$basket$quantity, na.rm = TRUE), " (uniek: ", nrow(values$basket), ")"))),
         br(),
         br(),
         lapply(seq_len(nrow(values$basket)), function(i) {
@@ -1500,10 +1555,6 @@ shinyplus <- function() {
       }
 
       if (NROW(values$online_cart) == 0) {
-        Sys.sleep(1)
-        values$online_cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
-      }
-      if (NROW(values$online_cart) == 0) {
         return(tagList(
           h3("PLUS Winkelwagen"),
           p("Klik op de knop om de PLUS Winkelwagen te vernieuwen."),
@@ -1591,7 +1642,7 @@ shinyplus <- function() {
       req(values$logged_in)
       values$online_cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
       if (NROW(values$online_cart) == 0) {
-        showNotification("PLUS Winkelwagen niet up-to-date, vernieuwen...", type = "message", session = session)
+        showNotification("PLUS Winkelwagen niet up-to-date, vernieuwen...", type = "message")
         Sys.sleep(3)
         values$online_cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
       }
