@@ -59,7 +59,7 @@ format_unit <- function(units) {
 #' @importFrom chromote ChromoteSession
 #' @importFrom rvest read_html html_elements html_element html_text html_text2 html_attr
 #' @importFrom dplyr filter mutate select bind_rows arrange group_by ungroup n distinct
-get_sales <- function(replace_img = FALSE) {
+get_sales <- function() {
   if (is.null(plus_env$browser)) {
     # initialise browser
     plus_env$browser <- ChromoteSession$new()
@@ -103,7 +103,7 @@ get_sales <- function(replace_img = FALSE) {
       sale_tbl[new_row, "is_product"] <- grepl("^/product/", url)
       sale_tbl[new_row, "url"] <- url
       img <- item |> html_element(".plp-item-image") |> html_element("img") |> html_attr("src") |> gsub("[?].*$", "", x = _)
-      if (isTRUE(replace_img) && is.na(img)) {
+      if (is.na(img)) {
         img <- "shinyplus-assets/questionmark.png"
       }
       if (grepl("^//", img)) {

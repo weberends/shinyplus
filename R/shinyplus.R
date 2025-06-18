@@ -1232,7 +1232,7 @@ shinyplus <- function() {
     observeEvent(input$sale_retrieve, {
       hide("div_sale_retrieve")
       show("loading_spinner")
-      df <- get_sales(replace_img = TRUE)  # this might take up to 5 seconds
+      df <- get_sales()  # this might take up to 5 seconds
       values$sale_items <- df
       hide("loading_spinner")
       show("sale-list")
