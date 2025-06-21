@@ -241,7 +241,8 @@ shinyplus <- function() {
         background: color-mix(in srgb, var(--plus-purple) 3%, white);
       }
       #column-fixed .bslib-card h3,
-      #column-fixed .bslib-card h5 {
+      #column-fixed .bslib-card h5,
+      #column-fixed .bslib-card h6 {
         color: var(--plus-purple);
       }
       #column-fixed .btn:hover {
@@ -326,6 +327,25 @@ shinyplus <- function() {
         padding: 5px;
       }
 
+      .fixed_trash_icon button {
+        font-size: 0.8rem;
+        line-height: 2;
+      }
+      .fixed_trash_icon {
+        padding-left: 9%;
+      }
+      #add_fixed_heading {
+        line-height: 0.5;
+      }
+
+      .products-list-order {
+        margin-top: -10px;
+      }
+      .products-list-order button {
+        height: 24px;
+        font-size: 0.5rem;
+      }
+
 
       @media (max-width: 575.98px) {
         .products-list-row {
@@ -349,8 +369,12 @@ shinyplus <- function() {
           margin-bottom: auto;
         }
 
-        #basket_overview_table .product-list-col2 {
+        #column-extra .product-list-col2,
+        #column-fixed .product-list-col2 {
           width: 43%;
+        }
+        #column-fixed .fixed-heading {
+          width: 68%;
         }
 
         #dish_ingredients_table .product-list-col2 {
@@ -364,17 +388,29 @@ shinyplus <- function() {
           padding-top: 5px;
         }
 
-        #basket_overview_table .product-list-col3 {
-          width: 20%;
+        #column-fixed .products-list-order {
+          margin-top: -16px;
+        }
+        #column-fixed .fixed-heading {
+          margin-top: 21px;
+        }
+        #column-fixed .fixed_trash_icon {
+          margin-top: 17px;
+          padding-left: 10.5%;
+        }
+
+        #column-extra .product-list-col3,
+        #column-fixed .product-list-col3 {
+         width: 20%;
         }
 
         #dish_ingredients_table .product-list-col3 {
-          width: 15%;
+         width: 15%;
           margin-top: auto;
           margin-bottom: auto;
         }
 
-        #basket_overview_table .product-list-col4 {
+        .product-list-col4 {
           width: 10%;
           margin-top: 23px;
           margin-left: -5px;
@@ -395,8 +431,6 @@ shinyplus <- function() {
           margin-bottom: 6px;
         }
       }
-
-
 
 
       .dish-selector .selectize-dropdown .option {
@@ -651,7 +685,12 @@ shinyplus <- function() {
                                fluidRow(
                                  column(6, actionButton("add_fixed_product_button", "Toevoegen aan vaste producten", icon = icon("plus"), width = "100%")),
                                  column(6, actionButton("remove_fixed_product_button", "Verwijderen uit vaste producten", icon = icon("trash"), width = "100%"))
-                               )
+                               ),
+                               fluidRow(
+                                 h6("Tussenkopje toevoegen"),
+                                 column(7, textInput("text_fixed_heading", NULL, placeholder = "(Naam van tussenkopje)", width = "100%")),
+                                 column(5, actionButton("add_fixed_heading", "Toevoegen", icon = icon("plus"), width = "100%"))
+                               ),
                           )
                    )
                  )
@@ -817,6 +856,18 @@ shinyplus <- function() {
                  )
                )
       ),
+      tabPanel("Artikelen toevoegen",  # UI: Add products ----
+               fluidRow(
+                 column(4,
+                        textInput("product_search_txt", NULL, placeholder = "Naam van artikel", width = "100%"),
+                        actionButton("product_search_btn", "Zoeken op PLUS.nl", icon = icon("search"), width = "100%"),
+                        p("Let op: deze functie kan artikelen toevoegen die niet bij de eigen PLUS beschikbaar zijn.")
+                 ),
+                 column(8,
+                        uiOutput("product_search")
+                 )
+               )
+      ),
       tabPanel(title = uiOutput("account_tab_title"), value = "account",  # UI: Login ----
                uiOutput("login_ui")
       )
@@ -829,6 +880,10 @@ shinyplus <- function() {
 
     product_list_last_updated <- reactiveVal(Sys.time())
     observeEvent(product_list_last_updated(), {
+      # save RDS file
+      saveRDS(plus_env$product_list, file = file.path(plus_env$data_dir, "product_list.rds"))
+
+      # update field lists
       product_choices <- lapply(seq_len(nrow(plus_env$product_list)), function(i) {
         row <- plus_env$product_list[i, ]
         list(
@@ -888,8 +943,6 @@ shinyplus <- function() {
     })
 
     selected_email <- reactiveVal(NULL)
-    extra_input_count <- reactiveVal(1)
-    extra_inputs <- reactiveValues(data = list(), expanded = list())
 
     # fill in values from RDS files
     observeEvent(selected_email(), {
@@ -1232,6 +1285,7 @@ shinyplus <- function() {
     observeEvent(input$sale_retrieve, {
       hide("div_sale_retrieve")
       show("loading_spinner")
+      backup_product_list()
       df <- get_sales()  # this might take up to 5 seconds
       values$sale_items <- df
       hide("loading_spinner")
@@ -1259,19 +1313,44 @@ shinyplus <- function() {
 
     ## 3. Vast ----
 
+    unique_with_names <- function(x) x[!duplicated(x)]
+
+    # save to fixed product RDS if anything is changed
+    observeEvent(values$fixed_products, {
+      req(selected_email())
+      saveRDS(values$fixed_products, fixed_products_file())
+    }, ignoreInit = TRUE)
+
     output$fixed_items_ui <- renderUI({
       if (length(values$fixed_products) == 0) return(p("Nog geen vaste producten."))
 
-      values$fixed_products <- sort(values$fixed_products)
-
       tagList(
-        lapply(values$fixed_products, function(prod) {
-          fluidRow(
-            class = "row products-list-row",
-            column(2, class = "product-list-col1", div(class = "products-list-img", height = "100%", a(href = plus_url(prod), target = "_blank", img(src = get_product_image(prod), width = "100%", class = "hover-preview")))),
-            column(8, class = "product-list-col2", div(class = "products-list-p", height = "100%", p(HTML(paste0(get_product_name(prod), " ", span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod)))))))),
-            column(2, class = "product-list-col3", div(class = "products-list-qty", height = "100%", numericInput(paste0("qty_fixed_", make.names(prod)), NULL, value = 0, min = 0, step = 1, width = "100%")))
-          )
+        Map(values$fixed_products, names(values$fixed_products), f = function(prod, name) {
+          if (name == "heading") {
+            fluidRow(
+              class = "row products-list-row",
+              column(8, class = "fixed-heading", h6(prod)),
+              column(2, class = "product-list-col3 fixed_trash_icon", actionButton(paste0("fixed_remove_heading_", make.names(prod)), label = NULL, icon = icon("trash"), class = "btn-sm", style = "margin-top: -8px;")),
+              column(2, class = "product-list-col4",
+                     div(class = "products-list-order", height = "100%",
+                         actionButton(inputId = paste0("fixed_move_up_", make.names(prod)), label = NULL, icon = icon("arrow-up"), width = "100%"),
+                         actionButton(inputId = paste0("fixed_move_down_", make.names(prod)), label = NULL, icon = icon("arrow-down"), width = "100%"))
+              )
+            )
+          } else {
+            fluidRow(
+              class = "row products-list-row",
+              column(2, class = "product-list-col1", div(class = "products-list-img", height = "100%", a(href = plus_url(prod), target = "_blank", img(src = get_product_image(prod), width = "100%", class = "hover-preview")))),
+              column(6, class = "product-list-col2", div(class = "products-list-p", height = "100%", p(HTML(paste0(get_product_name(prod), " ", span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod)))))))),
+              column(2, class = "product-list-col3", div(class = "products-list-qty", height = "100%", numericInput(paste0("qty_fixed_", make.names(prod)), NULL, value = 0, min = 0, step = 1, width = "100%"))),
+              column(2, class = "product-list-col4",
+                     div(class = "products-list-order", height = "100%",
+                         actionButton(inputId = paste0("fixed_move_up_", make.names(prod)), label = NULL, icon = icon("arrow-up"), width = "100%"),
+                         actionButton(inputId = paste0("fixed_move_down_", make.names(prod)), label = NULL, icon = icon("arrow-down"), width = "100%")
+                     )
+              )
+            )
+          }
         })
       )
     })
@@ -1281,21 +1360,66 @@ shinyplus <- function() {
       req(input$add_fixed_product)
       prod <- input$add_fixed_product
       if (!is.null(prod) && !(prod %in% values$fixed_products)) {
-        values$fixed_products <- unique(c(values$fixed_products, prod))
-        saveRDS(values$fixed_products, fixed_products_file())
+        values$fixed_products <- unique_with_names(c(values$fixed_products, prod))
       }
       updateSelectInput(session, "add_fixed_product", selected = "")
     })
-
     observeEvent(input$remove_fixed_product_button, {
       req(input$add_fixed_product)
       prod <- input$add_fixed_product
       if (!is.null(prod) && prod %in% values$fixed_products) {
         values$fixed_products <- setdiff(values$fixed_products, prod)
-        saveRDS(values$fixed_products, fixed_products_file())
       }
       updateSelectInput(session, "add_fixed_product", selected = "")
     })
+
+    observeEvent(input$add_fixed_heading, {
+      req(input$text_fixed_heading)
+      prod <- input$text_fixed_heading
+      if (!is.null(prod) && !(prod %in% values$fixed_products)) {
+        values$fixed_products <- unique_with_names(c(values$fixed_products, heading = prod))
+      }
+      updateTextInput(session, "text_fixed_heading", value = "")
+    })
+
+    observe({
+      req(length(values$fixed_products) > 0)
+      plus_env$fixed_item_moved <- FALSE
+      lapply(values$fixed_products, function(prod) {
+        # trash icon for headings
+        observeEvent(input[[paste0("fixed_remove_heading_", make.names(prod))]], {
+          values$fixed_products <- values$fixed_products[values$fixed_products != prod]
+          done_the_work(TRUE)
+        }, ignoreInit = TRUE)
+
+        # move up button
+        observeEvent(input[[paste0("fixed_move_up_", make.names(prod))]], {
+          i <- which(values$fixed_products == prod)[1]
+          if (i > 1 && !plus_env$fixed_item_moved) {
+            tmp <- isolate(values$fixed_products)
+            pos <- unname(c(i - 1, i))
+            tmp[pos] <- tmp[rev(pos)]
+            names(tmp)[pos] <- names(tmp)[rev(pos)]
+            values$fixed_products <- tmp
+            plus_env$fixed_item_moved <- TRUE
+          }
+        }, ignoreInit = TRUE)
+
+        # move down button
+        observeEvent(input[[paste0("fixed_move_down_", make.names(prod))]], {
+          i <- which(values$fixed_products == prod)[1]
+          if (i < length(values$fixed_products) && !plus_env$fixed_item_moved) {
+            tmp <- isolate(values$fixed_products)
+            pos <- unname(c(i, i + 1))
+            tmp[pos] <- tmp[rev(pos)]
+            names(tmp)[pos] <- names(tmp)[rev(pos)]
+            values$fixed_products <- tmp
+            plus_env$fixed_item_moved <- TRUE
+          }
+        }, ignoreInit = TRUE)
+      })
+    })
+
 
     # Add selected fixed items + quantities to planning basket
     observeEvent(input$add_fixed_to_basket, {
@@ -1823,6 +1947,62 @@ shinyplus <- function() {
         }, ignoreInit = TRUE)
       })
     })
+
+
+    # Server: Add products -----
+    output$product_search <- renderUI({
+      p("Druk op de zoekknop om te beginnen met zoeken.")
+    })
+    observeEvent(input$product_search_btn, {
+      req(input$product_search_txt)
+
+      search_url <- paste0("https://www.plus.nl/zoekresultaten?SearchTerm=", utils::URLencode(input$product_search_txt, reserved = TRUE))
+
+      showNotification("Zoekopdracht uitvoeren op PLUS.nl...", type = "message", duration = 2)
+      before <- nrow(plus_env$product_list)
+      backup_product_list()
+      new_items <- tryCatch(update_product_list_from_url_internal(search_url), error = function(e) NULL)
+      if (is.null(new_items)) {
+        showNotification("Fout bij ophalen van gegevens.", type = "error")
+      } else {
+        # save new product list and update field lists
+        product_list_last_updated(Sys.time())
+
+        n_new <- NROW(new_items)
+
+        output$product_search <- renderUI({
+          req(NROW(new_items) > 0)
+          tagList(
+            p(paste0("Deze ", NROW(new_items), " artikelen zijn toegevoegd aan de productenlijst en vanaf nu beschikbaar in deze app:")),
+            div(style = "overflow-y: auto;",
+                div(class = "row",
+                    lapply(seq_len(nrow(new_items)), function(i) {
+                      item <- new_items[i, ]
+                      div(class = "col-md-4 mb-3",
+                          div(class = "card h-100 shadow-sm",
+                              img(src = item$img, class = "card-img-top", style = "max-height: 200px; object-fit: contain;"),
+                              div(class = "card-body",
+                                  h6(class = "card-title", item$name),
+                                  p(class = "card-text", item$unit),
+                                  a(href = plus_url(item$url), target = "_blank", class = "btn btn-sm btn-success", "Bekijk op PLUS.nl")
+                              )
+                          )
+                      )
+                    })
+                )
+            )
+          )
+        })
+
+        if (n_new > 0) {
+          msg <- paste(n_new, "nieuwe artikelen toegevoegd.")
+        } else {
+          msg <- "Geen nieuwe artikelen gevonden."
+        }
+        showNotification(msg, type = ifelse(n_new > 0, "message", "warning"))
+      }
+    })
+
   }
 
   shinyApp(ui, server)

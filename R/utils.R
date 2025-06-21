@@ -134,7 +134,12 @@ get_sales <- function() {
   }
 
   structure(sale_tbl,
-            promo_period = promo_period)
+            promo_period = promo_period,
+            new_rows = NROW(new_products))
+}
+
+backup_product_list <- function() {
+  saveRDS(plus_env$product_list, file = file.path(plus_env$data_dir, paste0("product_list.rds.", format(Sys.time(), "%Y%m%d-%H%M%S"), ".bak")))
 }
 
 escape_js_string <- function(x) {

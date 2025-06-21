@@ -74,13 +74,55 @@ update_product_list_from_html <- function(html_txt) {
   out
 }
 
-# brand_prefix <- function(x) {
-#   for (brand in c("PLUS", "Biologisch PLUS", "Melkan", "Friesche Vlag", "PLUS Boerentrots", "Douwe Egberts", "Campina", "Beemster", "Van Gilse")) {
-#     ind <- toupper(substr(x, 1, nchar(brand) + 1)) == paste0(toupper(brand), " ")
-#     x[which(ind)] <- paste0(gsub(paste0("^", brand, " "),
-#                                  "",
-#                                  x[which(ind)], ignore.case = TRUE),
-#                             ", ", brand)
-#   }
-#   x
-# }
+update_product_list_from_url_internal <- function(search_url) {
+  if (is.null(plus_env$browser)) {
+    # initialise browser
+    plus_env$browser <- ChromoteSession$new()
+    Sys.sleep(3)
+  }
+  plus_env$browser$Page$navigate(search_url)
+  wait_for_element("body", b = plus_env$browser) # minimal page check
+  Sys.sleep(3)
+
+  html_txt <- plus_env$browser$Runtime$evaluate("document.documentElement.outerHTML", returnByValue = TRUE)$result$value
+
+  items_html <- paste(html_txt, collapse = "") |> read_html() |> html_element(".plp-results-list") |> html_elements("a")
+  new_product_list <- tibble()
+
+  for (i in seq_along(items_html)) {
+    item <- items_html[[i]]
+    unit <- item |> html_element(".plp-item-complementary") |> html_children()
+    if (length(unit) == 0) {
+      new_product_list[i, "name"] <- NA_character_
+      next
+    }
+
+    new_product_list[i, "name"] <- item |> html_element(".plp-item-name") |> html_text()
+    unit <- unit[[1]] |> html_text() |> format_unit()
+    new_product_list[i, "unit"] <- unit
+    new_product_list[i, "url"] <- item |> html_attr("href")
+    new_product_list[i, "img"] <- item |> html_element("img") |> html_attr("src") |> gsub("[?].*$", "", x = _)
+  }
+  new_product_list <- new_product_list |> filter(!is.na(name))
+
+  current_product_list <- plus_env$product_list
+
+  product_list <- new_product_list |>
+    bind_rows(current_product_list) |>
+    distinct()
+
+  # some images were not well selected, they could be promotion images and then occur more than once
+  img_dups <- product_list$img[duplicated(product_list$img)]
+  product_list$img[product_list$img %in% img_dups] <- NA_character_
+
+  # double entries with an NA url will be filtered out
+  out <- product_list |>
+    arrange(name, unit, url, img) |>
+    distinct(name, unit, .keep_all = TRUE)
+
+  new <- out |>
+    filter(url %in% new_product_list$url)
+
+  plus_env$product_list <- out
+  invisible(new)
+}
