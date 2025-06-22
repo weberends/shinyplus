@@ -345,6 +345,9 @@ shinyplus <- function() {
         height: 24px;
         margin-top: 32px;
       }
+      #fixed_items_ui > .fixed-heading-collapsed:first-child {
+        margin-top: -10px;
+      }
 
       .products-list-order {
         margin-top: -10px;
@@ -1362,10 +1365,8 @@ shinyplus <- function() {
         actionButton("fixed_settings_open", "Bewerken", icon = icon("pen-to-square"), width = "100%")
       } else {
         tagList(
-          fluidRow(
-            column(6, actionButton("add_fixed_product_button", "Toevoegen aan vaste producten", icon = icon("plus"), width = "100%")),
-            column(6, actionButton("remove_fixed_product_button", "Verwijderen uit vaste producten", icon = icon("trash"), width = "100%"))
-          ),
+          actionButton("add_fixed_product_button", "Toevoegen aan vaste producten", icon = icon("plus"), width = "100%"),
+          br(),
           br(),
           fluidRow(
             h6("Tussenkopje toevoegen"),
@@ -1398,7 +1399,7 @@ shinyplus <- function() {
               fluidRow(
                 class = "row products-list-row",
                 column(8, class = "fixed-heading", h6(prod)),
-                column(2, class = "product-list-col3 fixed_trash_icon", actionButton(paste0("fixed_remove_heading_", make.names(prod)), label = NULL, icon = icon("trash"), class = "btn-sm", style = "margin-top: -8px;")),
+                column(2, class = "product-list-col3 fixed_trash_icon", actionButton(paste0("fixed_remove_heading_", make.names(prod)), label = NULL, icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;")),
                 column(2, class = "product-list-col4",
                        div(class = "products-list-order", height = "100%",
                            actionButton(inputId = paste0("fixed_move_up_", make.names(prod)), label = NULL, icon = icon("arrow-up"), width = "100%"),
@@ -1419,7 +1420,8 @@ shinyplus <- function() {
                 class = "row products-list-row",
                 column(2, class = "product-list-col1", div(class = "products-list-img", height = "100%", a(href = plus_url(prod), target = "_blank", img(src = get_product_image(prod), width = "100%", class = "hover-preview")))),
                 column(6, class = "product-list-col2", div(class = "products-list-p", height = "100%", p(HTML(paste0(get_product_name(prod), " ", span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod)))))))),
-                column(2, class = "product-list-col3", div(class = "products-list-qty", height = "100%", numericInput(paste0("qty_fixed_", make.names(prod)), NULL, value = 0, min = 0, step = 1, width = "100%"))),
+                column(2, class = "product-list-col3", actionButton(paste0("remove_fixed_", make.names(prod)), "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;")),
+                # column(2, class = "product-list-col3", div(class = "products-list-qty", height = "100%", numericInput(paste0("qty_fixed_", make.names(prod)), NULL, value = 0, min = 0, step = 1, width = "100%"))),
                 column(2, class = "product-list-col4",
                        div(class = "products-list-order", height = "100%",
                            actionButton(inputId = paste0("fixed_move_up_", make.names(prod)), label = NULL, icon = icon("arrow-up"), width = "100%"),
@@ -1442,14 +1444,6 @@ shinyplus <- function() {
       }
       updateSelectInput(session, "add_fixed_product", selected = "")
     })
-    observeEvent(input$remove_fixed_product_button, {
-      req(input$add_fixed_product)
-      prod <- input$add_fixed_product
-      if (!is.null(prod) && prod %in% values$fixed_products) {
-        values$fixed_products <- setdiff(values$fixed_products, prod)
-      }
-      updateSelectInput(session, "add_fixed_product", selected = "")
-    })
 
     observeEvent(input$add_fixed_heading, {
       req(input$text_fixed_heading)
@@ -1467,6 +1461,12 @@ shinyplus <- function() {
         # trash icon for headings
         observeEvent(input[[paste0("fixed_remove_heading_", make.names(prod))]], {
           values$fixed_products <- values$fixed_products[values$fixed_products != prod]
+          plus_env$fixed_item_moved <- TRUE
+        }, ignoreInit = TRUE)
+        # trash icon for products
+        observeEvent(input[[paste0("remove_fixed_", make.names(prod))]], {
+          values$fixed_products <- values$fixed_products[values$fixed_products != prod]
+          plus_env$fixed_item_moved <- TRUE
         }, ignoreInit = TRUE)
 
         # move up button
