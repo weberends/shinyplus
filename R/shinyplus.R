@@ -1347,8 +1347,6 @@ shinyplus <- function() {
 
     ## 3. Vast ----
 
-    unique_with_names <- function(x) x[!duplicated(x)]
-
     fixed_settings_expanded <- reactiveVal(FALSE)
 
     observeEvent(input$fixed_settings_open, {
@@ -1388,8 +1386,9 @@ shinyplus <- function() {
       if (length(values$fixed_products) == 0) return(p("Nog geen vaste producten."))
 
       tagList(
-        Map(values$fixed_products, names(values$fixed_products), f = function(prod, name) {
-          if (name == "heading") {
+        lapply(values$fixed_products, function(prod) {
+          if (!grepl("/product/", prod)) {
+            # it's a heading
             if (fixed_settings_expanded() == FALSE) {
               fluidRow(
                 class = "row products-list-row fixed-heading-collapsed",
@@ -1420,8 +1419,7 @@ shinyplus <- function() {
                 class = "row products-list-row",
                 column(2, class = "product-list-col1", div(class = "products-list-img", height = "100%", a(href = plus_url(prod), target = "_blank", img(src = get_product_image(prod), width = "100%", class = "hover-preview")))),
                 column(6, class = "product-list-col2", div(class = "products-list-p", height = "100%", p(HTML(paste0(get_product_name(prod), " ", span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod)))))))),
-                column(2, class = "product-list-col3", actionButton(paste0("remove_fixed_", make.names(prod)), "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;")),
-                # column(2, class = "product-list-col3", div(class = "products-list-qty", height = "100%", numericInput(paste0("qty_fixed_", make.names(prod)), NULL, value = 0, min = 0, step = 1, width = "100%"))),
+                column(2, class = "product-list-col3 fixed_trash_icon", actionButton(paste0("remove_fixed_", make.names(prod)), "", icon = icon("trash"), class = "btn-danger btn-sm")),
                 column(2, class = "product-list-col4",
                        div(class = "products-list-order", height = "100%",
                            actionButton(inputId = paste0("fixed_move_up_", make.names(prod)), label = NULL, icon = icon("arrow-up"), width = "100%"),
@@ -1440,7 +1438,7 @@ shinyplus <- function() {
       req(input$add_fixed_product)
       prod <- input$add_fixed_product
       if (!is.null(prod) && !(prod %in% values$fixed_products)) {
-        values$fixed_products <- unique_with_names(c(values$fixed_products, prod))
+        values$fixed_products <- unique(c(values$fixed_products, prod))
       }
       updateSelectInput(session, "add_fixed_product", selected = "")
     })
@@ -1449,7 +1447,7 @@ shinyplus <- function() {
       req(input$text_fixed_heading)
       prod <- input$text_fixed_heading
       if (!is.null(prod) && !(prod %in% values$fixed_products)) {
-        values$fixed_products <- unique_with_names(c(values$fixed_products, heading = prod))
+        values$fixed_products <- unique(c(values$fixed_products, prod))
       }
       updateTextInput(session, "text_fixed_heading", value = "")
     })
@@ -1474,9 +1472,8 @@ shinyplus <- function() {
           i <- which(values$fixed_products == prod)[1]
           if (i > 1 && !plus_env$fixed_item_moved) {
             tmp <- isolate(values$fixed_products)
-            pos <- unname(c(i - 1, i))
+            pos <- c(i - 1, i)
             tmp[pos] <- tmp[rev(pos)]
-            names(tmp)[pos] <- names(tmp)[rev(pos)]
             values$fixed_products <- tmp
             plus_env$fixed_item_moved <- TRUE
           }
@@ -1487,9 +1484,8 @@ shinyplus <- function() {
           i <- which(values$fixed_products == prod)[1]
           if (i < length(values$fixed_products) && !plus_env$fixed_item_moved) {
             tmp <- isolate(values$fixed_products)
-            pos <- unname(c(i, i + 1))
+            pos <- c(i, i + 1)
             tmp[pos] <- tmp[rev(pos)]
-            names(tmp)[pos] <- names(tmp)[rev(pos)]
             values$fixed_products <- tmp
             plus_env$fixed_item_moved <- TRUE
           }
