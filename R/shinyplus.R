@@ -28,7 +28,7 @@
 #'    ```
 #'
 #' All user-specific data (e.g. dishes, baskets, fixed products) is saved locally as `.rds` files per user.
-#' @importFrom shiny a actionButton addResourcePath br checkboxGroupInput checkboxInput column conditionalPanel div fluidPage fluidRow h3 h4 h5 h6 hr HTML icon img isolate modalButton modalDialog navbarPage numericInput observe observeEvent p passwordInput radioButtons reactive reactiveVal reactiveValues removeModal renderUI req selectInput selectizeInput shinyApp showModal showNotification span strong tabPanel tagList tags textInput uiOutput updateActionButton updateCheckboxGroupInput updateCheckboxInput updateNumericInput updateRadioButtons updateSelectInput updateSelectizeInput updateTextInput wellPanel withProgress incProgress tabsetPanel
+#' @importFrom shiny a actionButton addResourcePath br checkboxGroupInput checkboxInput column conditionalPanel div fluidPage fluidRow h3 h4 h5 h6 hr HTML icon img isolate modalButton modalDialog navbarPage numericInput observe observeEvent p passwordInput radioButtons reactive reactiveVal reactiveValues removeModal renderUI req selectInput selectizeInput shinyApp showModal showNotification span strong tabPanel tagList tags textAreaInput textInput uiOutput updateActionButton updateCheckboxGroupInput updateCheckboxInput updateNumericInput updateRadioButtons updateSelectInput updateSelectizeInput updateTextAreaInput updateTextInput wellPanel withProgress incProgress tabsetPanel
 #' @importFrom bslib bs_theme font_google card
 #' @importFrom dplyr filter pull mutate select arrange desc inner_join bind_rows distinct if_else left_join count row_number slice
 #' @importFrom tibble tibble as_tibble
@@ -249,10 +249,17 @@ shinyplus <- function() {
       #column-fixed .bslib-card h6 {
         color: var(--plus-purple);
       }
+      #column-fixed h6 {
+        border-bottom: 1px dashed var(--plus-purple);
+        padding-bottom: 5px;
+      }
       #column-fixed .btn:hover {
         background-color: color-mix(in srgb, var(--plus-purple) 25%, white);
         border-color: inherit;
         color: inherit;
+      }
+      column-fixed .div-fixed-expanded {
+        height: 300px;
       }
       #column-extra .bslib-card {
         background: color-mix(in srgb, var(--plus-green-dark) 3%, white);
@@ -886,6 +893,7 @@ shinyplus <- function() {
                         br(),
                         h5("Van zelfgekopieerde HTML-elementen", class = "text-primary"),
                         p("Kopieer de HTML-elementen via het webinfovenster na het zoeken van een product op de PLUS-website."),
+                        textAreaInput("product_import_html", NULL, placeholder = "HTML-inhoud...", width = "100%", rows = 3),
                         actionButton("product_import_btn", "HTML-tekst importeren", icon = icon("cloud-arrow-down"), width = "100%"),
                         br(),
                         br(),
@@ -1371,7 +1379,8 @@ shinyplus <- function() {
             column(7, textInput("text_fixed_heading", NULL, placeholder = "(Naam van tussenkopje)", width = "100%")),
             column(5, actionButton("add_fixed_heading", "Toevoegen", icon = icon("plus"), width = "100%"))
           ),
-          actionButton("fixed_settings_close", "Bewerkingen sluiten", icon = icon("caret-up"), width = "100%")
+          actionButton("fixed_settings_close", "Bewerkingen sluiten", icon = icon("caret-up"), width = "100%"),
+          div(class = "div-fixed-expanded"),
         )
       }
     })
@@ -1429,7 +1438,7 @@ shinyplus <- function() {
               )
             }
           }
-        })
+        }),
       )
     })
 
@@ -2067,11 +2076,12 @@ shinyplus <- function() {
     })
 
     observeEvent(input$product_import_btn, {
-      retrieve_plus_data(NULL)
+      req(input$product_import_html)
+      retrieve_plus_data(input$product_import_html)
     })
 
     retrieve_plus_data <- function(search_url) {
-      new_items <- tryCatch(update_product_list_from_url_internal(search_url), error = function(e) NULL)
+      new_items <- tryCatch(create_product_list_internal(search_url), error = function(e) NULL)
       if (is.null(new_items)) {
         showNotification("Fout bij ophalen van gegevens.", type = "error")
       } else if (NROW(new_items) == 0) {
@@ -2116,6 +2126,8 @@ shinyplus <- function() {
         arrange(name)
       # update RDS, input fields
       product_list_last_updated(Sys.time())
+      updateTextInput(session, inputId = "product_search_txt", value = "")
+      updateTextAreaInput(session, inputId = "product_import_html", value = "")
       output$product_search <- renderUI({
         p("Gereed. Druk op de zoek- of importeerknop om opnieuw te beginnen.")
       })

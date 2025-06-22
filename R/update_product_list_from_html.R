@@ -76,24 +76,26 @@ update_product_list_from_html <- function(html_txt) {
   out
 }
 
-update_product_list_from_url_internal <- function(search_url = NULL) {
+create_product_list_internal <- function(x) {
 
-  if (!is.null(search_url)) {
+  x <- paste(as.character(x), collapse = " ")
+
+  if (grepl("^http", x)) {
     # we launch a browser to visit the page
     if (is.null(plus_env$browser)) {
       # initialise browser
       plus_env$browser <- ChromoteSession$new()
       Sys.sleep(3)
     }
-    plus_env$browser$Page$navigate(search_url)
+    plus_env$browser$Page$navigate(x)
     wait_for_element("body", b = plus_env$browser) # minimal page check
     Sys.sleep(3)
 
     html_txt <- plus_env$browser$Runtime$evaluate("document.documentElement.outerHTML", returnByValue = TRUE)$result$value
 
   } else {
-    # HTML code was copied to clipboard
-    html_txt <- clipr::read_clip(allow_non_interactive = TRUE)
+    # HTML code was given in app
+    html_txt <- x
   }
 
   items_html <- paste(html_txt, collapse = "") |> read_html() |> html_element(".plp-results-list") |> html_elements("a")
@@ -131,6 +133,6 @@ update_product_list_from_url_internal <- function(search_url = NULL) {
     distinct(name, unit, .keep_all = TRUE)
 
   new <- out |>
-    filter(url %in% new_product_list$url)
+    filter(!url %in% current_product_list$url)
   invisible(new)
 }
