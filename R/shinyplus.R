@@ -533,7 +533,7 @@ shinyplus <- function() {
         font-size: 0.85rem;
       }
       .sale-unit {
-        color: #888;
+        color: grey;
         font-size: 0.8rem;
         margin-bottom: 8px;
       }
@@ -573,7 +573,7 @@ shinyplus <- function() {
       }
       .price-previous {
         text-decoration: line-through;
-        color: #888;
+        color: grey;
         font-size: 0.9rem;
       }
 
@@ -1394,6 +1394,9 @@ shinyplus <- function() {
     output$fixed_items_ui <- renderUI({
       if (length(values$fixed_products) == 0) return(p("Nog geen vaste producten."))
 
+      # get `values$sale_items`, which is reactive and will thus update this `fixed_items_ui` if it changes
+      sale_items <- values$sale_items
+
       tagList(
         lapply(values$fixed_products, function(prod) {
           if (!grepl("/product/", prod)) {
@@ -1420,14 +1423,29 @@ shinyplus <- function() {
               fluidRow(
                 class = "row products-list-row",
                 column(2, class = "product-list-col1", div(class = "products-list-img", height = "100%", a(href = plus_url(prod), target = "_blank", img(src = get_product_image(prod), width = "100%", class = "hover-preview")))),
-                column(8, class = "product-list-col2", div(class = "products-list-p", height = "100%", p(HTML(paste0(get_product_name(prod), " ", span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod)))))))),
+                column(8, class = "product-list-col2",
+                       if (prod %in% sale_items$url) {
+                         div(class = "products-list-p", height = "100%", p(class = "text-danger", HTML(paste0(get_product_name(prod), span(class = "basket-label sale", "aanbieding"), " ",
+                                                                                                              span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod))),
+                                                                                                              if (sale_items$sale_txt[match(prod, sale_items$url)] != "") span(class = "product-qty", paste0(" ", symbol$bullet, " ", sale_items$sale_txt[match(prod, sale_items$url)])),
+                                                                                                              span(class = "product-qty", paste0(" ", symbol$bullet, " \u20ac ", sale_items$price_current[match(prod, sale_items$url)], " ")),
+                                                                                                              if (sale_items$price_previous[match(prod, sale_items$url)] != "") span(class = "price-previous", paste0(" \u20ac ", sale_items$price_previous[match(prod, sale_items$url)])) else ""
+                                                                                                              ))))
+                       } else {
+                         div(class = "products-list-p", height = "100%", p(HTML(paste0(get_product_name(prod), " ", span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod)))))))
+                       }),
                 column(2, class = "product-list-col3", div(class = "products-list-qty", height = "100%", numericInput(paste0("qty_fixed_", make.names(prod)), NULL, value = 0, min = 0, step = 1, width = "100%"))),
               )
             } else {
               fluidRow(
                 class = "row products-list-row",
                 column(2, class = "product-list-col1", div(class = "products-list-img", height = "100%", a(href = plus_url(prod), target = "_blank", img(src = get_product_image(prod), width = "100%", class = "hover-preview")))),
-                column(6, class = "product-list-col2", div(class = "products-list-p", height = "100%", p(HTML(paste0(get_product_name(prod), " ", span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod)))))))),
+                column(6, class = "product-list-col2",
+                       if (prod %in% sale_items$url) {
+                         div(class = "products-list-p", height = "100%", p(class = "text-danger", HTML(paste0(get_product_name(prod), " ", span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod)))))))
+                       } else {
+                         div(class = "products-list-p", height = "100%", p(HTML(paste0(get_product_name(prod), " ", span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod)))))))
+                       }),
                 column(2, class = "product-list-col3 fixed_trash_icon", actionButton(paste0("remove_fixed_", make.names(prod)), "", icon = icon("trash"), class = "btn-danger btn-sm")),
                 column(2, class = "product-list-col4",
                        div(class = "products-list-order", height = "100%",
