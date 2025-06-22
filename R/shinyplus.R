@@ -249,7 +249,7 @@ shinyplus <- function() {
       #column-fixed .bslib-card h6 {
         color: var(--plus-purple);
       }
-      #column-fixed h6 {
+      #column-fixed #fixed_items_ui h6 {
         border-bottom: 1px dashed var(--plus-purple);
         padding-bottom: 5px;
       }
@@ -258,7 +258,7 @@ shinyplus <- function() {
         border-color: inherit;
         color: inherit;
       }
-      column-fixed .div-fixed-expanded {
+      #column-fixed .div-fixed-expanded {
         height: 300px;
       }
       #column-extra .bslib-card {
