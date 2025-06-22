@@ -39,6 +39,8 @@ saveRDS(new_product_list, path)
 }\if{html}{\out{</div>}}
 }
 
+Alternatively, visit the relevant tab in the \code{\link[=shinyplus]{shinyplus()}} app.
+
 This process can be repeated as often as needed.
 }
 \section{Disclaimer}{

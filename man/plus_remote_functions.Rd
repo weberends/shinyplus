@@ -12,11 +12,7 @@
 \alias{plus_page_reload}
 \title{Interact with PLUS.nl via Headless Browser}
 \usage{
-plus_login(
-  credentials = getOption("plus_credentials", default =
-    system.file("login_credentials.yaml", package = "shinyplus")),
-  info = interactive()
-)
+plus_login(credentials = getOption("plus_credentials"), info = interactive())
 
 plus_logout(info = interactive())
 
@@ -61,10 +57,3 @@ All interactions with plus.nl occur through \strong{local, client-side browser a
 Any logos, icons, or brand references (e.g., the PLUS logo) used in the user interface are publicly available media assets sourced from \href{https://nl.wikipedia.org/wiki/PLUS_(Nederlandse_supermarkt)}{Wikipedia} under appropriate free-use licensing. All trademarks, service marks, and product names are the property of their respective owners.
 }
 
-\examples{
-\dontrun{
-plus_login()
-
-plus_add_products("Houdbare halfvolle melk pak 1000 ml")
-}
-}

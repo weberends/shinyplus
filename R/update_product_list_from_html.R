@@ -27,6 +27,8 @@
 #'    saveRDS(new_product_list, path)
 #'    ```
 #'
+#' Alternatively, visit the relevant tab in the [shinyplus()] app.
+#'
 #' This process can be repeated as often as needed.
 #' @importFrom rvest html_attr html_children html_element html_elements html_text read_html
 #' @importFrom tibble tibble
@@ -74,17 +76,25 @@ update_product_list_from_html <- function(html_txt) {
   out
 }
 
-update_product_list_from_url_internal <- function(search_url) {
-  if (is.null(plus_env$browser)) {
-    # initialise browser
-    plus_env$browser <- ChromoteSession$new()
-    Sys.sleep(3)
-  }
-  plus_env$browser$Page$navigate(search_url)
-  wait_for_element("body", b = plus_env$browser) # minimal page check
-  Sys.sleep(3)
+update_product_list_from_url_internal <- function(search_url = NULL) {
 
-  html_txt <- plus_env$browser$Runtime$evaluate("document.documentElement.outerHTML", returnByValue = TRUE)$result$value
+  if (!is.null(search_url)) {
+    # we launch a browser to visit the page
+    if (is.null(plus_env$browser)) {
+      # initialise browser
+      plus_env$browser <- ChromoteSession$new()
+      Sys.sleep(3)
+    }
+    plus_env$browser$Page$navigate(search_url)
+    wait_for_element("body", b = plus_env$browser) # minimal page check
+    Sys.sleep(3)
+
+    html_txt <- plus_env$browser$Runtime$evaluate("document.documentElement.outerHTML", returnByValue = TRUE)$result$value
+
+  } else {
+    # HTML code was copied to clipboard
+    html_txt <- clipr::read_clip(allow_non_interactive = TRUE)
+  }
 
   items_html <- paste(html_txt, collapse = "") |> read_html() |> html_element(".plp-results-list") |> html_elements("a")
   new_product_list <- tibble()
@@ -122,7 +132,5 @@ update_product_list_from_url_internal <- function(search_url) {
 
   new <- out |>
     filter(url %in% new_product_list$url)
-
-  plus_env$product_list <- out
   invisible(new)
 }

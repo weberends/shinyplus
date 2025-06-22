@@ -28,7 +28,7 @@
 #'    ```
 #'
 #' All user-specific data (e.g. dishes, baskets, fixed products) is saved locally as `.rds` files per user.
-#' @importFrom shiny a actionButton addResourcePath br checkboxGroupInput checkboxInput column conditionalPanel div fluidPage fluidRow h3 h4 h5 hr HTML icon img isolate modalButton modalDialog navbarPage numericInput observe observeEvent p passwordInput radioButtons reactive reactiveVal reactiveValues removeModal renderUI req selectInput selectizeInput shinyApp showModal showNotification span strong tabPanel tagList tags textInput uiOutput updateActionButton updateCheckboxGroupInput updateCheckboxInput updateNumericInput updateRadioButtons updateSelectInput updateSelectizeInput updateTextInput wellPanel withProgress incProgress
+#' @importFrom shiny a actionButton addResourcePath br checkboxGroupInput checkboxInput column conditionalPanel div fluidPage fluidRow h3 h4 h5 h6 hr HTML icon img isolate modalButton modalDialog navbarPage numericInput observe observeEvent p passwordInput radioButtons reactive reactiveVal reactiveValues removeModal renderUI req selectInput selectizeInput shinyApp showModal showNotification span strong tabPanel tagList tags textInput uiOutput updateActionButton updateCheckboxGroupInput updateCheckboxInput updateNumericInput updateRadioButtons updateSelectInput updateSelectizeInput updateTextInput wellPanel withProgress incProgress tabsetPanel
 #' @importFrom bslib bs_theme font_google card
 #' @importFrom dplyr filter pull mutate select arrange desc inner_join bind_rows distinct if_else left_join count row_number slice
 #' @importFrom tibble tibble as_tibble
@@ -51,11 +51,6 @@ shinyplus <- function() {
       tags$title("Shiny PLUS"),
       tags$link(rel = "icon", type = "image/x-icon", href = "shinyplus-assets/favicon.ico")
     ),
-    tags$script(HTML("
-      Shiny.addCustomMessageHandler('openCheckout', function(url) {
-        window.open(url, '_blank');
-      });
-    ")),
     tags$script(HTML("
       Shiny.addCustomMessageHandler('updateSelectizeDishList', function(message) {
         var input = $('#' + message.inputId)[0];
@@ -118,11 +113,21 @@ shinyplus <- function() {
     ")),
     tags$style(HTML("
       :root {
-        --plus-red: rgb(227, 19, 29);
-        --plus-green-light: rgb(128, 189, 29);
-        --plus-green-dark: rgb(34, 118, 71);
-        --plus-purple: rgb(85, 77, 167);
-        --plus-purple-bg: rgb(255, 231, 244);
+        --plus-red-rgb: 227, 19, 29;
+        --plus-green-light-rgb: 128, 189, 29;
+        --plus-green-dark-rgb: 34, 118, 71;
+        --plus-purple-rgb: 85, 77, 167;
+
+        --plus-red: rgb(var(--plus-red-rgb));
+        --plus-green-light: rgb(var(--plus-green-light-rgb));
+        --plus-green-dark: rgb(var(--plus-green-dark-rgb));
+        --plus-purple: rgb(var(--plus-purple-rgb));
+
+        --bs-primary-rgb: var(--plus-green-light-rgb);
+        --bs-secondary-rgb: var(--plus-purple-rgb);
+        --bs-danger-rgb: var(--plus-red-rgb);
+        --bs-link-color: var(--plus-purple);
+        --bs-link-hover-color: var(--plus-purple);
       }
 
       #imagePreview {
@@ -147,6 +152,9 @@ shinyplus <- function() {
 
       .navbar {
         background: none;
+      }
+      .nav-tabs {
+        margin-bottom: 1%;
       }
       hr {
         margin: 1rem 0;
@@ -192,10 +200,6 @@ shinyplus <- function() {
       }
       a:hover, a:active, a:focus {
         color: color-mix(in srgb, var(--plus-purple) 70%, black);
-      }
-
-      .text-danger {
-        color: var(--plus-red) !important;
       }
 
       .shiny-input-container .checkbox input:checked,
@@ -337,6 +341,10 @@ shinyplus <- function() {
       #add_fixed_heading {
         line-height: 0.5;
       }
+      .fixed-heading-collapsed {
+        height: 24px;
+        margin-top: 32px;
+      }
 
       .products-list-order {
         margin-top: -10px;
@@ -348,6 +356,19 @@ shinyplus <- function() {
 
 
       @media (max-width: 575.98px) {
+        .nav-tabs, .nav-tabs * {
+          width: 100%;
+          padding: 0;
+          border: none !important;
+          margin-bottom: 2%;
+        }
+        .nav-item {
+          text-align: center;
+        }
+        .nav-link.active {
+          border-bottom: none;
+        }
+
         .products-list-row {
           display: flex;
           flex-direction: row;
@@ -546,7 +567,7 @@ shinyplus <- function() {
         font-size: 0.9rem;
       }
 
-      .product-qty {
+      .product-qty, .card-text {
         color: grey;
         font-size: 0.9em;
       }
@@ -566,188 +587,180 @@ shinyplus <- function() {
           span(id = "basket-count", class = "badge badge-danger", style = "position: absolute; top: 5px; right: -4px; background: var(--plus-green-light); color: white; border-radius: 50%; padding: 4px 7px; font-size: 0.75rem;", "0")
         )
       ),
-      tabPanel("Boodschappen doen", # UI: Boodschappen ----
-               fluidPage(
-                 fluidRow(
-                   column(3, id = "column-weekmenu",
-                          card(class = "basket-card-1",
-                               h3("1. Weekmenu"), ## 1. Weekmenu ----
-                               actionButton("add_weekmenu_products_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping"), width = "100%"),
-                               div(class = "dish-selector",
-                                   h5("Avondeten"),
-                                   lapply(weekdays_list, function(day) {
-                                     selectizeInput(
-                                       inputId = paste0("dish_day_", day),
-                                       label = day,
-                                       width = "100%",
-                                       choices = NULL,
-                                       options = list(
-                                         render = I("
-                                          {
-                                            option: function(item, escape) {
-                                              return '<div style=\"padding-left: 5px;\">' +
-                                                       '' + escape(item.label) + '<br>' +
-                                                       '<small style=\"opacity: 0.8; padding-left: 20px;\">' +
-                                                       item.subtext + '</small>' +
-                                                     '</div>';
-                                            },
-                                            item: function(item, escape) {
-                                              return '<div>' + escape(item.label) + '</div>';
-                                            }
-                                          }
-                                        ")
-                                       )
+      tabPanel("Boodschappen doen",  # UI: Boodschappen ----
+               tabsetPanel(
+                 tabPanel("Weekmenu, aanbiedingen en vaste boodschappen",
+                          fluidPage(
+                            fluidRow(
+                              column(3, id = "column-weekmenu",
+                                     card(class = "basket-card-1",
+                                          h3("1. Weekmenu"),
+                                          actionButton("add_weekmenu_products_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping"), width = "100%"),
+                                          div(class = "dish-selector",
+                                              h5("Avondeten"),
+                                              lapply(weekdays_list, function(day) {
+                                                selectizeInput(
+                                                  inputId = paste0("dish_day_", day),
+                                                  label = day,
+                                                  width = "100%",
+                                                  choices = NULL,
+                                                  options = list(render = I("
+                           {
+                             option: function(item, escape) {
+                               return '<div style=\"padding-left: 5px;\">' +
+                                        '' + escape(item.label) + '<br>' +
+                                        '<small style=\"opacity: 0.8; padding-left: 20px;\">' +
+                                        item.subtext + '</small>' +
+                                      '</div>';
+                             },
+                             item: function(item, escape) {
+                               return '<div>' + escape(item.label) + '</div>';
+                             }
+                           }
+                         "))
+                                                )
+                                              })
+                                          ),
+                                          actionButton("weekmenu_refresh", "Willekeurige keuze", icon = icon("rotate"), width = "100%"),
+                                          div(class = "dish-selector",
+                                              h5("Lunch / Anders"),
+                                              lapply(paste0("lunch", 1:5), function(day) {
+                                                selectizeInput(
+                                                  inputId = paste0("dish_day_", day),
+                                                  label = NULL,
+                                                  width = "100%",
+                                                  choices = NULL,
+                                                  options = list(render = I("
+                           {
+                             option: function(item, escape) {
+                               return '<div style=\"padding-left: 5px;\">' +
+                                        '' + escape(item.label) + '<br>' +
+                                        '<small style=\"opacity: 0.8; padding-left: 20px;\">' +
+                                        item.subtext + '</small>' +
+                                      '</div>';
+                             },
+                             item: function(item, escape) {
+                               return '<div>' + escape(item.label) + '</div>';
+                             }
+                           }
+                         "))
+                                                )
+                                              })
+                                          ),
+                                          hr(),
+                                          radioButtons("sort_dishes", "Gerechten sorteren op", choices = c("Bereidingstijd", "Naam", "Hoeveelheid groenten", "Type vlees"), selected = "Bereidingstijd", width = "100%")
                                      )
-                                   })
-                               ),
-                               actionButton("weekmenu_refresh", "Willekeurige keuze", icon = icon("rotate"), width = "100%"),
-                               div(class = "dish-selector",
-                                   h5("Lunch / Anders"),
-                                   lapply(paste0("lunch", 1:5), function(day) {
-                                     selectizeInput(
-                                       inputId = paste0("dish_day_", day),
-                                       label = NULL,
-                                       width = "100%",
-                                       choices = NULL,
-                                       options = list(
-                                         render = I("
-                                          {
-                                            option: function(item, escape) {
-                                              return '<div style=\"padding-left: 5px;\">' +
-                                                       '' + escape(item.label) + '<br>' +
-                                                       '<small style=\"opacity: 0.8; padding-left: 20px;\">' +
-                                                       item.subtext + '</small>' +
-                                                     '</div>';
-                                            },
-                                            item: function(item, escape) {
-                                              return '<div>' + escape(item.label) + '</div>';
-                                            }
-                                          }
-                                        ")
-                                       )
+                              ),
+                              column(5, id = "column-sale",
+                                     card(class = "basket-card-2",
+                                          h3("2. Aanbiedingen"),
+                                          div(id = "loading_spinner", style = "display:none;", p("Bezig met ophalen van aanbiedingen...")),
+                                          uiOutput("sale_header_ui")
+                                     ),
+                                     card(class = "basket-card-2", id = "sale-list",
+                                          uiOutput("sale_items_ui")
                                      )
-                                   })
-                               ),
-                               # actionButton("save_weekplan", "Weekmenu opslaan", icon = icon("save")),
-                               hr(),
-                               radioButtons("sort_dishes", "Gerechten sorteren op", choices = c("Bereidingstijd", "Naam", "Hoeveelheid groenten", "Type vlees"), selected = "Bereidingstijd", width = "100%"),
-                          ),
-                   ),
-                   column(5, id = "column-sale",
-                          card(class = "basket-card-2",
-                               h3("2. Aanbiedingen"), ## 2. Aanbiedingen ----
-                               div(id = "loading_spinner", style = "display:none;", p("Bezig met ophalen van aanbiedingen...")),
-                               uiOutput("sale_header_ui"),
-                          ),
-                          card(class = "basket-card-2", id = "sale-list",
-                               uiOutput("sale_items_ui"),
-                          ),
-                   ),
-                   column(4, id = "column-fixed",
-                          card(class = "basket-card-3",
-                               h3("3. Vaste boodschappen"), ## 3. Vast ----
-                               fluidRow(
-                                 column(6, actionButton("add_fixed_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping"), width = "100%")),
-                                 column(6, actionButton("fixed_to_zero", "Alles op nul zetten", icon = icon("rotate-left"), width = "100%")),
-                               ),
-                               h5("Selecteer uit vaste producten"),
-                               uiOutput("fixed_items_ui"),
-                               hr(),
-                               h5("Beheer vaste producten"),
-                               selectizeInput('add_fixed_product', NULL,
-                                              choices = NULL,
-                                              width = "100%",
-                                              options = list(
-                                                placeholder = 'Type om te zoeken...',
-                                                dropdownParent = 'body',
-                                                onInitialize = I('function() { this.setValue(""); }'),
-                                                inputAttr = list(
-                                                  autocomplete = "off",
-                                                  autocorrect = "off",
-                                                  autocapitalize = "off",
-                                                  spellcheck = "false"
-                                                ),
-                                                render = I("{
-                                                  option: function(item, escape) {
-                                                    return '<div class=\"product-option\" style=\"display: flex; align-items: center; height: 50px;\">' +
-                                                             '<img class=\"hover-preview\" src=\"' + escape(item.img) + '\" style=\"height: 40px; width: 40px; object-fit: contain; margin-right: 10px;\" />' +
-                                                             '<div style=\"flex: 1; min-width: 0;\">' +
-                                                               '<div style=\"font-weight: normal; text-align: left;\">' + escape(item.label) + '</div>' +
-                                                               '<div style=\"color: grey; font-size: 0.8em; text-align: left;\">' + escape(item.subtext) + '</div>' +
-                                                             '</div>' +
-                                                           '</div>';
-                                                  },
-                                                  item: function(item, escape) {
-                                                    return '<div>' + escape(item.label) + '</div>';
-                                                  }
-                                                }")
-                                              )),
-                               fluidRow(
-                                 column(6, actionButton("add_fixed_product_button", "Toevoegen aan vaste producten", icon = icon("plus"), width = "100%")),
-                                 column(6, actionButton("remove_fixed_product_button", "Verwijderen uit vaste producten", icon = icon("trash"), width = "100%"))
-                               ),
-                               fluidRow(
-                                 h6("Tussenkopje toevoegen"),
-                                 column(7, textInput("text_fixed_heading", NULL, placeholder = "(Naam van tussenkopje)", width = "100%")),
-                                 column(5, actionButton("add_fixed_heading", "Toevoegen", icon = icon("plus"), width = "100%"))
-                               ),
+                              ),
+                              column(4, id = "column-fixed",
+                                     card(class = "basket-card-3",
+                                          h3("3. Vaste boodschappen"),
+                                          fluidRow(
+                                            column(6, actionButton("add_fixed_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping"), width = "100%")),
+                                            column(6, actionButton("fixed_to_zero", "Alles op nul zetten", icon = icon("rotate-left"), width = "100%")),
+                                          ),
+                                          h5("Selecteer uit vaste producten"),
+                                          uiOutput("fixed_items_ui"),
+                                          hr(),
+                                          selectizeInput('add_fixed_product', NULL,
+                                                         choices = NULL,
+                                                         width = "100%",
+                                                         options = list(
+                                                           placeholder = "Type om te zoeken...",
+                                                           dropdownParent = "body",
+                                                           onInitialize = I('function() { this.setValue(""); }'),
+                                                           inputAttr = list(
+                                                             autocomplete = "off",
+                                                             autocorrect = "off",
+                                                             autocapitalize = "off",
+                                                             spellcheck = "false"
+                                                           ),
+                                                           render = I("{
+                       option: function(item, escape) {
+                         return '<div class=\"product-option\" style=\"display: flex; align-items: center; height: 50px;\">' +
+                                  '<img class=\"hover-preview\" src=\"' + escape(item.img) + '\" style=\"height: 40px; width: 40px; object-fit: contain; margin-right: 10px;\" />' +
+                                  '<div style=\"flex: 1; min-width: 0;\">' +
+                                    '<div style=\"font-weight: normal; text-align: left;\">' + escape(item.label) + '</div>' +
+                                    '<div style=\"color: grey; font-size: 0.8em; text-align: left;\">' + escape(item.subtext) + '</div>' +
+                                  '</div>' +
+                                '</div>';
+                       },
+                       item: function(item, escape) {
+                         return '<div>' + escape(item.label) + '</div>';
+                       }
+                     }")
+                                                         )
+                                          ),
+                                          uiOutput("fixed_settings_ui")
+                                     )
+                              )
+                            )
                           )
-                   )
-                 )
-               )
-      ),
-
-      tabPanel("Mandje en PLUS Winkelwagen", # UI: Mandje & PLUS Cart ----
-               fluidRow(
-                 column(6, id = "column-extra",
-                        card(class = "basket-card-4 stretch-with-margin",
-                             h3("4. Mandje"),
-                             selectizeInput('add_extra_product', "Extra artikel toevoegen:",
-                                            choices = NULL,
-                                            width = "100%",
-                                            options = list(
-                                              placeholder = 'Type om te zoeken...',
-                                              dropdownParent = 'body',
-                                              onInitialize = I('function() { this.setValue(""); }'),
-                                              inputAttr = list(
-                                                autocomplete = "off",
-                                                autocorrect = "off",
-                                                autocapitalize = "off",
-                                                spellcheck = "false"
-                                              ),
-                                              render = I("{
-                                                  option: function(item, escape) {
-                                                    return '<div class=\"product-option\" style=\"display: flex; align-items: center; height: 50px;\">' +
-                                                             '<img src=\"' + escape(item.img) + '\" style=\"height: 40px; width: 40px; object-fit: contain; margin-right: 10px;\" />' +
-                                                             '<div style=\"flex: 1; min-width: 0;\">' +
-                                                               '<div style=\"font-weight: normal; text-align: left;\">' + escape(item.label) + '</div>' +
-                                                               '<div style=\"color: grey; font-size: 0.8em; text-align: left;\">' + escape(item.subtext) + '</div>' +
-                                                             '</div>' +
-                                                           '</div>';
-                                                  },
-                                                  item: function(item, escape) {
-                                                    return '<div>' + escape(item.label) + '</div>';
-                                                  }
-                                                }")
-                                            )),
-                             uiOutput("basket_overview_table"),
-                             hr(),
-                             fluidRow(
-                               column(4, actionButton("sort_basket_name", "Op naam", icon = icon("arrow-down-a-z"), width = "100%")),
-                               column(4, actionButton("sort_basket_label", "Op label", icon = icon("arrow-down-short-wide"), width = "100%")),
-                               column(4, actionButton("sort_basket_quantity", "Op aantal", icon = icon("arrow-down-1-9"), width = "100%"))
-                             ),
-                             fluidRow(
-                               column(6, actionButton("send_basket_to_cart", "In PLUS Winkelwagen plaatsen", icon = icon("cart-arrow-down"), class = "btn-success", width = "100%")),
-                               column(6, actionButton("clear_basket", "Mandje leegmaken", icon = icon("trash"),  class = "btn-danger", width = "100%")),
-                             )
-                        ),
                  ),
-                 column(6,
-                        uiOutput("online_cart_summary"),
-                        br(),
-                        br(),
-                        DTOutput("online_cart_table"),
+                 tabPanel("Mandje en PLUS Winkelwagen",
+                          fluidPage(
+                            fluidRow(
+                              column(6, id = "column-extra",
+                                     card(class = "basket-card-4 stretch-with-margin",
+                                          h3("4. Mandje"),
+                                          selectizeInput('add_extra_product', "Extra artikel toevoegen:",
+                                                         choices = NULL,
+                                                         width = "100%",
+                                                         options = list(
+                                                           placeholder = "Type om te zoeken...",
+                                                           dropdownParent = "body",
+                                                           onInitialize = I('function() { this.setValue(""); }'),
+                                                           inputAttr = list(
+                                                             autocomplete = "off",
+                                                             autocorrect = "off",
+                                                             autocapitalize = "off",
+                                                             spellcheck = "false"
+                                                           ),
+                                                           render = I("{
+                                    option: function(item, escape) {
+                                      return '<div class=\"product-option\" style=\"display: flex; align-items: center; height: 50px;\">' +
+                                               '<img src=\"' + escape(item.img) + '\" style=\"height: 40px; width: 40px; object-fit: contain; margin-right: 10px;\" />' +
+                                               '<div style=\"flex: 1; min-width: 0;\">' +
+                                                 '<div style=\"font-weight: normal; text-align: left;\">' + escape(item.label) + '</div>' +
+                                                 '<div style=\"color: grey; font-size: 0.8em; text-align: left;\">' + escape(item.subtext) + '</div>' +
+                                               '</div>' +
+                                             '</div>';
+                                    },
+                                    item: function(item, escape) {
+                                      return '<div>' + escape(item.label) + '</div>';
+                                    }
+                                  }")
+                                                         )),
+                                          uiOutput("basket_overview_table"),
+                                          hr(),
+                                          fluidRow(
+                                            column(4, actionButton("sort_basket_name", "Op naam", icon = icon("arrow-down-a-z"), width = "100%")),
+                                            column(4, actionButton("sort_basket_label", "Op label", icon = icon("arrow-down-short-wide"), width = "100%")),
+                                            column(4, actionButton("sort_basket_quantity", "Op aantal", icon = icon("arrow-down-1-9"), width = "100%"))
+                                          ),
+                                          fluidRow(
+                                            column(6, actionButton("send_basket_to_cart", "In PLUS Winkelwagen plaatsen", icon = icon("cart-arrow-down"), class = "btn-success", width = "100%")),
+                                            column(6, actionButton("clear_basket", "Mandje leegmaken", icon = icon("trash"),  class = "btn-danger", width = "100%")),
+                                          ),
+                                          checkboxInput("remove_cart_from_basket", "Artikelen direct uit mandje verwijderen die succesvol in PLUS Winkelwagen geplaatst zijn", value = TRUE, width = "100%")
+                                     )
+                              ),
+                              column(6,
+                                     uiOutput("online_cart_summary"),
+                                     br(), br(),
+                                     DTOutput("online_cart_table")
+                              )
+                            )
+                          )
                  )
                )
       ),
@@ -823,8 +836,8 @@ shinyplus <- function() {
                                          choices = NULL,
                                          width = "100%",
                                          options = list(
-                                           placeholder = 'Type om te zoeken...',
-                                           dropdownParent = 'body',
+                                           placeholder = "Type om te zoeken...",
+                                           dropdownParent = "body",
                                            onInitialize = I('function() { this.setValue(""); }'),
                                            inputAttr = list(
                                              autocomplete = "off",
@@ -859,9 +872,25 @@ shinyplus <- function() {
       tabPanel("Artikelen toevoegen",  # UI: Add products ----
                fluidRow(
                  column(4,
-                        textInput("product_search_txt", NULL, placeholder = "Naam van artikel", width = "100%"),
+                        h5("Zoeken op PLUS.nl", class = "text-primary"),
+                        textInput("product_search_txt", NULL, placeholder = "Naam van artikel...", width = "100%"),
                         actionButton("product_search_btn", "Zoeken op PLUS.nl", icon = icon("search"), width = "100%"),
-                        p("Let op: deze functie kan artikelen toevoegen die niet bij de eigen PLUS beschikbaar zijn.")
+                        br(),
+                        br(),
+                        p(class = "text-danger", "Let op: deze functie kan artikelen toevoegen die niet bij de eigen PLUS beschikbaar zijn en vindt ook alleen de eerste 15-25 resultaten."),
+                        br(),
+                        hr(),
+                        br(),
+                        h5("Van zelfgekopieerde HTML-elementen", class = "text-primary"),
+                        p("Kopieer de HTML-elementen via het webinfovenster na het zoeken van een product op de PLUS-website."),
+                        actionButton("product_import_btn", "HTML-tekst importeren", icon = icon("cloud-arrow-down"), width = "100%"),
+                        br(),
+                        br(),
+                        actionButton("open_searchpage", "Website PLUS.nl openen", icon = icon("right-from-bracket"), class = "btn-success", width = "100%"),
+                        br(),
+                        br(),
+                        hr(),
+
                  ),
                  column(8,
                         uiOutput("product_search")
@@ -877,6 +906,7 @@ shinyplus <- function() {
   server <- function(input, output, session) {
 
     hide("sale-list")
+    hide("add_fixed_product")
 
     product_list_last_updated <- reactiveVal(Sys.time())
     observeEvent(product_list_last_updated(), {
@@ -993,7 +1023,8 @@ shinyplus <- function() {
 
       showNotification(paste0(sum(df$quantity, na.rm = TRUE),
                               " artikel", ifelse(sum(df$quantity, na.rm = TRUE) > 1, "en", ""),
-                              " aan mandje toegevoegd."))
+                              " aan mandje toegevoegd."),
+                       duration = 2)
     }
 
 
@@ -1315,6 +1346,37 @@ shinyplus <- function() {
 
     unique_with_names <- function(x) x[!duplicated(x)]
 
+    fixed_settings_expanded <- reactiveVal(FALSE)
+
+    observeEvent(input$fixed_settings_open, {
+      fixed_settings_expanded(TRUE)
+      show("add_fixed_product")
+    })
+    observeEvent(input$fixed_settings_close, {
+      fixed_settings_expanded(FALSE)
+      hide("add_fixed_product")
+    })
+
+    output$fixed_settings_ui <- renderUI({
+      if (fixed_settings_expanded() == FALSE) {
+        actionButton("fixed_settings_open", "Bewerken", icon = icon("pen-to-square"), width = "100%")
+      } else {
+        tagList(
+          fluidRow(
+            column(6, actionButton("add_fixed_product_button", "Toevoegen aan vaste producten", icon = icon("plus"), width = "100%")),
+            column(6, actionButton("remove_fixed_product_button", "Verwijderen uit vaste producten", icon = icon("trash"), width = "100%"))
+          ),
+          br(),
+          fluidRow(
+            h6("Tussenkopje toevoegen"),
+            column(7, textInput("text_fixed_heading", NULL, placeholder = "(Naam van tussenkopje)", width = "100%")),
+            column(5, actionButton("add_fixed_heading", "Toevoegen", icon = icon("plus"), width = "100%"))
+          ),
+          actionButton("fixed_settings_close", "Bewerkingen sluiten", icon = icon("caret-up"), width = "100%")
+        )
+      }
+    })
+
     # save to fixed product RDS if anything is changed
     observeEvent(values$fixed_products, {
       req(selected_email())
@@ -1327,29 +1389,45 @@ shinyplus <- function() {
       tagList(
         Map(values$fixed_products, names(values$fixed_products), f = function(prod, name) {
           if (name == "heading") {
-            fluidRow(
-              class = "row products-list-row",
-              column(8, class = "fixed-heading", h6(prod)),
-              column(2, class = "product-list-col3 fixed_trash_icon", actionButton(paste0("fixed_remove_heading_", make.names(prod)), label = NULL, icon = icon("trash"), class = "btn-sm", style = "margin-top: -8px;")),
-              column(2, class = "product-list-col4",
-                     div(class = "products-list-order", height = "100%",
-                         actionButton(inputId = paste0("fixed_move_up_", make.names(prod)), label = NULL, icon = icon("arrow-up"), width = "100%"),
-                         actionButton(inputId = paste0("fixed_move_down_", make.names(prod)), label = NULL, icon = icon("arrow-down"), width = "100%"))
+            if (fixed_settings_expanded() == FALSE) {
+              fluidRow(
+                class = "row products-list-row fixed-heading-collapsed",
+                column(12, class = "fixed-heading", h6(prod))
               )
-            )
+            } else {
+              fluidRow(
+                class = "row products-list-row",
+                column(8, class = "fixed-heading", h6(prod)),
+                column(2, class = "product-list-col3 fixed_trash_icon", actionButton(paste0("fixed_remove_heading_", make.names(prod)), label = NULL, icon = icon("trash"), class = "btn-sm", style = "margin-top: -8px;")),
+                column(2, class = "product-list-col4",
+                       div(class = "products-list-order", height = "100%",
+                           actionButton(inputId = paste0("fixed_move_up_", make.names(prod)), label = NULL, icon = icon("arrow-up"), width = "100%"),
+                           actionButton(inputId = paste0("fixed_move_down_", make.names(prod)), label = NULL, icon = icon("arrow-down"), width = "100%"))
+                )
+              )
+            }
           } else {
-            fluidRow(
-              class = "row products-list-row",
-              column(2, class = "product-list-col1", div(class = "products-list-img", height = "100%", a(href = plus_url(prod), target = "_blank", img(src = get_product_image(prod), width = "100%", class = "hover-preview")))),
-              column(6, class = "product-list-col2", div(class = "products-list-p", height = "100%", p(HTML(paste0(get_product_name(prod), " ", span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod)))))))),
-              column(2, class = "product-list-col3", div(class = "products-list-qty", height = "100%", numericInput(paste0("qty_fixed_", make.names(prod)), NULL, value = 0, min = 0, step = 1, width = "100%"))),
-              column(2, class = "product-list-col4",
-                     div(class = "products-list-order", height = "100%",
-                         actionButton(inputId = paste0("fixed_move_up_", make.names(prod)), label = NULL, icon = icon("arrow-up"), width = "100%"),
-                         actionButton(inputId = paste0("fixed_move_down_", make.names(prod)), label = NULL, icon = icon("arrow-down"), width = "100%")
-                     )
+            if (fixed_settings_expanded() == FALSE) {
+              fluidRow(
+                class = "row products-list-row",
+                column(2, class = "product-list-col1", div(class = "products-list-img", height = "100%", a(href = plus_url(prod), target = "_blank", img(src = get_product_image(prod), width = "100%", class = "hover-preview")))),
+                column(8, class = "product-list-col2", div(class = "products-list-p", height = "100%", p(HTML(paste0(get_product_name(prod), " ", span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod)))))))),
+                column(2, class = "product-list-col3", div(class = "products-list-qty", height = "100%", numericInput(paste0("qty_fixed_", make.names(prod)), NULL, value = 0, min = 0, step = 1, width = "100%"))),
               )
-            )
+            } else {
+              fluidRow(
+                class = "row products-list-row",
+                column(2, class = "product-list-col1", div(class = "products-list-img", height = "100%", a(href = plus_url(prod), target = "_blank", img(src = get_product_image(prod), width = "100%", class = "hover-preview")))),
+                column(6, class = "product-list-col2", div(class = "products-list-p", height = "100%", p(HTML(paste0(get_product_name(prod), " ", span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod)))))))),
+                column(2, class = "product-list-col3", div(class = "products-list-qty", height = "100%", numericInput(paste0("qty_fixed_", make.names(prod)), NULL, value = 0, min = 0, step = 1, width = "100%"))),
+                column(2, class = "product-list-col4",
+                       div(class = "products-list-order", height = "100%",
+                           actionButton(inputId = paste0("fixed_move_up_", make.names(prod)), label = NULL, icon = icon("arrow-up"), width = "100%"),
+                           actionButton(inputId = paste0("fixed_move_down_", make.names(prod)), label = NULL, icon = icon("arrow-down"), width = "100%")
+                       )
+                )
+              )
+            }
           }
         })
       )
@@ -1389,7 +1467,6 @@ shinyplus <- function() {
         # trash icon for headings
         observeEvent(input[[paste0("fixed_remove_heading_", make.names(prod))]], {
           values$fixed_products <- values$fixed_products[values$fixed_products != prod]
-          done_the_work(TRUE)
         }, ignoreInit = TRUE)
 
         # move up button
@@ -1619,9 +1696,10 @@ shinyplus <- function() {
       ))
 
       n <- nrow(values$basket)
+      succesful_urls <- character(0)
 
       for (i in seq_len(n)) {
-        url <- values$basket$product_url[i]
+        url <- as.character(values$basket$product_url[i]) # was a factor
         quantity <- values$basket$quantity[i]
         name <- escape_js_string(get_product_name_unit(url))
         name_qty <- paste0(name, " x", quantity)
@@ -1636,7 +1714,20 @@ shinyplus <- function() {
           $('#progress_name').html('%s');
         ", pct, pct, name_qty))
 
-        plus_add_products(url, quantity = quantity, credentials = values$credentials, info = FALSE)
+        success <- tryCatch(plus_add_products(url, quantity = quantity, credentials = values$credentials, info = FALSE),
+                            error = function(e) {
+                              showNotification(paste0("Product '", name, "' kon niet toegevoegd worden."), type = "error", duration = 2)
+                              return(invisible(FALSE))
+                            })
+        if (isTRUE(success)) {
+          succesful_urls <- c(succesful_urls, url)
+        }
+      }
+
+      if (input$remove_cart_from_basket == TRUE) {
+        # remove product from local basket
+        values$basket <- values$basket |>
+          filter(!product_url %in% succesful_urls)
       }
 
       removeModal()
@@ -1699,6 +1790,7 @@ shinyplus <- function() {
             target= "_blank",
             "online PLUS Winkelwagen", .noWS = "outside"),
           ". Wijzigingen kunnen alleen daar worden aangebracht."),
+        if (original_total - actual_total < 0) p(paste0("Een negatieve korting kan voorkomen als er bijv. statiegeld gerekend wordt. De doorgehaalde prijs is dan de som van alle prijzen uit de PLUS Winkelwagen, terwijl de totale prijs hoger is (in dit geval ", as_euro(actual_total - original_total), ").")),
         br(),
         h4(HTML(paste0("<strong>Totale prijs:</strong> ",
                        as_euro(sum(actual_total, na.rm = TRUE)),
@@ -1707,13 +1799,26 @@ shinyplus <- function() {
                               "")))),
         p(HTML(paste0("<strong>Korting:</strong> ", as_euro(original_total - actual_total), " (", format(saving_pct, nsmall = 1, big.interval = ".", decimal.mark = ","), "%)"))),
         p(HTML(paste0("<strong>Totaal artikelen:</strong> ", total_items, " (uniek: ", unique_items, ")"))),
-        actionButton("checkout", "Afrekenen bij PLUS.nl", class = "btn-success", icon = icon("right-from-bracket")),
+        actionButton("checkout", "Afrekenen bij PLUS.nl", class = "btn-success", icon = icon("cash-register")),
+        actionButton("view_cart", "Winkelwagen op PLUS.nl bekijken", icon = icon("cart-shopping")),
         actionButton("refresh_online_cart", "Vernieuwen", icon = icon("refresh")),
       )
     })
     output$online_cart_table <- renderDT({
       req(values$logged_in)
       req(values$online_cart)
+
+      if (NROW(values$online_cart) == 0) {
+        return(datatable(
+          data.frame(),
+          rownames = FALSE,
+          selection = "none",
+          options = list(
+            dom = "t",
+            stripeClasses = NULL # remove row striping
+          )
+        ))
+      }
 
       cart <- values$online_cart |>
         arrange(product) |>
@@ -1745,11 +1850,11 @@ shinyplus <- function() {
         rownames = FALSE,
         selection = "none",
         options = list(
-          dom = 't',
+          dom = "t",
           columnDefs = list(
-            list(className = 'dt-center', targets = 0),
-            list(className = 'dt-left', targets = 1),
-            list(className = 'dt-center', targets = 2:6)
+            list(className = "dt-center", targets = 0),
+            list(className = "dt-left", targets = 1),
+            list(className = "dt-center", targets = 2:6)
           ),
           stripeClasses = NULL # remove row striping
         )
@@ -1759,14 +1864,18 @@ shinyplus <- function() {
     })
 
     observeEvent(input$checkout, {
-      session$sendCustomMessage("openCheckout", plus_url("checkout"))
+      utils::browseURL(plus_url("checkout"))
+    })
+    observeEvent(input$view_cart, {
+      utils::browseURL(plus_url("winkelwagen"))
     })
 
     observeEvent(input$refresh_online_cart, {
       req(values$logged_in)
+      showNotification("PLUS Winkelwagen vernieuwen...", type = "message")
       values$online_cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
       if (NROW(values$online_cart) == 0) {
-        showNotification("PLUS Winkelwagen niet up-to-date, vernieuwen...", type = "message")
+        showNotification("Geen verbinding, opnieuw proberen...", type = "message")
         Sys.sleep(3)
         values$online_cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
       }
@@ -1951,56 +2060,73 @@ shinyplus <- function() {
 
     # Server: Add products -----
     output$product_search <- renderUI({
-      p("Druk op de zoekknop om te beginnen met zoeken.")
+      p("Druk op de zoek- of importeerknop om te beginnen.")
     })
+
     observeEvent(input$product_search_btn, {
       req(input$product_search_txt)
-
       search_url <- paste0("https://www.plus.nl/zoekresultaten?SearchTerm=", utils::URLencode(input$product_search_txt, reserved = TRUE))
-
       showNotification("Zoekopdracht uitvoeren op PLUS.nl...", type = "message", duration = 2)
-      before <- nrow(plus_env$product_list)
-      backup_product_list()
+      retrieve_plus_data(search_url)
+    })
+
+    observeEvent(input$product_import_btn, {
+      retrieve_plus_data(NULL)
+    })
+
+    retrieve_plus_data <- function(search_url) {
       new_items <- tryCatch(update_product_list_from_url_internal(search_url), error = function(e) NULL)
       if (is.null(new_items)) {
         showNotification("Fout bij ophalen van gegevens.", type = "error")
+      } else if (NROW(new_items) == 0) {
+        p("Geen producten gevonden.")
       } else {
-        # save new product list and update field lists
-        product_list_last_updated(Sys.time())
-
+        plus_env$new_items <- new_items # save to pkg envir to be able to save with button later
         n_new <- NROW(new_items)
-
         output$product_search <- renderUI({
           req(NROW(new_items) > 0)
           tagList(
-            p(paste0("Deze ", NROW(new_items), " artikelen zijn toegevoegd aan de productenlijst en vanaf nu beschikbaar in deze app:")),
+            p(paste0("Deze ", n_new, " artikelen zijn gevonden die nieuw toegevoegd kunnen worden aan de productenlijst en vanaf dan beschikbaar zijn in deze app:")),
+            actionButton("new_products_import", "Artikelen importeren en opslaan", icon = icon("list-check"), class = "btn-success", width = "100%"),
+            br(),
+            br(),
             div(style = "overflow-y: auto;",
                 div(class = "row",
                     lapply(seq_len(nrow(new_items)), function(i) {
                       item <- new_items[i, ]
                       div(class = "col-md-4 mb-3",
                           div(class = "card h-100 shadow-sm",
-                              img(src = item$img, class = "card-img-top", style = "max-height: 200px; object-fit: contain;"),
+                              img(src = item$img, class = "card-img-top", style = "max-height: 150px; object-fit: contain;"),
                               div(class = "card-body",
                                   h6(class = "card-title", item$name),
                                   p(class = "card-text", item$unit),
-                                  a(href = plus_url(item$url), target = "_blank", class = "btn btn-sm btn-success", "Bekijk op PLUS.nl")
+                                  a(href = plus_url(item$url), target = "_blank", class = "btn btn-sm btn-primary",
+                                    HTML('<i class="fas fa-right-from-bracket" role="presentation" aria-label="magnifying-glass icon"></i> Bekijken op PLUS.nl'))
                               )
                           )
                       )
                     })
                 )
-            )
+            ),
           )
         })
-
-        if (n_new > 0) {
-          msg <- paste(n_new, "nieuwe artikelen toegevoegd.")
-        } else {
-          msg <- "Geen nieuwe artikelen gevonden."
-        }
-        showNotification(msg, type = ifelse(n_new > 0, "message", "warning"))
       }
+    }
+
+    observeEvent(input$new_products_import, {
+      backup_product_list()
+      plus_env$product_list <- plus_env$product_list |>
+        bind_rows(plus_env$new_items) |>
+        arrange(name)
+      # update RDS, input fields
+      product_list_last_updated(Sys.time())
+      output$product_search <- renderUI({
+        p("Gereed. Druk op de zoek- of importeerknop om opnieuw te beginnen.")
+      })
+    })
+
+    observeEvent(input$open_searchpage, {
+      utils::browseURL(plus_url("producten"))
     })
 
   }

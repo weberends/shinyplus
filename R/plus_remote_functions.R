@@ -16,13 +16,7 @@
 #' @aliases plus_login plus_logout plus_add_products plus_open_browser
 #' @inheritSection shinyplus-package Disclaimer
 #' @export
-#' @examples
-#' \dontrun{
-#' plus_login()
-#'
-#' plus_add_products("Houdbare halfvolle melk pak 1000 ml")
-#' }
-plus_login <- function(credentials = getOption("plus_credentials", default = system.file("login_credentials.yaml", package = "shinyplus")), info = interactive()) {
+plus_login <- function(credentials = getOption("plus_credentials"), info = interactive()) {
 
   if (is.character(credentials) && grepl("[.]ya?ml$", credentials)) {
     email <- read_yaml(credentials)$email
@@ -157,8 +151,10 @@ plus_add_products <- function(x, quantity = 1, info = interactive(), ...) {
       }
 
       if (info) cli_alert_success("Added {.strong {{j} items} of {.val {product_title}} to cart.")
+      return(invisible(TRUE))
     }, error = function(e) {
       if (info) cli_alert_danger("Failed to add product: {.strong {conditionMessage(e)}}")
+      return(invisible(FALSE))
     })
   }
 }
