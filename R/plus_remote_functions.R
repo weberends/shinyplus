@@ -133,34 +133,59 @@ plus_add_products <- function(x, quantity = 1, info = interactive(), ...) {
 
   if (!plus_ascertain_logged_in(info = info)) return(invisible())
   urls <- plus_get_urls(x, ..., info = info)
+  sku <- gsub(".*-([0-9]+)$", "\\1", urls)
+  urls <- paste0("https://www.plus.nl/zoekresultaten?SearchTerm=", sku)
+  successes <- logical(length(urls))
 
   for (i in seq_along(x)) {
     if (info) cli_progress_message("Adding {.url {urls[i]}}...")
     tryCatch({
-      open_url_if_not_already_there(urls[i])
-      wait_for_element("button.gtm-add-to-cart")
-      Sys.sleep(2)
+      plus_env$browser$Page$navigate(urls[i])
+      wait_for_element(".plp-item-quantity")
+      wait_for_element(".cart-badge-link .badge.background-red")
 
-      product_title <- plus_env$browser$Runtime$evaluate("document.querySelector('.product-header-title')?.textContent")$result$value
+      current_product_name <- function() plus_env$browser$Runtime$evaluate("document.querySelector('.plp-item-name')?.textContent.trim()")$result$value
+      current_in_cart <- function() plus_env$browser$Runtime$evaluate("document.querySelector('.cart-badge-link .badge.background-red')?.textContent.trim()")$result$value
 
-      for (j in seq_len(quantity[i])) {
-        plus_env$browser$Runtime$evaluate("
-          var add_button = document.querySelector('button.gtm-add-to-cart');
-          add_button?.click();")
+      product_title <- current_product_name()
+      n_tries <- 0
+      while (product_title == "" && n_tries <= 10) {
+        product_title <- current_product_name()
         Sys.sleep(0.5)
+        n_tries <- n_tries + 1
+      }
+      # still not found, give up
+      if (product_title == "") stop("Could not load page")
+
+      current_cart_total <- current_in_cart()
+      for (j in seq_len(quantity[i])) {
+        plus_env$browser$Runtime$evaluate("document.querySelector('button.gtm-add-to-cart')?.click();")
+        Sys.sleep(0.1)
       }
 
-      if (info) cli_alert_success("Added {.strong {{j} items} of {.val {product_title}} to cart.")
-      return(invisible(TRUE))
+      if (current_cart_total == current_in_cart()) {
+        # cart number did not update, wait a bit longer
+        Sys.sleep(2)
+      }
+      if (current_cart_total == current_in_cart()) {
+        # still not updated - something went wrong
+        stop("Cart badge was not updated - something went wrong in adding product")
+      }
+
+      successes[i] <- TRUE
+      if (info) cli_alert_success("Added {.strong {j} items} of {.val {product_title}} to cart.")
     }, error = function(e) {
       if (info) cli_alert_danger("Failed to add product: {.strong {conditionMessage(e)}}")
-      return(invisible(FALSE))
     })
   }
+  return(successes)
 }
 
 #' @importFrom cli cli_text cli_alert_danger
 plus_get_urls <- function(x, ..., info = interactive(), b = plus_env$browser, offline_only = FALSE) {
+  if (all(x %in% plus_env$product_list$url)) {
+    return(plus_url(x))
+  }
   x <- trimws(as.character(x))
   x <- gsub("https://www.plus.nl", "", x, fixed = TRUE)
   out <- rep(NA_character_, length(x))
@@ -188,7 +213,7 @@ plus_get_urls <- function(x, ..., info = interactive(), b = plus_env$browser, of
     }
     out[is.na(out)] <- search_out[match(x, to_search)]
   }
-  out[!is.na(out)] <- paste0("https://www.plus.nl", out[!is.na(out)])
+  out[!is.na(out)] <- plus_url(out[!is.na(out)])
   out
 }
 
