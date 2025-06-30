@@ -135,7 +135,7 @@ plus_add_products <- function(x, quantity = 1, info = interactive(), ...) {
   urls <- plus_get_urls(x, ..., info = info)
   sku <- gsub(".*-([0-9]+)$", "\\1", urls)
   urls <- paste0("https://www.plus.nl/zoekresultaten?SearchTerm=", sku)
-  successes <- logical(length(urls))
+  successfully_added <- integer(length(urls))
 
   for (i in seq_along(x)) {
     if (info) cli_progress_message("Adding {.url {urls[i]}}...")
@@ -144,41 +144,45 @@ plus_add_products <- function(x, quantity = 1, info = interactive(), ...) {
       wait_for_element(".plp-item-quantity")
       wait_for_element(".cart-badge-link .badge.background-red")
 
-      current_product_name <- function() plus_env$browser$Runtime$evaluate("document.querySelector('.plp-item-name')?.textContent.trim()")$result$value
-      current_in_cart <- function() plus_env$browser$Runtime$evaluate("document.querySelector('.cart-badge-link .badge.background-red')?.textContent.trim()")$result$value
+      current_in_cart <- function() as.integer(plus_env$browser$Runtime$evaluate("document.querySelector('.cart-badge-link .badge.background-red')?.textContent.trim()")$result$value)
 
-      product_title <- current_product_name()
-      n_tries <- 0
-      while (product_title == "" && n_tries <= 10) {
-        product_title <- current_product_name()
-        Sys.sleep(0.5)
-        n_tries <- n_tries + 1
-      }
-      # still not found, give up
-      if (product_title == "") stop("Could not load page")
+      product_title <- plus_env$product_list$name[which(grepl(paste0(sku, "$"), plus_env$product_list$url))]
 
-      current_cart_total <- current_in_cart()
-      for (j in seq_len(quantity[i])) {
-        plus_env$browser$Runtime$evaluate("document.querySelector('button.gtm-add-to-cart')?.click();")
-        Sys.sleep(0.1)
+      old_cart_count <- current_in_cart()
+      goal_cart_count <- old_cart_count + quantity[i]
+      current_cart_count <- old_cart_count
+      tries <- 0
+
+      while (tries <= 5 && current_cart_count != goal_cart_count) {
+        for (j in seq_len(quantity[i])) {
+          plus_env$browser$Runtime$evaluate("document.querySelector('button.gtm-add-to-cart')?.click();")
+          Sys.sleep(0.5)
+        }
+        Sys.sleep(1)
+        new_cart_count <- current_in_cart()
+        if (current_cart_count == new_cart_count) {
+          # cart number did not update, wait a bit longer
+          Sys.sleep(1)
+          new_cart_count <- current_in_cart()
+        }
+        current_cart_count <- new_cart_count
+        tries <- tries + 1
       }
 
-      if (current_cart_total == current_in_cart()) {
-        # cart number did not update, wait a bit longer
-        Sys.sleep(2)
-      }
-      if (current_cart_total == current_in_cart()) {
+      last_cart_count <- current_cart_count
+
+      if (old_cart_count == last_cart_count) {
         # still not updated - something went wrong
         stop("Cart badge was not updated - something went wrong in adding product")
       }
 
-      successes[i] <- TRUE
-      if (info) cli_alert_success("Added {.strong {j} items} of {.val {product_title}} to cart.")
+      successfully_added[i] <- last_cart_count - old_cart_count
+      if (info) cli_alert_success("Added {.strong {successfully_added[i]} items} of {.val {product_title}} to cart.")
     }, error = function(e) {
       if (info) cli_alert_danger("Failed to add product: {.strong {conditionMessage(e)}}")
     })
   }
-  return(successes)
+  return(successfully_added)
 }
 
 #' @importFrom cli cli_text cli_alert_danger

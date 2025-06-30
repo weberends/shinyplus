@@ -765,6 +765,7 @@ shinyplus <- function() {
                                      )
                               ),
                               column(6,
+                                     h3("PLUS Winkelwagen"),
                                      uiOutput("online_cart_summary"),
                                      br(), br(),
                                      DTOutput("online_cart_table")
@@ -1550,13 +1551,10 @@ shinyplus <- function() {
     # save to basket RDS if anything is changed
     observeEvent(values$basket, {
       req(selected_email())
-      count <- sum(values$basket$quantity, na.rm = TRUE)
-      if (count == 0) {
-        values$basket <- values$basket |> slice(0)
-      }
+      values$basket <- values$basket |> filter(quantity > 0)
       saveRDS(values$basket, basket_file())
       # update number on basket icon
-      session$sendCustomMessage("updateBasketCount", count)
+      session$sendCustomMessage("updateBasketCount", sum(values$basket$quantity, na.rm = TRUE))
     }, ignoreInit = TRUE)
 
     # basket overview table
@@ -1737,24 +1735,18 @@ shinyplus <- function() {
           $('#progress_name').html('%s');
         ", pct, pct, name_qty))
 
-        success <- tryCatch(plus_add_products(url, quantity = quantity, credentials = values$credentials, info = FALSE),
-                            error = function(e) {
-                              showNotification(paste0("Product '", name, "' kon niet toegevoegd worden."), type = "error", duration = 2)
-                              return(invisible(FALSE))
-                            })
-        if (isTRUE(success)) {
-          succesful_urls <- c(succesful_urls, url)
+        successfully_added <- tryCatch(plus_add_products(url, quantity = quantity, credentials = values$credentials, info = FALSE),
+                                       error = function(e) 0)
+        if (input$remove_cart_from_basket == TRUE && successfully_added > 0) {
+          # remove product from local basket
+          values$basket$quantity[i] <- values$basket$quantity[i] - successfully_added
+        } else if (successfully_added == 0) {
+          showNotification(session = session, paste0("Artikel '", get_product_name_unit(url), "' kon niet toegevoegd worden."), type = "error", duration = 2)
         }
       }
 
-      if (input$remove_cart_from_basket == TRUE) {
-        # remove product from local basket
-        values$basket <- values$basket |>
-          filter(!product_url %in% succesful_urls)
-      }
-
       removeModal()
-      showNotification("Artikelen in PLUS Winkelwagen geplaatst.", type = "message")
+      showNotification("Gereed.", type = "message")
 
       # Refresh cart summary + table
       values$online_cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
@@ -1786,16 +1778,19 @@ shinyplus <- function() {
 
     output$online_cart_summary <- renderUI({
       if (!values$logged_in) {
-        return(tagList(
-          h3("PLUS Winkelwagen"),
+        return(
           p("Om artikelen in de online PLUS Winkelwagen te zien, log eerst in via het menu 'Inloggen'.", class = "text-danger")
-        ))
+        )
       }
 
-      if (NROW(values$online_cart) == 0) {
+      if (is.null(values$online_cart)) {
         return(tagList(
-          h3("PLUS Winkelwagen"),
           p("Klik op de knop om de PLUS Winkelwagen te vernieuwen."),
+          actionButton("refresh_online_cart", "Vernieuwen", icon = icon("refresh")),
+        ))
+      } else if (nrow(values$online_cart) == 0 && inherits(values$online_cart, "plus_cart")) {
+        return(tagList(
+          p("Geen producten; de PLUS Winkelwagen is leeg."),
           actionButton("refresh_online_cart", "Vernieuwen", icon = icon("refresh")),
         ))
       }
@@ -1807,7 +1802,6 @@ shinyplus <- function() {
       saving_pct <- round(((original_total - actual_total) / original_total) * 100, 1)
 
       tagList(
-        h3("PLUS Winkelwagen"),
         p("De inhoud van deze winkelwagen is opgehaald van de ",
           a(href = plus_url("winkelwagen"),
             target= "_blank",
