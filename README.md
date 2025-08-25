@@ -1,4 +1,4 @@
-# shinyplus
+# ShinyPLUS
 
 [![R-CMD-check](https://github.com/weberends/shinyplus/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/weberends/shinyplus/actions/workflows/R-CMD-check.yaml)
 

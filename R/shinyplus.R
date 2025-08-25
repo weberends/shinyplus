@@ -605,7 +605,10 @@ shinyplus <- function() {
                               column(3, id = "column-weekmenu",
                                      card(class = "basket-card-1",
                                           h3("1. Weekmenu"),
-                                          actionButton("add_weekmenu_products_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping"), width = "100%"),
+                                          fluidRow(
+                                            column(6, actionButton("add_weekmenu_products_to_basket", "Toevoegen aan mandje", icon = icon("cart-plus"), width = "100%")),
+                                            column(6, actionButton("email_weekmenu", "E-mailen", icon = icon("envelope"), width = "100%")),
+                                          ),
                                           div(class = "dish-selector",
                                               h5("Avondeten"),
                                               lapply(weekdays_list, function(day) {
@@ -675,7 +678,7 @@ shinyplus <- function() {
                                      card(class = "basket-card-3",
                                           h3("3. Vaste boodschappen"),
                                           fluidRow(
-                                            column(6, actionButton("add_fixed_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping"), width = "100%")),
+                                            column(6, actionButton("add_fixed_to_basket", "Toevoegen aan mandje", icon = icon("cart-plus"), width = "100%")),
                                             column(6, actionButton("fixed_to_zero", "Alles op nul zetten", icon = icon("rotate-left"), width = "100%")),
                                           ),
                                           h5("Selecteer uit vaste producten"),
@@ -1246,6 +1249,24 @@ shinyplus <- function() {
       }
     })
 
+    observeEvent(input$email_weekmenu, {
+      selected_dishes <- unlist(lapply(weekdays_list_full, function(day) input[[paste0("dish_day_", day)]]))
+      days <- tibble(day = weekdays_list_full,
+                     name = selected_dishes)
+      weekmenu <- values$dish_ingredients |>
+        left_join(values$dishes |> filter(name %in% selected_dishes), by = "dish_id") |>
+        left_join(days, by = "name") |>
+        filter(!is.na(day)) |>
+        mutate(product_name = get_product_name_unit(product_url),
+               day = factor(day, levels = weekdays_list_full, ordered = TRUE)) |>
+        arrange(day)
+
+      tryCatch({
+        send_email_weekmenu(weekmenu)
+        showNotification("PLUS Weekmenu per mail verzonden.", type = "message")
+      }, error = function(e) showNotification(paste0("Fout bij verzenden: ", conditionMessage(e)), type = "error"))
+    })
+
     ## 2. Aanbiedingen ----
     output$sale_header_ui <- renderUI({
       if (is.null(values$sale_items)) {
@@ -1263,7 +1284,7 @@ shinyplus <- function() {
           h5(paste0("Geldig van ", trimws(tolower(attributes(df)$promo_period)), ".")),
           p(paste("Er zijn", NROW(df), "aanbiedingen. Klik op de afbeelding om naar de aanbieding te gaan.")),
           br(),
-          actionButton("add_sale_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping"), width = "100%"),
+          actionButton("add_sale_to_basket", "Toevoegen aan mandje", icon = icon("cart-plus"), width = "100%"),
         )
       }
     })
@@ -1372,7 +1393,7 @@ shinyplus <- function() {
         actionButton("fixed_settings_open", "Bewerken", icon = icon("pen-to-square"), width = "100%")
       } else {
         tagList(
-          actionButton("add_fixed_product_button", "Toevoegen aan vaste producten", icon = icon("plus"), width = "100%"),
+          actionButton("add_fixed_product_button", "Naar vaste producten", icon = icon("plus"), width = "100%"),
           br(),
           br(),
           fluidRow(
@@ -1868,6 +1889,7 @@ shinyplus <- function() {
         selection = "none",
         options = list(
           dom = "t",
+          paging = FALSE,
           columnDefs = list(
             list(className = "dt-center", targets = 0),
             list(className = "dt-left", targets = 1),

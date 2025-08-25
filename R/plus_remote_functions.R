@@ -156,13 +156,13 @@ plus_add_products <- function(x, quantity = 1, info = interactive(), ...) {
       while (tries <= 5 && current_cart_count != goal_cart_count) {
         for (j in seq_len(quantity[i])) {
           plus_env$browser$Runtime$evaluate("document.querySelector('button.gtm-add-to-cart')?.click();")
-          Sys.sleep(0.5)
+          Sys.sleep(1)
         }
-        Sys.sleep(1)
+        Sys.sleep(2)
         new_cart_count <- current_in_cart()
         if (current_cart_count == new_cart_count) {
           # cart number did not update, wait a bit longer
-          Sys.sleep(1)
+          Sys.sleep(2)
           new_cart_count <- current_in_cart()
         }
         current_cart_count <- new_cart_count
