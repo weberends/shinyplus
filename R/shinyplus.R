@@ -48,7 +48,7 @@ shinyplus <- function() {
   ui <- fluidPage(
     useShinyjs(),
     tags$head(
-      tags$title("Shiny PLUS"),
+      tags$title("ShinyPLUS"),
       tags$link(rel = "icon", type = "image/x-icon", href = "shinyplus-assets/favicon.ico")
     ),
     tags$script(HTML("
@@ -607,7 +607,7 @@ shinyplus <- function() {
                                           h3("1. Weekmenu"),
                                           fluidRow(
                                             column(6, actionButton("add_weekmenu_products_to_basket", "Toevoegen aan mandje", icon = icon("cart-plus"), width = "100%")),
-                                            column(6, actionButton("email_weekmenu", "E-mailen", icon = icon("envelope"), width = "100%")),
+                                            column(6, actionButton("email_weekmenu", "Weekmenu e-mailen", icon = icon("envelope"), width = "100%")),
                                           ),
                                           div(class = "dish-selector",
                                               h5("Avondeten"),
@@ -2204,29 +2204,41 @@ preptime_icon <- function(x) {
   #        "60" = "\U0001F552\U0001F641",
   #        "120" = "\U0001F552\U0001F975",
   #        paste0(x, "+"))
-  switch(as.character(x),
-         "20" = "0-20 min",
-         "40" = "20-40 min",
-         "60" = "40-60 min",
-         "120" = "60+ min",
-         paste0(x, "+"))
+  vapply(FUN.VALUE = character(1),
+         x,
+         function(xx)
+           switch(as.character(xx),
+                  "20" = "0-20 min",
+                  "40" = "20-40 min",
+                  "60" = "40-60 min",
+                  "120" = "60+ min",
+                  paste0(xx, "+")),
+         USE.NAMES = FALSE)
 }
 
 meat_icon <- function(type) {
-  switch(tolower(type),
-         "vegetarisch" = "\U0001F331",
-         "kip" = "\U0001F413",
-         "rund" = "\U0001F404",
-         "varken" = "\U0001F416",
-         "gecombineerd" = "Combi",
-         type)
+  vapply(FUN.VALUE = character(1),
+         type,
+         function(tt)
+           switch(tolower(as.character(tt)),
+                  "vegetarisch" = "\U0001F331",
+                  "kip" = "\U0001F413",
+                  "rund" = "\U0001F404",
+                  "varken" = "\U0001F416",
+                  "gecombineerd" = "Combi",
+                  as.character(tt)),
+         USE.NAMES = FALSE)
 }
 
 vegetables_icon <- function(type) {
-  switch(as.character(type),
-         "0" = "\U0001F6AB",
-         "1" = "\U0001F966",
-         "2" = "\U0001F966\U0001F966",
-         "3" = "\U0001F966\U0001F966\U0001F966",
-         type)
+  vapply(FUN.VALUE = character(1),
+         type,
+         function(tt)
+           switch(as.character(tt),
+                  "0" = "\U0001F6AB",
+                  "1" = "\U0001F966",
+                  "2" = "\U0001F966\U0001F966",
+                  "3" = "\U0001F966\U0001F966\U0001F966",
+                  as.character(tt)),
+         USE.NAMES = FALSE)
 }

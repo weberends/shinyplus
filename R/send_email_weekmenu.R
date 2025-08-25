@@ -4,8 +4,8 @@
 #' @importFrom blastula compose_email md smtp_send creds_envvar
 #' @importFrom dplyr mutate select arrange distinct pull
 #' @importFrom shiny HTML h3
+#' @importFrom cli symbol
 send_email_weekmenu <- function(weekmenu, credentials = getOption("plus_credentials")) {
-  weekmenu <<- weekmenu
   if (is.character(credentials) && grepl("[.]ya?ml$", credentials)) {
     email <- c(read_yaml(credentials)$email, read_yaml(credentials)$email_cc)
     gmail_user_name <- read_yaml(credentials)$gmail_user_name
@@ -22,8 +22,8 @@ send_email_weekmenu <- function(weekmenu, credentials = getOption("plus_credenti
   creds <- creds_envvar(user = gmail_user_name, pass_envvar = "plus_smtp_password", provider = "gmail")
 
   per_day <- weekmenu |>
-    distinct(day, name) |>
-    mutate(text = paste0("<li>", day, ": ", name, "</li>")) |>
+    distinct(day, name, .keep_all = TRUE) |>
+    mutate(text = paste0("<li>", day, ": ", name, " ", symbol$bullet, " ", meat_icon(meat), " ", symbol$bullet, " ", vegetables_icon(vegetables), "</li>")) |>
     pull(text) |>
     paste(collapse = "")
   per_day <- paste0("<ul>", per_day, "</ul>")
@@ -35,12 +35,56 @@ send_email_weekmenu <- function(weekmenu, credentials = getOption("plus_credenti
 
   first_monday <- Sys.Date() + (1 - as.integer(format(Sys.Date(), "%u"))) %% 7
   sunday_after <- first_monday + 6
-  mail <- compose_email(header = md(paste0("# PLUS Weekmenu\n\n### ", trimws(format(first_monday, "%e %B %Y")), " - ", trimws(format(sunday_after, "%e %B %Y")))),
-                        body = paste0(h3(HTML("<u>Overzicht</u>")),
-                                      per_day,
-                                      h3(HTML("<u>Ingredi\u00EBnten</u>")),
-                                      ingredients) |>
-                          HTML(),
+
+  custom_css <- paste0(collapse = "\n", c(
+    "body {",
+    "  background: rgb(128, 189, 29) !important;",
+    "}",
+    ".footer {",
+    "  color: white !important;",
+    "}",
+    ".footer a {",
+    "  color: rgb(85, 77, 167) !important;",
+    "}",
+    "ul {",
+    "  font-family: sans-serif;",
+    "  font-size: 14px;",
+    "  color: #333333;",
+    "  padding-left: 20px;",
+    "}",
+    "table {",
+    "  border-collapse: collapse;",
+    "  width: 100%;",
+    "  border: none !important;",
+    "}",
+    "table th, table td {",
+    "  border: 1px solid #dddddd;",
+    "  padding: 8px;",
+    "}",
+    "table.ingredients_tbl {",
+    "  border: 1px solid rgb(34, 118, 71) !important;",
+    "}",
+    "h1, h2 {",
+    "  color: white;",
+    "}",
+    "h2 {",
+    "  font-size: 14px;",
+    "}",
+    "h3 {",
+    "  margin-top: 20px;",
+    "  font-family: sans-serif;",
+    "  color: rgb(34, 118, 71);",
+    "}"))
+
+  email_body <- HTML(paste0(
+    "<html><head><style>", custom_css, "</style></head><body>",
+    h3(HTML("Overzicht")), per_day,
+    h3(HTML("Ingredi\u00EBnten")), "<div class='ingredients_tbl'>", ingredients, "</div>",
+    "</body></html>"
+  ))
+
+  mail <- compose_email(header = md(paste0("# PLUS Weekmenu\n\n## ", trimws(format(first_monday, "%e %B %Y")), " - ", trimws(format(sunday_after, "%e %B %Y")))),
+                        body = email_body,
                         footer = md("Verzonden door de ShinyPLUS app.\n\nGitHub: [`weberends/shinyplus`](https://github.com/weberends/shinyplus)"))
   smtp_send(email = mail,
             to = email,
