@@ -756,9 +756,10 @@ shinyplus <- function() {
                                           uiOutput("basket_overview_table"),
                                           hr(),
                                           fluidRow(
-                                            column(4, actionButton("sort_basket_name", "Op naam", icon = icon("arrow-down-a-z"), width = "100%")),
-                                            column(4, actionButton("sort_basket_label", "Op label", icon = icon("arrow-down-short-wide"), width = "100%")),
-                                            column(4, actionButton("sort_basket_quantity", "Op aantal", icon = icon("arrow-down-1-9"), width = "100%"))
+                                            column(3, actionButton("sort_basket_name", "Op naam", icon = icon("arrow-down-a-z"), width = "100%")),
+                                            column(3, actionButton("sort_basket_label", "Op label", icon = icon("arrow-down-short-wide"), width = "100%")),
+                                            column(3, actionButton("sort_basket_quantity", "Op aantal", icon = icon("arrow-down-1-9"), width = "100%")),
+                                            column(3, actionButton("email_basket", "E-mailen", icon = icon("envelope"), width = "100%"))
                                           ),
                                           fluidRow(
                                             column(6, actionButton("send_basket_to_cart", "In PLUS Winkelwagen plaatsen", icon = icon("cart-arrow-down"), class = "btn-success", width = "100%")),
@@ -1689,6 +1690,13 @@ shinyplus <- function() {
         # sort ascending
         values$basket <- values$basket |> arrange(quantity)
       }
+    })
+
+    observeEvent(input$email_basket, {
+      tryCatch({
+        send_email_basket(values$basket)
+        showNotification("Mandje per mail verzonden.", type = "message")
+      }, error = function(e) showNotification(paste0("Fout bij verzenden: ", conditionMessage(e)), type = "error"))
     })
 
     # Send basket to cart
