@@ -1282,7 +1282,7 @@ shinyplus <- function() {
 
         tagList(
           h5(paste0("Geldig van ", trimws(tolower(attributes(df)$promo_period)), ".")),
-          p(paste("Er zijn", NROW(df), "aanbiedingen. Klik op de afbeelding om naar de aanbieding te gaan.")),
+          p(paste("Er zijn", NROW(df), "aanbiedingen. Klik op een afbeelding om naar de aanbieding te gaan.")),
           br(),
           actionButton("add_sale_to_basket", "Toevoegen aan mandje", icon = icon("cart-plus"), width = "100%"),
         )

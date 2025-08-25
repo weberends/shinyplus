@@ -49,7 +49,7 @@ format_unit <- function(units) {
       unit <- paste(parts, collapse = " ")
     }
 
-    if (unit == "") {
+    if (length(unit) == 0 || is.na(unit) || trimws(unit) == "") {
       unit <- "1 st"
     }
 
