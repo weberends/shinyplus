@@ -35,6 +35,7 @@
 #' @importFrom DT datatable DTOutput renderDT formatCurrency
 #' @importFrom cli symbol
 #' @importFrom shinyjs hide show useShinyjs runjs
+#' @importFrom commonmark markdown_html
 #' @encoding UTF-8
 #' @inheritSection shinyplus-package Disclaimer
 #' @export
@@ -585,6 +586,25 @@ shinyplus <- function() {
       #online_cart_table td:nth-child(6) {
         font-weight: bold;
       }
+
+      #dish_instructions_ui h1 {
+        font-size: 1.5rem;
+      }
+      #dish_instructions_ui h2 {
+        font-size: 1.25rem;
+      }
+      #dish_instructions_ui h3 {
+        font-size: 1.15rem;
+      }
+      #dish_instructions_ui h4,
+      #dish_instructions_ui h5,
+      #dish_instructions_ui h6 {
+        font-size: 100%;
+      }
+      .dish_instructions_text {
+        padding: 5px;
+        font-size: 85% !important;
+      }
     ")),
     tags$img(id = "imagePreview"), # preview image element
     theme = bs_theme(version = 5, base_font = font_google("Open Sans")),
@@ -784,12 +804,12 @@ shinyplus <- function() {
                  column(3,
                         wellPanel(
                           h4("Gerecht selecteren"),
-                          selectInput("selected_dish", NULL, choices = NULL),
-                          actionButton("delete_dish", "Gerecht verwijderen", icon = icon("trash"), class = "btn-danger"),
+                          selectInput("selected_dish", NULL, choices = NULL, width = "100%"),
+                          actionButton("delete_dish", "Gerecht verwijderen", icon = icon("trash"), class = "btn-danger", width = "100%"),
                           hr(),
                           h5("Nieuw gerecht"),
-                          textInput("new_dish_name", NULL, placeholder = "Naam van het gerecht"),
-                          actionButton("new_dish", "Nieuw gerecht", icon = icon("plus")),
+                          textInput("new_dish_name", NULL, placeholder = "Naam van het gerecht", width = "100%"),
+                          actionButton("new_dish", "Nieuw gerecht", icon = icon("plus"), width = "100%"),
                           hr(),
                           h5("Voorkeuren 'Willekeurige keuze'"),
                           lapply(weekdays_list, function(day) {
@@ -810,7 +830,7 @@ shinyplus <- function() {
                         wellPanel(
                           h4("Gerecht bewerken"),
                           div(style = "display: none;", numericInput("dish_id", NULL, value = 0)),
-                          textInput("dish_name", "Naam gerecht:"),
+                          textInput("dish_name", "Naam gerecht:", width = "100%"),
                           checkboxGroupInput("dish_days", "Geschikt voor:", choices = c("Doordeweeks", "Weekend", "Avondeten", "Lunch / Extra" = "Lunch"), selected = NULL),
                           radioButtons("dish_preptime", "Bereidingstijd:",
                                        choices = c(20, 40, 60, 120) |>
@@ -841,7 +861,8 @@ shinyplus <- function() {
                                                 inline = FALSE,
                                                 selected = "Vegetarisch")
                             )
-                          )
+                          ),
+                          uiOutput("dish_instructions_ui"),
                         )
                  ),
                  column(6,
@@ -955,7 +976,7 @@ shinyplus <- function() {
     # Server: Setup ----
     values <- reactiveValues(
       sale_items = NULL,
-      dishes = tibble(dish_id = numeric(), name = character(), days = character(), preptime = integer(), vegetables = integer(), meat = character()),
+      dishes = tibble(dish_id = numeric(), name = character(), days = character(), preptime = integer(), vegetables = integer(), meat = character(), instructions = character()),
       dish_ingredients = tibble(dish_id = numeric(), product_url = character(), quantity = numeric()),
       weekplan = tibble(day = character(), dish = character()),
       fixed_products = character(),
@@ -1962,7 +1983,8 @@ shinyplus <- function() {
         days = "Doordeweeks,Weekend,Avondeten",
         preptime = 20,
         vegetables = 0,
-        meat = "Vegetarisch"
+        meat = "Vegetarisch",
+        instructions = ""
       )) |>
         arrange(name)
       updateTextInput(session, "new_dish_name", value = "")
@@ -2009,6 +2031,50 @@ shinyplus <- function() {
       saveRDS(values$dishes, dishes_file())
     })
 
+    # dish instructions
+    dish_instruction_edit_mode <- reactiveVal(FALSE)
+
+    output$dish_instructions_ui <- renderUI({
+      req(input$dish_id)
+      if (!"instructions" %in% colnames(values$dishes)) {
+        values$dishes$instructions <- ""
+      }
+      raw_txt <- values$dishes |>
+        filter(dish_id == input$dish_id) |>
+        pull(instructions)
+      if (isTRUE(dish_instruction_edit_mode())) {
+        # edit mode
+        tagList(
+          textAreaInput("dish_instructions", "Instructies:",
+                        value = raw_txt,
+                        width = "100%", height = "300px"),
+          p("Dit veld ondersteunt markdown."),
+          actionButton("dish_instructions_save", "Instructies opslaan", icon = icon("floppy-disk"), width = "100%"))
+      } else if (raw_txt == "") {
+        # no instructions yet, no edit mode
+        actionButton("dish_instructions_edit", "Instructies toevoegen", icon = icon("plus"), width = "100%")
+      } else {
+        # these are the rendered instructions
+        tagList(
+          p("Instructies:", style = "margin-bottom: 0;"),
+          div(class = "dish_instructions_text", style = "margin-bottom: 0;",
+              HTML(markdown_html(raw_txt, extensions = TRUE, smart = TRUE))
+          ),
+          actionButton("dish_instructions_edit", "Instructies bewerken", icon = icon("pencil"), width = "100%"))
+      }
+    })
+
+    observeEvent(input$dish_instructions_save, {
+      req(input$dish_id)
+      dish_instruction_edit_mode(FALSE)
+      values$dishes <- values$dishes |>
+        mutate(instructions = if_else(dish_id == input$dish_id, trimws(input$dish_instructions), instructions))
+      saveRDS(values$dishes, dishes_file())
+    })
+    observeEvent(input$dish_instructions_edit, {
+      dish_instruction_edit_mode(TRUE)
+    })
+
     # select existing dish
     observeEvent(input$selected_dish, {
       sel <- values$dishes |> filter(dish_id == input$selected_dish)
@@ -2019,6 +2085,7 @@ shinyplus <- function() {
       updateRadioButtons(session, "dish_preptime", selected = sel$preptime)
       updateRadioButtons(session, "dish_vegetables", selected = sel$vegetables)
       updateRadioButtons(session, "dish_meat", selected = sel$meat)
+      dish_instruction_edit_mode(FALSE) # turn off edit mode for instructions
     })
 
     # delete dish

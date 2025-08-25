@@ -17,6 +17,7 @@ Imports:
   bslib,
   chromote,
   cli,
+  commonmark,
   dplyr,
   DT,
   pillar,
