@@ -6,6 +6,7 @@
 #' @importFrom dplyr mutate select arrange distinct pull
 #' @importFrom shiny HTML h3
 #' @importFrom cli symbol
+#' @importFrom commonmark markdown_html
 #' @rdname send_mail
 #' @export
 send_email_weekmenu <- function(weekmenu, credentials = getOption("plus_credentials")) {
@@ -35,12 +36,22 @@ send_email_weekmenu <- function(weekmenu, credentials = getOption("plus_credenti
     mutate(name = ifelse(duplicated(name), "", name)) |>
     select(Gerecht = name, "Ingredi\u00EBnten" = product_name) |>
     plain_html_table()
+  instructions <- weekmenu |>
+    filter(instructions != "")
+  has_instructions <- NROW(instructions) > 0
+  instructions <- instructions |>
+    distinct(day, name, .keep_all = TRUE) |>
+    arrange(day) |>
+    mutate(name = ifelse(duplicated(name), "", name),
+           instructions = vapply(FUN.VALUE = character(1), instructions, function(x) markdown_html(x, extensions = TRUE, smart = TRUE), USE.NAMES = FALSE)) |>
+    select(Gerecht = name, Instructies = instructions) |>
+    plain_html_table()
 
   first_monday <- Sys.Date() + (1 - as.integer(format(Sys.Date(), "%u"))) %% 7
   sunday_after <- first_monday + 6
 
   custom_css <- paste0(collapse = "\n", c(
-    "body {",
+    "body, .header, .footer {",
     "  background: rgb(128, 189, 29) !important;",
     "}",
     ".footer {",
@@ -64,10 +75,10 @@ send_email_weekmenu <- function(weekmenu, credentials = getOption("plus_credenti
     "  border: 1px solid #dddddd;",
     "  padding: 8px;",
     "}",
-    "table.ingredients_tbl {",
+    ".ingredients_tbl {",
     "  border: 1px solid rgb(34, 118, 71) !important;",
     "}",
-    "h1, h2 {",
+    ".header h1, .header h2 {",
     "  color: white;",
     "}",
     "h2 {",
@@ -83,6 +94,7 @@ send_email_weekmenu <- function(weekmenu, credentials = getOption("plus_credenti
     "<html><head><style>", custom_css, "</style></head><body>",
     h3(HTML("Overzicht")), per_day,
     h3(HTML("Ingredi\u00EBnten")), "<div class='ingredients_tbl'>", ingredients, "</div>",
+    ifelse(has_instructions, paste0(h3(HTML("Instructies")), "<div class='ingredients_tbl'>", instructions, "</div>"), ""),
     "</body></html>"
   ))
 
