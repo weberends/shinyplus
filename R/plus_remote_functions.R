@@ -139,49 +139,68 @@ plus_add_products <- function(x, quantity = 1, info = interactive(), ...) {
 
   for (i in seq_along(x)) {
     if (info) cli_progress_message("Adding {.url {urls[i]}}...")
+
     tryCatch({
       plus_env$browser$Page$navigate(urls[i])
-      wait_for_element(".plp-item-quantity")
+      wait_for_element("button.gtm-add-to-cart")
       wait_for_element(".cart-badge-link .badge.background-red")
 
-      current_in_cart <- function() as.integer(plus_env$browser$Runtime$evaluate("document.querySelector('.cart-badge-link .badge.background-red')?.textContent.trim()")$result$value)
+      current_in_cart <- function() {
+        as.integer(plus_env$browser$Runtime$evaluate(
+          "document.querySelector('.cart-badge-link .badge.background-red')?.textContent.trim()"
+        )$result$value)
+      }
 
-      product_title <- plus_env$product_list$name[which(grepl(paste0(sku, "$"), plus_env$product_list$url))]
+      product_title <- plus_env$product_list$name[which(grepl(paste0(sku[i], "$"), plus_env$product_list$url))]
 
       old_cart_count <- current_in_cart()
       goal_cart_count <- old_cart_count + quantity[i]
       current_cart_count <- old_cart_count
-      tries <- 0
+      added <- 0
+      retries <- 0
+      max_retries <- 15
 
-      while (tries <= 5 && current_cart_count != goal_cart_count) {
-        for (j in seq_len(quantity[i])) {
-          plus_env$browser$Runtime$evaluate("document.querySelector('button.gtm-add-to-cart')?.click();")
+      while (added < quantity[i] && retries < max_retries) {
+        plus_env$browser$Runtime$evaluate(
+          "document.querySelector('button.gtm-add-to-cart')?.click();"
+        )
+        if (quantity[i] == 1) {
+          Sys.sleep(2)
+        } else {
+          Sys.sleep(3)  # allow time for UI/backend to update
+        }
+
+        new_cart_count <- current_in_cart()
+        delta <- new_cart_count - current_cart_count
+
+        if (!is.na(delta) && delta > 0) {
+          if (quantity[i] == 1 && delta != 1) {
+            stop("Unexpected cart delta for quantity = 1: got ", delta)
+          }
+          added <- added + delta
+          current_cart_count <- new_cart_count
+        } else {
+          retries <- retries + 1
           Sys.sleep(1)
         }
-        Sys.sleep(2)
-        new_cart_count <- current_in_cart()
-        if (current_cart_count == new_cart_count) {
-          # cart number did not update, wait a bit longer
-          Sys.sleep(2)
-          new_cart_count <- current_in_cart()
-        }
-        current_cart_count <- new_cart_count
-        tries <- tries + 1
       }
 
-      last_cart_count <- current_cart_count
+      successfully_added[i] <- current_cart_count - old_cart_count
 
-      if (old_cart_count == last_cart_count) {
-        # still not updated - something went wrong
-        stop("Cart badge was not updated - something went wrong in adding product")
+      if (successfully_added[i] != quantity[i]) {
+        stop("Cart count mismatch: expected to add ", quantity[i], " but added ", successfully_added[i])
       }
 
-      successfully_added[i] <- last_cart_count - old_cart_count
-      if (info) cli_alert_success("Added {.strong {successfully_added[i]} items} of {.val {product_title}} to cart.")
+      if (info) cli_alert_success(
+        "Added {.strong {successfully_added[i]} items} of {.val {product_title}} to cart."
+      )
+      print(paste("added", successfully_added[i], "of", x[i]))
+
     }, error = function(e) {
       if (info) cli_alert_danger("Failed to add product: {.strong {conditionMessage(e)}}")
     })
   }
+
   return(successfully_added)
 }
 
