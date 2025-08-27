@@ -196,6 +196,18 @@ shinyplus <- function() {
         background: color-mix(in srgb, var(--plus-purple) 70%, black);
         border-color: var(--plus-purple);
       }
+      .shiny-notification {
+        color: white;
+        background: var(--plus-purple);
+      }
+      .shiny-notification-message {
+        color: white;
+        background: var(--plus-green-light);
+      }
+      .shiny-notification-error {
+        color: white;
+        background: var(--plus-red);
+      }
       a {
         color: var(--plus-purple);
       }
@@ -262,17 +274,12 @@ shinyplus <- function() {
       #column-fixed .div-fixed-expanded {
         height: 300px;
       }
-      #column-extra .bslib-card {
+      #column-basket .bslib-card {
         background: color-mix(in srgb, var(--plus-green-dark) 3%, white);
       }
-      #column-extra .bslib-card h3,
-      #column-extra .bslib-card h5 {
+      #column-basket .bslib-card h3,
+      #column-basket .bslib-card h5 {
         color: var(--plus-green-dark);
-      }
-      #column-extra .btn:not(.btn-danger):not(.btn-success):hover {
-        background-color: color-mix(in srgb, var(--plus-green-dark) 25%, white);
-        border-color: inherit;
-        color: inherit;
       }
 
       .well {
@@ -401,7 +408,7 @@ shinyplus <- function() {
           margin-bottom: auto;
         }
 
-        #column-extra .product-list-col2,
+        #column-basket .product-list-col2,
         #column-fixed .product-list-col2 {
           width: 43%;
         }
@@ -431,7 +438,7 @@ shinyplus <- function() {
           padding-left: 10.5%;
         }
 
-        #column-extra .product-list-col3,
+        #column-basket .product-list-col3,
         #column-fixed .product-list-col3 {
          width: 20%;
         }
@@ -626,7 +633,7 @@ shinyplus <- function() {
                                      card(class = "basket-card-1",
                                           h3("1. Weekmenu"),
                                           fluidRow(
-                                            column(6, actionButton("add_weekmenu_products_to_basket", "Toevoegen aan mandje", icon = icon("cart-plus"), width = "100%")),
+                                            column(6, actionButton("add_weekmenu_products_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping"), width = "100%")),
                                             column(6, actionButton("email_weekmenu", "Weekmenu e-mailen", icon = icon("envelope"), width = "100%")),
                                           ),
                                           div(class = "dish-selector",
@@ -698,10 +705,10 @@ shinyplus <- function() {
                                      card(class = "basket-card-3",
                                           h3("3. Vaste boodschappen"),
                                           fluidRow(
-                                            column(6, actionButton("add_fixed_to_basket", "Toevoegen aan mandje", icon = icon("cart-plus"), width = "100%")),
+                                            column(6, actionButton("add_fixed_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping"), width = "100%")),
                                             column(6, actionButton("fixed_to_zero", "Alles op nul zetten", icon = icon("rotate-left"), width = "100%")),
                                           ),
-                                          h5("Selecteer uit vaste producten"),
+                                          h5("Selecteer uit vaste artikelen"),
                                           uiOutput("fixed_items_ui"),
                                           hr(),
                                           selectizeInput('add_fixed_product', NULL,
@@ -739,12 +746,12 @@ shinyplus <- function() {
                             )
                           )
                  ),
-                 tabPanel("Mandje en PLUS Winkelwagen",
+                 tabPanel(HTML(paste0(icon("basket-shopping"), " Mandje en ", icon("cart-shopping"), " PLUS Winkelwagen")),
                           fluidPage(
                             fluidRow(
-                              column(6, id = "column-extra",
+                              column(6, id = "column-basket",
                                      card(class = "basket-card-4 stretch-with-margin",
-                                          h3("4. Mandje"),
+                                          h3(HTML(paste0(icon("basket-shopping"), " Mandje"))),
                                           selectizeInput('add_extra_product', "Extra artikel toevoegen:",
                                                          choices = NULL,
                                                          width = "100%",
@@ -782,14 +789,17 @@ shinyplus <- function() {
                                             column(3, actionButton("email_basket", "E-mailen", icon = icon("envelope"), width = "100%"))
                                           ),
                                           fluidRow(
-                                            column(6, actionButton("send_basket_to_cart", "In PLUS Winkelwagen plaatsen", icon = icon("cart-arrow-down"), class = "btn-success", width = "100%")),
+                                            column(12, actionButton("send_basket_to_cart", HTML(paste0("Artikelen in ", icon("cart-shopping"), " PLUS Winkelwagen plaatsen")), class = "btn-success", width = "100%"))
+                                          ),
+                                          fluidRow(
+                                            column(6, actionButton("clean_basket", "Mandje opschonen", icon = icon("broom"),  class = "btn-primary", width = "100%")),
                                             column(6, actionButton("clear_basket", "Mandje leegmaken", icon = icon("trash"),  class = "btn-danger", width = "100%")),
                                           ),
-                                          checkboxInput("remove_cart_from_basket", "Artikelen direct uit mandje verwijderen die succesvol in PLUS Winkelwagen geplaatst zijn", value = TRUE, width = "100%")
+                                          checkboxInput("remove_cart_from_basket", HTML(paste0("Artikelen direct uit mandje verwijderen die succesvol in ", icon("cart-shopping"), " PLUS Winkelwagen geplaatst zijn")), value = FALSE, width = "100%")
                                      )
                               ),
                               column(6,
-                                     h3("PLUS Winkelwagen"),
+                                     h3(HTML(paste0(icon("cart-shopping"), " PLUS Winkelwagen"))),
                                      uiOutput("online_cart_summary"),
                                      br(), br(),
                                      DTOutput("online_cart_table")
@@ -1104,8 +1114,6 @@ shinyplus <- function() {
       creds <- lapply(creds, function(x) x[1])
       if (!values$logged_in) {
         tagList(
-          actionButton("change_user", "Selecteer andere gebruiker", class = "btn-primary", icon = icon("user-xmark")),
-          hr(),
           p("Gebruik je PLUS inloggegevens om in te loggen."),
           if (all(unlist(creds) == ""))
             p(HTML("<small>Maak een account aan op "),
@@ -1117,8 +1125,13 @@ shinyplus <- function() {
           else
             p(HTML("<small>Inloggegevens vooraf ingevuld op basis van instelling <code>plus_credentials</code>.</small>")),
           p(HTML(paste0("Email: <strong>", plus_env$email, "</strong>"))),
-          passwordInput("login_password", "Wachtwoord", value = creds$password),
-          actionButton("do_login", "Inloggen bij PLUS.nl", class = "btn-success", icon = icon("right-to-bracket"))
+          div(id = "login_buttons",
+              passwordInput("login_password", "Wachtwoord", value = creds$password),
+              actionButton("do_login", "Inloggen bij PLUS.nl", class = "btn-success", icon = icon("right-to-bracket")),
+              hr(),
+              actionButton("change_user", "Selecteer andere gebruiker", class = "btn-primary", icon = icon("user-xmark"))
+          ),
+          p(id = "logging_in", style = "display: none;", "Inloggen...")
         )
       } else {
         tagList(
@@ -1142,8 +1155,8 @@ shinyplus <- function() {
     })
 
     observeEvent(input$do_login, {
-      hide("login_password")
-      hide("do_login")
+      hide("login_buttons")
+      show("logging_in")
       creds <- list(email = plus_env$email, password = input$login_password)
       tryCatch({
         showNotification("Inloggen bij PLUS...")
@@ -1152,8 +1165,8 @@ shinyplus <- function() {
         values$credentials <- creds
         showNotification("Succesvol ingelogd.", type = "message")
       }, error = function(e) {
-        show("login_password")
-        show("do_login")
+        show("login_buttons")
+        hide("logging_in")
         values$logged_in <- FALSE
         showNotification(
           paste("Inloggen mislukt. Probeer het over een paar seconden opnieuw via de knop 'Inloggen'.\nFoutmelding:", e$message),
@@ -1306,7 +1319,7 @@ shinyplus <- function() {
           h5(paste0("Geldig van ", trimws(tolower(attributes(df)$promo_period)), ".")),
           p(paste("Er zijn", NROW(df), "aanbiedingen. Klik op een afbeelding om naar de aanbieding te gaan.")),
           br(),
-          actionButton("add_sale_to_basket", "Toevoegen aan mandje", icon = icon("cart-plus"), width = "100%"),
+          actionButton("add_sale_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping"), width = "100%"),
         )
       }
     })
@@ -1415,7 +1428,7 @@ shinyplus <- function() {
         actionButton("fixed_settings_open", "Bewerken", icon = icon("pen-to-square"), width = "100%")
       } else {
         tagList(
-          actionButton("add_fixed_product_button", "Naar vaste producten", icon = icon("plus"), width = "100%"),
+          actionButton("add_fixed_product_button", "Naar vaste artikelen", icon = icon("plus"), width = "100%"),
           br(),
           br(),
           fluidRow(
@@ -1436,7 +1449,7 @@ shinyplus <- function() {
     }, ignoreInit = TRUE)
 
     output$fixed_items_ui <- renderUI({
-      if (length(values$fixed_products) == 0) return(p("Nog geen vaste producten."))
+      if (length(values$fixed_products) == 0) return(p("Nog geen vaste artikelen."))
 
       # get `values$sale_items`, which is reactive and will thus update this `fixed_items_ui` if it changes
       sale_items <- values$sale_items
@@ -1602,7 +1615,7 @@ shinyplus <- function() {
 
     # basket overview table
     output$basket_overview_table <- renderUI({
-      if (nrow(values$basket) == 0) return(p("Mandje is leeg."))
+      if (nrow(values$basket) == 0) return(h4("Mandje is leeg."))
 
       tagList(
         p(HTML(paste0("<strong>Totaal artikelen:</strong> ", sum(values$basket$quantity, na.rm = TRUE), " (uniek: ", nrow(values$basket), ")"))),
@@ -1730,12 +1743,12 @@ shinyplus <- function() {
       req(nrow(values$basket) > 0)
 
       showModal(modalDialog(
-        title = "In PLUS Winkelwagen plaatsen",
-        p(paste("Weet je zeker dat je",
+        title = HTML(paste0("In ", icon("cart-shopping"), " PLUS Winkelwagen plaatsen")),
+        p(HTML(paste0("Weet je zeker dat je ",
                 ifelse(NROW(values$basket) == 1,
                        "dit artikel",
                        paste("deze", NROW(values$basket), "artikelen")),
-                "in de PLUS Winkelwagen wilt plaatsen? Dit kan even duren.")),
+                " in de ", icon("cart-shopping"), " PLUS Winkelwagen wilt plaatsen? Dit kan even duren."))),
         footer = tagList(
           modalButton("Annuleren"),
           actionButton("confirm_send_basket", "OK", class = "btn-primary")
@@ -1747,7 +1760,7 @@ shinyplus <- function() {
       removeModal()
 
       showModal(modalDialog(
-        title = "In PLUS Winkelwagen plaatsen...",
+        title = HTML(paste0("In ", icon("cart-shopping"), " PLUS Winkelwagen plaatsen...")),
         tagList(
           div(
             class = "progress",
@@ -1808,6 +1821,10 @@ shinyplus <- function() {
     })
 
     observeEvent(input$clear_basket, {
+      if (NROW(values$basket) == 0) {
+        showNotification("Mandje is leeg.", type = "message")
+        return()
+      }
       showModal(modalDialog(
         title = "Weet je het zeker?",
         "Hiermee wordt het mandje leeggemaakt. Dit kan niet ongedaan gemaakt worden.",
@@ -1823,24 +1840,64 @@ shinyplus <- function() {
       removeModal()
     })
 
+    observeEvent(input$clean_basket, {
+      if (!values$logged_in) {
+        showNotification("Log eerst in om mandje op te kunnen schonen.", type = "error")
+        return()
+      }
+      if (NROW(values$basket) == 0) {
+        showNotification("Mandje is leeg.", type = "message")
+        return()
+      }
+      if (NROW(values$online_cart) == 0) {
+        showNotification("PLUS Winkelwagen is leeg, niets om op te schonen.", type = "message")
+        return()
+      }
+      showModal(modalDialog(
+        title = "Weet je het zeker?",
+        HTML(paste0("Hiermee worden artikelen uit het mandje verwijderd die al in de ", icon("cart-shopping"), " PLUS Winkelwagen staan.")),
+        easyClose = FALSE,
+        footer = tagList(
+          modalButton("Annuleren"),
+          actionButton("confirm_clean_basket", "Opschonen", class = "btn-primary")
+        )
+      ))
+    })
+    observeEvent(input$confirm_clean_basket, {
+      cart <- values$online_cart |>
+        # join to get product urls
+        left_join(plus_env$product_list, by = c("product" = "name", "unit"))
+      n_basket <- sum(values$basket$quantity, na.rm = TRUE)
+      for (i in seq_len(NROW(cart))) {
+        if (cart$url[i] %in% values$basket$product_url) {
+          # substract quantity by the quantity in the PLUS cart
+          # a resulting quantity if 0 will be removed from the basket automatically
+          values$basket <- values$basket |>
+            mutate(quantity = ifelse(product_url == cart$url[i] & quantity > 0, quantity - cart$quantity[i], quantity))
+        }
+      }
+      removeModal()
+      showNotification(paste0(n_basket - sum(values$basket$quantity, na.rm = TRUE), " artikelen uit mandje verwijderd."), type = "message")
+    })
+
 
     # Server: PLUS Cart ----
 
     output$online_cart_summary <- renderUI({
       if (!values$logged_in) {
         return(
-          p("Om artikelen in de online PLUS Winkelwagen te zien, log eerst in via het menu 'Inloggen'.", class = "text-danger")
+          p(HTML(paste0("Om artikelen in de online ", icon("cart-shopping"), " PLUS Winkelwagen te zien, log eerst in via het menu 'Inloggen'.")), class = "text-danger")
         )
       }
 
       if (is.null(values$online_cart)) {
         return(tagList(
-          p("Klik op de knop om de PLUS Winkelwagen te vernieuwen."),
+          p(HTML(paste0("Klik op de knop om de ", icon("cart-shopping"), " PLUS Winkelwagen te vernieuwen."))),
           actionButton("refresh_online_cart", "Vernieuwen", icon = icon("refresh")),
         ))
       } else if (nrow(values$online_cart) == 0 && inherits(values$online_cart, "plus_cart")) {
         return(tagList(
-          p("Geen producten; de PLUS Winkelwagen is leeg."),
+          p(HTML(paste0("Geen artikelen; de ", icon("cart-shopping"), " PLUS Winkelwagen is leeg."))),
           actionButton("refresh_online_cart", "Vernieuwen", icon = icon("refresh")),
         ))
       }
@@ -1857,7 +1914,7 @@ shinyplus <- function() {
             target= "_blank",
             "online PLUS Winkelwagen", .noWS = "outside"),
           ". Wijzigingen kunnen alleen daar worden aangebracht."),
-        if (original_total - actual_total < 0) p(paste0("Een negatieve korting kan voorkomen als er bijv. statiegeld gerekend wordt. De doorgehaalde prijs is dan de som van alle prijzen uit de PLUS Winkelwagen, terwijl de totale prijs hoger is (in dit geval ", as_euro(actual_total - original_total), ").")),
+        if (original_total - actual_total < 0) p(paste0(HTML(paste0("Een negatieve korting kan voorkomen als er bijv. statiegeld gerekend wordt. De doorgehaalde prijs is dan de som van alle prijzen uit de ", icon("cart-shopping"), " PLUS Winkelwagen, terwijl de totale prijs hoger is (in dit geval ", as_euro(actual_total - original_total), ").")))),
         br(),
         h4(HTML(paste0("<strong>Totale prijs:</strong> ",
                        as_euro(sum(actual_total, na.rm = TRUE)),
@@ -1932,10 +1989,10 @@ shinyplus <- function() {
     })
 
     observeEvent(input$checkout, {
-      utils::browseURL(plus_url("checkout"))
+      runjs(sprintf("window.open('%s', '_blank')", plus_url("checkout")))
     })
     observeEvent(input$view_cart, {
-      utils::browseURL(plus_url("winkelwagen"))
+      runjs(sprintf("window.open('%s', '_blank')", plus_url("winkelwagen")))
     })
 
     observeEvent(input$refresh_online_cart, {
@@ -2194,14 +2251,14 @@ shinyplus <- function() {
       if (is.null(new_items)) {
         showNotification("Fout bij ophalen van gegevens.", type = "error")
       } else if (NROW(new_items) == 0) {
-        p("Geen producten gevonden.")
+        p("Geen artikelen gevonden.")
       } else {
         plus_env$new_items <- new_items # save to pkg envir to be able to save with button later
         n_new <- NROW(new_items)
         output$product_search <- renderUI({
           req(NROW(new_items) > 0)
           tagList(
-            p(paste0("Deze ", n_new, " artikelen zijn gevonden die nieuw toegevoegd kunnen worden aan de productenlijst en vanaf dan beschikbaar zijn in deze app:")),
+            p(paste0("Deze ", n_new, " artikelen zijn gevonden die nieuw toegevoegd kunnen worden aan de artikelenlijst en vanaf dan beschikbaar zijn in deze app:")),
             actionButton("new_products_import", "Artikelen importeren en opslaan", icon = icon("list-check"), class = "btn-success", width = "100%"),
             br(),
             br(),
@@ -2243,7 +2300,7 @@ shinyplus <- function() {
     })
 
     observeEvent(input$open_searchpage, {
-      utils::browseURL(plus_url("producten"))
+      runjs(sprintf("window.open('%s', '_blank')", plus_url("producten")))
     })
 
   }
