@@ -36,6 +36,7 @@
 #' @importFrom cli symbol
 #' @importFrom shinyjs hide show useShinyjs runjs
 #' @importFrom commonmark markdown_html
+#' @importFrom rvest read_html html_elements html_element html_text2
 #' @encoding UTF-8
 #' @inheritSection shinyplus-package Disclaimer
 #' @export
@@ -81,6 +82,16 @@ shinyplus <- function() {
         document.getElementById('basket-count').textContent = count;
       });
     ")),
+    tags$script(HTML('
+      Shiny.addCustomMessageHandler("get_element_content", function(id) {
+        const el = document.getElementById(id);
+        if (el) {
+          Shiny.setInputValue(id + "_content", el.innerHTML, {priority: "event"});
+        } else {
+          Shiny.setInputValue(id + "_content", null);
+        }
+      });
+    ')),
     tags$script(HTML("
       (function waitForImagePreview() {
         const preview = document.getElementById('imagePreview');
@@ -375,9 +386,6 @@ shinyplus <- function() {
       .fixed_trash_icon button {
         font-size: 0.8rem;
         line-height: 2;
-      }
-      .fixed_trash_icon {
-        padding-left: 9%;
       }
       #add_fixed_heading {
         line-height: 0.5;
@@ -731,7 +739,6 @@ shinyplus <- function() {
                                             column(6, actionButton("add_fixed_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping"), width = "100%")),
                                             column(6, actionButton("fixed_to_zero", "Alles op nul zetten", icon = icon("rotate-left"), width = "100%")),
                                           ),
-                                          h5("Selecteer uit vaste artikelen"),
                                           uiOutput("fixed_items_ui"),
                                           hr(),
                                           selectizeInput('add_fixed_product', NULL,
@@ -1286,14 +1293,6 @@ shinyplus <- function() {
       rebuild_weekmenu_inputs(sorted_dishes)
     })
 
-    # observeEvent(input$save_weekplan, {
-    #   values$weekplan <- bind_rows(lapply(weekdays_list, function(day) {
-    #     dish <- input[[paste0("dish_day_", day)]]
-    #     tibble(day = day, dish = ifelse(is.null(dish) || dish == "", NA_character_, dish))
-    #   }))
-    #   saveRDS(values$weekplan, weekplan_file())
-    # })
-
     observeEvent(input$add_weekmenu_products_to_basket, {
       selected_dishes <- unlist(lapply(weekdays_list_full, function(day) input[[paste0("dish_day_", day)]]))
       selected_dishes <- selected_dishes[selected_dishes != ""]
@@ -1442,7 +1441,38 @@ shinyplus <- function() {
       fixed_settings_expanded(TRUE)
       show("add_fixed_product")
     })
+    observeEvent(input$fixed_items_ui_content, {
+      if (is.null(input$fixed_items_ui_content)) return()
+      html <- read_html(input$fixed_items_ui_content)
+      rows <- html_elements(html, ".products-list-row")
+      new_order <- character(length(rows))
+      for (i in seq_along(rows)) {
+        row <- rows[[i]]
+        a_tag <- html_element(row, "a[href]")
+        if (!is.na(a_tag)) {
+          # it's a product row; extract href
+          new_order[i] <- html_attr(a_tag, "href")
+        } else {
+          h6_tag <- html_element(row, "h6")
+          if (!is.na(h6_tag)) {
+            # it's a heading row; extract text
+            new_order[i] <- html_text2(h6_tag)
+          } else {
+            # fallback
+            new_order[i] <- NA_character_
+          }
+        }
+      }
+      # remove NAs, if any
+      new_order <- new_order[!is.na(new_order)]
+      # remove plus.nl prefix
+      new_order <- gsub("https://www.plus.nl", "", new_order, fixed = TRUE)
+      # set new values - will be saved automatically
+      values$fixed_products <- new_order
+    })
     observeEvent(input$fixed_settings_close, {
+      # save contents to input$fixed_items_ui_content to update `values$fixed_products`
+      session$sendCustomMessage("get_element_content", "fixed_items_ui")
       fixed_settings_expanded(FALSE)
       hide("add_fixed_product")
     })
@@ -1475,69 +1505,152 @@ shinyplus <- function() {
     output$fixed_items_ui <- renderUI({
       if (length(values$fixed_products) == 0) return(p("Nog geen vaste artikelen."))
 
-      # get `values$sale_items`, which is reactive and will thus update this `fixed_items_ui` if it changes
       sale_items <- values$sale_items
 
-      tagList(
-        lapply(values$fixed_products, function(prod) {
-          if (!grepl("/product/", prod)) {
-            # it's a heading
-            if (fixed_settings_expanded() == FALSE) {
-              fluidRow(
-                class = "row products-list-row fixed-heading-collapsed",
-                column(12, class = "fixed-heading", h6(prod))
+      rows <- lapply(values$fixed_products, function(prod) {
+        row_id <- paste0("fixed_item_", make.names(prod))
+        is_product <- grepl("/product/", prod)
+
+        if (!is_product) {
+          # Heading rows
+          if (isFALSE(fixed_settings_expanded())) {
+            fluidRow(
+              id = row_id,
+              class = "row products-list-row fixed-heading-collapsed",
+              column(
+                12, class = "fixed-heading",
+                # tags$span(class = "drag-handle", icon("bars")),
+                h6(prod)
               )
-            } else {
-              fluidRow(
-                class = "row products-list-row",
-                column(8, class = "fixed-heading", h6(prod)),
-                column(2, class = "product-list-col3 fixed_trash_icon", actionButton(paste0("fixed_remove_heading_", make.names(prod)), label = NULL, icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;")),
-                column(2, class = "product-list-col4",
-                       div(class = "products-list-order", height = "100%",
-                           actionButton(inputId = paste0("fixed_move_up_", make.names(prod)), label = NULL, icon = icon("arrow-up"), width = "100%"),
-                           actionButton(inputId = paste0("fixed_move_down_", make.names(prod)), label = NULL, icon = icon("arrow-down"), width = "100%"))
-                )
-              )
-            }
+            )
           } else {
-            if (fixed_settings_expanded() == FALSE) {
-              fluidRow(
-                class = "row products-list-row",
-                column(2, class = "product-list-col1", div(class = "products-list-img", height = "100%", a(href = plus_url(prod), target = "_blank", img(src = get_product_image(prod), width = "100%", class = "hover-preview")))),
-                column(8, class = "product-list-col2",
-                       if (prod %in% sale_items$url) {
-                         div(class = "products-list-p", height = "100%", p(class = "text-danger", HTML(paste0(get_product_name(prod), span(class = "basket-label sale", "aanbieding"), " ",
-                                                                                                              span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod))),
-                                                                                                              if (sale_items$sale_txt[match(prod, sale_items$url)] != "") span(class = "product-qty", paste0(" ", symbol$bullet, " ", sale_items$sale_txt[match(prod, sale_items$url)])),
-                                                                                                              span(class = "product-qty", paste0(" ", symbol$bullet, " \u20ac ", sale_items$price_current[match(prod, sale_items$url)], " ")),
-                                                                                                              if (sale_items$price_previous[match(prod, sale_items$url)] != "") span(class = "price-previous", paste0(" \u20ac ", sale_items$price_previous[match(prod, sale_items$url)])) else ""
-                                                                                                              ))))
-                       } else {
-                         div(class = "products-list-p", height = "100%", p(HTML(paste0(get_product_name(prod), " ", span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod)))))))
-                       }),
-                column(2, class = "product-list-col3", div(class = "products-list-qty", height = "100%", numericInput(paste0("qty_fixed_", make.names(prod)), NULL, value = 0, min = 0, step = 1, width = "100%"))),
+            fluidRow(
+              id = row_id,
+              class = "row products-list-row",
+              column(
+                10, class = "fixed-heading",
+                h6(prod)
+              ),
+              column(
+                1, class = "product-list-col3 fixed_trash_icon",
+                actionButton(
+                  paste0("fixed_remove_heading_", make.names(prod)),
+                  label = NULL, icon = icon("trash"),
+                  class = "btn-danger btn-sm", style = "margin-top: -8px;"
+                )
+              ),
+              column(
+                1, class = "product-list-col4",
+                tags$span(class = "drag-handle", icon("bars"))
               )
-            } else {
-              fluidRow(
-                class = "row products-list-row",
-                column(2, class = "product-list-col1", div(class = "products-list-img", height = "100%", a(href = plus_url(prod), target = "_blank", img(src = get_product_image(prod), width = "100%", class = "hover-preview")))),
-                column(6, class = "product-list-col2",
-                       if (prod %in% sale_items$url) {
-                         div(class = "products-list-p", height = "100%", p(class = "text-danger", HTML(paste0(get_product_name(prod), " ", span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod)))))))
-                       } else {
-                         div(class = "products-list-p", height = "100%", p(HTML(paste0(get_product_name(prod), " ", span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod)))))))
-                       }),
-                column(2, class = "product-list-col3 fixed_trash_icon", actionButton(paste0("remove_fixed_", make.names(prod)), "", icon = icon("trash"), class = "btn-danger btn-sm")),
-                column(2, class = "product-list-col4",
-                       div(class = "products-list-order", height = "100%",
-                           actionButton(inputId = paste0("fixed_move_up_", make.names(prod)), label = NULL, icon = icon("arrow-up"), width = "100%"),
-                           actionButton(inputId = paste0("fixed_move_down_", make.names(prod)), label = NULL, icon = icon("arrow-down"), width = "100%")
-                       )
+            )
+          }
+        } else {
+          # Product rows
+          if (isFALSE(fixed_settings_expanded())) {
+            fluidRow(
+              id = row_id,
+              class = "row products-list-row",
+              column(
+                2, class = "product-list-col1",
+                # tags$span(class = "drag-handle", icon("bars")),
+                div(class = "products-list-img", height = "100%",
+                    a(href = plus_url(prod), target = "_blank",
+                      img(src = get_product_image(prod), width = "100%", class = "hover-preview")
+                    )
+                )
+              ),
+              column(
+                8, class = "product-list-col2",
+                if (prod %in% sale_items$url) {
+                  div(class = "products-list-p", height = "100%",
+                      p(class = "text-danger", HTML(paste0(
+                        get_product_name(prod),
+                        span(class = "basket-label sale", "aanbieding"), " ",
+                        span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod))),
+                        if (sale_items$sale_txt[match(prod, sale_items$url)] != "")
+                          span(class = "product-qty", paste0(" ", symbol$bullet, " ", sale_items$sale_txt[match(prod, sale_items$url)])),
+                        span(class = "product-qty", paste0(" ", symbol$bullet, " \u20ac ", sale_items$price_current[match(prod, sale_items$url)], " ")),
+                        if (sale_items$price_previous[match(prod, sale_items$url)] != "")
+                          span(class = "price-previous", paste0(" \u20ac ", sale_items$price_previous[match(prod, sale_items$url)]))
+                      )))
+                  )
+                } else {
+                  div(class = "products-list-p", height = "100%",
+                      p(HTML(paste0(
+                        get_product_name(prod), " ",
+                        span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod)))
+                      )))
+                  )
+                }
+              ),
+              column(
+                2, class = "product-list-col3",
+                div(class = "products-list-qty", height = "100%",
+                    numericInput(paste0("qty_fixed_", make.names(prod)), NULL, value = 0, min = 0, step = 1, width = "100%")
                 )
               )
-            }
+            )
+          } else {
+            fluidRow(
+              id = row_id,
+              class = "row products-list-row",
+              column(
+                2, class = "product-list-col1",
+                div(class = "products-list-img", height = "100%",
+                    a(href = plus_url(prod), target = "_blank",
+                      img(src = get_product_image(prod), width = "100%", class = "hover-preview")
+                    )
+                )
+              ),
+              column(
+                8, class = "product-list-col2",
+                if (prod %in% sale_items$url) {
+                  div(class = "products-list-p", height = "100%",
+                      p(class = "text-danger", HTML(paste0(
+                        get_product_name(prod), " ",
+                        span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod)))
+                      )))
+                  )
+                } else {
+                  div(class = "products-list-p", height = "100%",
+                      p(HTML(paste0(
+                        get_product_name(prod), " ",
+                        span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod)))
+                      )))
+                  )
+                }
+              ),
+              column(
+                1, class = "product-list-col3 fixed_trash_icon",
+                actionButton(paste0("remove_fixed_", make.names(prod)), "", icon = icon("trash"), class = "btn-danger btn-sm")
+              ),
+              column(
+                1, class = "product-list-col4",
+                tags$span(class = "drag-handle", icon("bars"))
+              )
+            )
           }
-        }),
+        }
+      })
+
+      tagList(
+        # minimal, non-intrusive handle/ghost styling
+        tags$style(HTML("
+      .drag-handle { cursor: move; display: inline-block; color: #888; }
+      .sortable-ghost { opacity: 0.4; }
+      .sortable-chosen { background: rgba(0,0,0,0.03); }
+    ")),
+        # container that holds the rows
+        div(id = "fixed_items_container", rows),
+        # activate SortableJS on the container
+        sortable::sortable_js(
+          css_id = "fixed_items_container",
+          options = sortable::sortable_options(
+            handle = ".drag-handle",
+            animation = 150,
+          )
+        )
       )
     })
 
@@ -1573,30 +1686,6 @@ shinyplus <- function() {
         observeEvent(input[[paste0("remove_fixed_", make.names(prod))]], {
           values$fixed_products <- values$fixed_products[values$fixed_products != prod]
           plus_env$fixed_item_moved <- TRUE
-        }, ignoreInit = TRUE)
-
-        # move up button
-        observeEvent(input[[paste0("fixed_move_up_", make.names(prod))]], {
-          i <- which(values$fixed_products == prod)[1]
-          if (i > 1 && !plus_env$fixed_item_moved) {
-            tmp <- isolate(values$fixed_products)
-            pos <- c(i - 1, i)
-            tmp[pos] <- tmp[rev(pos)]
-            values$fixed_products <- tmp
-            plus_env$fixed_item_moved <- TRUE
-          }
-        }, ignoreInit = TRUE)
-
-        # move down button
-        observeEvent(input[[paste0("fixed_move_down_", make.names(prod))]], {
-          i <- which(values$fixed_products == prod)[1]
-          if (i < length(values$fixed_products) && !plus_env$fixed_item_moved) {
-            tmp <- isolate(values$fixed_products)
-            pos <- c(i, i + 1)
-            tmp[pos] <- tmp[rev(pos)]
-            values$fixed_products <- tmp
-            plus_env$fixed_item_moved <- TRUE
-          }
         }, ignoreInit = TRUE)
       })
     })
@@ -1828,7 +1917,7 @@ shinyplus <- function() {
           # remove product from local basket
           values$basket$quantity[i] <- values$basket$quantity[i] - successfully_added
         } else if (successfully_added == 0) {
-          showNotification(session = session, paste0("Artikel '", get_product_name_unit(url), "' kon niet toegevoegd worden."), type = "error", duration = 2)
+          showNotification(session = session, paste0("Artikel '", get_product_name_unit(url), "' kon niet toegevoegd worden."), type = "error", duration = 60)
         }
       }
 

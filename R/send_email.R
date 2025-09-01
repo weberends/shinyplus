@@ -27,6 +27,7 @@ send_email_weekmenu <- function(weekmenu, credentials = getOption("plus_credenti
 
   per_day <- weekmenu |>
     distinct(day, name, .keep_all = TRUE) |>
+    mutate(day = ifelse(grepl("lunch", day), "Lunch/Extra", day)) |>
     mutate(text = paste0("<li>", day, ": ", name, " ", symbol$bullet, " ", meat_icon(meat), " ", symbol$bullet, " ", vegetables_icon(vegetables), "</li>")) |>
     pull(text) |>
     paste(collapse = "")
