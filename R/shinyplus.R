@@ -37,6 +37,7 @@
 #' @importFrom shinyjs hide show useShinyjs runjs
 #' @importFrom commonmark markdown_html
 #' @importFrom rvest read_html html_elements html_element html_text2
+#' @importFrom calendar ic_event ical ic_write
 #' @encoding UTF-8
 #' @inheritSection shinyplus-package Disclaimer
 #' @export
@@ -665,10 +666,9 @@ shinyplus <- function() {
                             fluidRow(
                               column(3, id = "column-weekmenu",
                                      card(h3("1. Weekmenu"),
-                                          fluidRow(
-                                            column(6, actionButton("add_weekmenu_products_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping"), width = "100%")),
-                                            column(6, actionButton("email_weekmenu", "Weekmenu e-mailen", icon = icon("envelope"), width = "100%")),
-                                          ),
+                                          fluidRow(column(12, actionButton("add_weekmenu_products_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping"), width = "100%"))),
+                                          fluidRow(column(6, actionButton("ics_weekmenu", "In agenda plaatsen", icon = icon("calendar-days"), width = "100%")),
+                                                   column(6, actionButton("email_weekmenu", "Overzicht e-mailen", icon = icon("envelope"), width = "100%"))),
                                           div(class = "dish-selector",
                                               h5("Avondeten"),
                                               lapply(weekdays_list, function(day) {
@@ -1049,6 +1049,10 @@ shinyplus <- function() {
       req(selected_email())
       file.path(plus_env$data_dir, paste0("basket-", make.names(selected_email()), ".rds"))
     })
+    ics_file <- reactive({
+      req(selected_email())
+      file.path(plus_env$data_dir, paste0("weekmenu-", make.names(selected_email()), ".ics"))
+    })
 
     selected_email <- reactiveVal(NULL)
 
@@ -1305,6 +1309,36 @@ shinyplus <- function() {
       } else {
         add_to_basket(product_url = ingredients, quantity = 1, label = "Weekmenu")
       }
+    })
+
+    observeEvent(input$ics_weekmenu, {
+      selected_dishes <- unlist(lapply(weekdays_list, function(day) input[[paste0("dish_day_", day)]]))
+      first_monday <- Sys.Date() + (1 - as.integer(format(Sys.Date(), "%u"))) %% 7
+      weekmenu <- tibble(date = first_monday + c(0:6),
+                         start_time = as.POSIXct(paste(date, "17:30")),
+                         end_time = as.POSIXct(paste(date, "18:30")),
+                         summary = selected_dishes,
+                         description = values$dishes$instructions[match(selected_dishes, values$dishes$name)])
+      weekmenu <- weekmenu |> filter(summary != "")
+      if (nrow(weekmenu) == 0) {
+        return(invisible())
+      }
+      weekmenu$description <- vapply(FUN.VALUE = character(1), weekmenu$description, function(x) ifelse(is.na(x), "", paste0("X-ALT-DESC;FMTTYPE=text/html:<html><body>", commonmark::markdown_html(paste0("# Instructies\n\n", x)), "</body></html>")), USE.NAMES = FALSE)
+      out <- tibble()
+      for (i in seq_len(nrow(weekmenu))) {
+        event <- ic_event(start_time = weekmenu$start_time[i],
+                                    end_time = weekmenu$end_time[i],
+                                    summary = weekmenu$summary[i],
+                                    event_properties = c(DESCRIPTION = weekmenu$description[i]),
+                                    more_properties = TRUE)
+        out <- bind_rows(out, event)
+      }
+      tryCatch({
+        out |>
+          ical() |>
+          ic_write(file = ics_file())
+        showNotification("PLUS Weekmenu in agenda opgeslagen.", type = "message")
+      }, error = function(e) showNotification(paste0("Fout bij opslaan: ", conditionMessage(e)), type = "error"))
     })
 
     observeEvent(input$email_weekmenu, {
