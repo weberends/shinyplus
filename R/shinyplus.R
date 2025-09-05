@@ -38,6 +38,7 @@
 #' @importFrom commonmark markdown_html
 #' @importFrom rvest read_html html_elements html_element html_text2
 #' @importFrom calendar ic_event ical ic_write
+#' @importFrom sortable sortable_js sortable_options
 #' @encoding UTF-8
 #' @inheritSection shinyplus-package Disclaimer
 #' @export
@@ -1323,7 +1324,7 @@ shinyplus <- function() {
       if (nrow(weekmenu) == 0) {
         return(invisible())
       }
-      weekmenu$description <- vapply(FUN.VALUE = character(1), weekmenu$description, function(x) ifelse(is.na(x), "", paste0("X-ALT-DESC;FMTTYPE=text/html:<html><body>", commonmark::markdown_text(paste0("# Instructies\n\n", x)), "</body></html>")), USE.NAMES = FALSE)
+      weekmenu$description <- vapply(FUN.VALUE = character(1), weekmenu$description, function(x) ifelse(is.na(x), "", gsub("\n", "\\n", commonmark::markdown_text(paste0("# Instructies\n\n", x)), fixed = TRUE)), USE.NAMES = FALSE)
       out <- tibble()
       for (i in seq_len(nrow(weekmenu))) {
         event <- ic_event(start_time = weekmenu$start_time[i],
@@ -1678,9 +1679,9 @@ shinyplus <- function() {
         # container that holds the rows
         div(id = "fixed_items_container", rows),
         # activate SortableJS on the container
-        sortable::sortable_js(
+        sortable_js(
           css_id = "fixed_items_container",
-          options = sortable::sortable_options(
+          options = sortable_options(
             handle = ".drag-handle",
             animation = 150,
           )

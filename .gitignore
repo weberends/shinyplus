@@ -25,3 +25,4 @@ vignettes/*.R
 packrat/lib*/
 packrat/src/
 inst/plus_data/*.rds*
+inst/plus_data/*.ics*

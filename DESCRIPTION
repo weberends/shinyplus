@@ -25,6 +25,7 @@ Imports:
   rvest,
   shiny,
   shinyjs,
+  sortable,
   tibble,
   yaml
 Suggests:
