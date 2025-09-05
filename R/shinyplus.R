@@ -1323,13 +1323,13 @@ shinyplus <- function() {
       if (nrow(weekmenu) == 0) {
         return(invisible())
       }
-      weekmenu$description <- vapply(FUN.VALUE = character(1), weekmenu$description, function(x) ifelse(is.na(x), "", paste0("X-ALT-DESC;FMTTYPE=text/html:<html><body>", commonmark::markdown_html(paste0("# Instructies\n\n", x)), "</body></html>")), USE.NAMES = FALSE)
+      weekmenu$description <- vapply(FUN.VALUE = character(1), weekmenu$description, function(x) ifelse(is.na(x), "", paste0("X-ALT-DESC;FMTTYPE=text/html:<html><body>", commonmark::markdown_text(paste0("# Instructies\n\n", x)), "</body></html>")), USE.NAMES = FALSE)
       out <- tibble()
       for (i in seq_len(nrow(weekmenu))) {
         event <- ic_event(start_time = weekmenu$start_time[i],
                                     end_time = weekmenu$end_time[i],
-                                    summary = weekmenu$summary[i],
-                                    event_properties = c(DESCRIPTION = weekmenu$description[i]),
+                                    summary = paste("Eten:", weekmenu$summary[i]),
+                                    event_properties = c(DESCRIPTION = weekmenu$description[i], SEQUENCE = "0"),
                                     more_properties = TRUE)
         out <- bind_rows(out, event)
       }
