@@ -35,10 +35,11 @@
 #' @importFrom DT datatable DTOutput renderDT formatCurrency
 #' @importFrom cli symbol
 #' @importFrom shinyjs hide show useShinyjs runjs
-#' @importFrom commonmark markdown_html
+#' @importFrom commonmark markdown_html markdown_text
 #' @importFrom rvest read_html html_elements html_element html_text2
 #' @importFrom calendar ic_event ical ic_write
 #' @importFrom sortable sortable_js sortable_options
+#' @importFrom purrr map_chr
 #' @encoding UTF-8
 #' @inheritSection shinyplus-package Disclaimer
 #' @export
@@ -667,9 +668,13 @@ shinyplus <- function() {
                             fluidRow(
                               column(3, id = "column-weekmenu",
                                      card(h3("1. Weekmenu"),
-                                          fluidRow(column(12, actionButton("add_weekmenu_products_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping"), width = "100%"))),
-                                          fluidRow(column(6, actionButton("ics_weekmenu", "In agenda plaatsen", icon = icon("calendar-days"), width = "100%")),
-                                                   column(6, actionButton("email_weekmenu", "Overzicht e-mailen", icon = icon("envelope"), width = "100%"))),
+                                          fluidRow(
+                                            column(6, actionButton("add_weekmenu_products_to_basket", "Toevoegen aan mandje", icon = icon("basket-shopping"), width = "100%")),
+                                            column(6, actionButton("weekmenu_clear", "Weekmenu leegmaken", icon = icon("rotate-left"), width = "100%")),
+                                          ),
+                                          fluidRow(
+                                            column(6, actionButton("ics_weekmenu", "In agenda plaatsen", icon = icon("calendar-days"), width = "100%")),
+                                            column(6, actionButton("email_weekmenu", "Overzicht e-mailen", icon = icon("envelope"), width = "100%"))),
                                           div(class = "dish-selector",
                                               h5("Avondeten"),
                                               lapply(weekdays_list, function(day) {
@@ -984,6 +989,10 @@ shinyplus <- function() {
 
   server <- function(input, output, session) {
 
+    # keep-alive part
+    keep_alive <- shiny::reactiveTimer(intervalMs = 10000, session = shiny::getDefaultReactiveDomain())
+    shiny::observe({keep_alive()})
+
     hide("sale-list")
     hide("add_fixed_product")
 
@@ -1020,7 +1029,7 @@ shinyplus <- function() {
       sale_items = NULL,
       dishes = tibble(dish_id = numeric(), name = character(), days = character(), preptime = integer(), vegetables = integer(), meat = character(), instructions = character()),
       dish_ingredients = tibble(dish_id = numeric(), product_url = character(), quantity = numeric()),
-      weekplan = tibble(day = character(), dish = character()),
+      weekmenu = NULL,
       fixed_products = character(),
       fixed_items = character(),
       extra_items = character(),
@@ -1038,9 +1047,13 @@ shinyplus <- function() {
       req(selected_email())
       file.path(plus_env$data_dir, paste0("dish_ingredients-", make.names(selected_email()), ".rds"))
     })
-    weekplan_file <- reactive({
+    weekmenu_file <- reactive({
       req(selected_email())
-      file.path(plus_env$data_dir, paste0("weekplan-", make.names(selected_email()), ".rds"))
+      file.path(plus_env$data_dir, paste0("weekmenu-", make.names(selected_email()), ".rds"))
+    })
+    ics_file <- reactive({
+      req(selected_email())
+      file.path(plus_env$data_dir, paste0("weekmenu-", make.names(selected_email()), ".ics"))
     })
     fixed_products_file <- reactive({
       req(selected_email())
@@ -1049,10 +1062,6 @@ shinyplus <- function() {
     basket_file <- reactive({
       req(selected_email())
       file.path(plus_env$data_dir, paste0("basket-", make.names(selected_email()), ".rds"))
-    })
-    ics_file <- reactive({
-      req(selected_email())
-      file.path(plus_env$data_dir, paste0("weekmenu-", make.names(selected_email()), ".ics"))
     })
 
     selected_email <- reactiveVal(NULL)
@@ -1065,8 +1074,8 @@ shinyplus <- function() {
       if (file.exists(dish_ingredients_file())) {
         values$dish_ingredients <- readRDS(dish_ingredients_file())
       }
-      if (file.exists(weekplan_file())) {
-        values$weekplan <- readRDS(weekplan_file())
+      if (file.exists(weekmenu_file())) {
+        values$weekmenu <- readRDS(weekmenu_file())
       }
       if (file.exists(fixed_products_file())) {
         values$fixed_products <- readRDS(fixed_products_file())
@@ -1223,8 +1232,18 @@ shinyplus <- function() {
     get_current_weekmenu_selections <- function() {
       isolate(stats::setNames(lapply(weekdays_list_full, function(day) input[[paste0("dish_day_", day)]]), weekdays_list_full))
     }
+
+    # save weekmenu upon any change
+    lapply(weekdays_list_full, function(day) {
+      observeEvent(input[[paste0("dish_day_", day)]], {
+        req(selected_email())
+        values$weekmenu <- get_current_weekmenu_selections()
+        saveRDS(values$weekmenu, weekmenu_file())
+      }, ignoreInit = TRUE)
+    })
+
     rebuild_weekmenu_inputs <- function(sorted_dishes) {
-      current_selections <- get_current_weekmenu_selections()
+      current_selections <- values$weekmenu
 
       for (day in weekdays_list_full) {
         # Filter dishes by day-type
@@ -1299,7 +1318,7 @@ shinyplus <- function() {
     })
 
     observeEvent(input$add_weekmenu_products_to_basket, {
-      selected_dishes <- unlist(lapply(weekdays_list_full, function(day) input[[paste0("dish_day_", day)]]))
+      selected_dishes <- unlist(values$weekmenu)
       selected_dishes <- selected_dishes[selected_dishes != ""]
       dish_ingredients <- values$dish_ingredients |>
         inner_join(values$dishes |> filter(name %in% selected_dishes), by = "dish_id")
@@ -1312,28 +1331,61 @@ shinyplus <- function() {
       }
     })
 
+    observeEvent(input$weekmenu_clear, {
+      lapply(weekdays_list_full, function(day) {
+        updateSelectizeInput(
+          session,
+          inputId = paste0("dish_day_", day),
+          selected = ""
+        )
+      })
+    })
+
     observeEvent(input$ics_weekmenu, {
-      selected_dishes <- unlist(lapply(weekdays_list, function(day) input[[paste0("dish_day_", day)]]))
-      first_monday <- Sys.Date() + (1 - as.integer(format(Sys.Date(), "%u"))) %% 7
-      weekmenu <- tibble(date = first_monday + c(0:6),
-                         start_time = as.POSIXct(paste(date, "17:30")),
-                         end_time = as.POSIXct(paste(date, "18:30")),
-                         summary = selected_dishes,
-                         description = values$dishes$instructions[match(selected_dishes, values$dishes$name)])
-      weekmenu <- weekmenu |> filter(summary != "")
-      if (nrow(weekmenu) == 0) {
+      selected_dishes <- unlist(values$weekmenu)
+      selected_dishes <- selected_dishes[names(selected_dishes) %in% weekdays_list]
+      if (all(selected_dishes == "")) {
+        showNotification("Geen gerechten geselecteerd.", type = "message")
         return(invisible())
       }
-      weekmenu$description <- vapply(FUN.VALUE = character(1), weekmenu$description, function(x) ifelse(is.na(x), "", gsub("\n", "\\n", commonmark::markdown_text(paste0("# Instructies\n\n", x)), fixed = TRUE)), USE.NAMES = FALSE)
+
+      weekmenu <- tibble(day = weekdays_list,
+                         name = selected_dishes) |>
+        left_join(values$dishes, by = "name")
+
+      ingredients <- values$dish_ingredients |>
+        filter(dish_id %in% weekmenu$dish_id) |>
+        group_by(dish_id) |>
+        summarise(ingredients = paste("*", get_product_name_unit(product_url), collapse = "\n"))
+
+      first_monday <- Sys.Date() + (1 - as.integer(format(Sys.Date(), "%u"))) %% 7
+      weekmenu <- weekmenu |>
+        left_join(ingredients, by = "dish_id") |>
+        mutate(date = first_monday + c(0:6),
+               start_time = as.POSIXct(paste(date, "17:30")),
+               end_time = as.POSIXct(paste(date, "18:30")),
+               summary = paste("Eten:", name),
+               description = ifelse(trimws(instructions) %in% c("", NA),
+                                    "",
+                                    paste0("Instructies:\n\n",
+                                           gsub("\n", "\\n", map_chr(instructions, ~markdown_text(.x)), fixed = TRUE))),
+               description = ifelse(ingredients %in% c("", NA),
+                                    description,
+                                    paste0(description, "\n\nIngredi\u00EBnten om te gebruiken:\n\n",
+                                           gsub("\n", "\\n", map_chr(ingredients, ~markdown_text(.x)), fixed = TRUE)))) |>
+        filter(name != "")
       out <- tibble()
+
       for (i in seq_len(nrow(weekmenu))) {
         event <- ic_event(start_time = weekmenu$start_time[i],
-                                    end_time = weekmenu$end_time[i],
-                                    summary = paste("Eten:", weekmenu$summary[i]),
-                                    event_properties = c(DESCRIPTION = weekmenu$description[i], SEQUENCE = "0"),
-                                    more_properties = TRUE)
+                          end_time = weekmenu$end_time[i],
+                          summary = paste("Eten:", weekmenu$summary[i]),
+                          event_properties = c(DESCRIPTION = weekmenu$description[i],
+                                               SEQUENCE = "0"),
+                          more_properties = TRUE)
         out <- bind_rows(out, event)
       }
+
       tryCatch({
         out |>
           ical() |>
@@ -1343,7 +1395,7 @@ shinyplus <- function() {
     })
 
     observeEvent(input$email_weekmenu, {
-      selected_dishes <- unlist(lapply(weekdays_list_full, function(day) input[[paste0("dish_day_", day)]]))
+      selected_dishes <- unlist(values$weekmenu)
       days <- tibble(day = weekdays_list_full,
                      name = selected_dishes)
       weekmenu <- values$dish_ingredients |>

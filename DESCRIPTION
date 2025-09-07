@@ -1,6 +1,6 @@
 Package: shinyplus
 Title: Weekly Grocery Planning with PLUS.nl Integration
-Version: 1.0.3
+Version: 1.0.4
 Authors@R: c(
   person(given = c("Wikje", "E."),    family = "Berends-Hoekstra",  role = c("aut", "cre"), email = "w.e.berends-hoekstra@umcg.nl"),
   person(given = c("Matthijs", "S."), family = "Berends",           role = c("aut")))
@@ -22,6 +22,7 @@ Imports:
   dplyr,
   DT,
   pillar,
+  purrr,
   rvest,
   shiny,
   shinyjs,
