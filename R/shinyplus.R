@@ -37,7 +37,7 @@
 #' @importFrom shinyjs hide show useShinyjs runjs
 #' @importFrom commonmark markdown_html markdown_text
 #' @importFrom rvest read_html html_elements html_element html_text2
-#' @importFrom calendar ic_event ical ic_write
+#' @importFrom calendar ic_event ic_attributes_vec ical ic_write
 #' @importFrom sortable sortable_js sortable_options
 #' @importFrom purrr map_chr
 #' @encoding UTF-8
@@ -1368,19 +1368,19 @@ shinyplus <- function() {
                description = ifelse(trimws(instructions) %in% c("", NA),
                                     "",
                                     paste0("Instructies:\n\n",
-                                           gsub("\n", "\\n", map_chr(instructions, ~markdown_text(.x)), fixed = TRUE))),
+                                           map_chr(instructions, ~markdown_text(.x)))),
                description = ifelse(ingredients %in% c("", NA),
                                     description,
                                     paste0(description, "\n\nIngredi\u00EBnten om te gebruiken:\n\n",
-                                           gsub("\n", "\\n", map_chr(ingredients, ~markdown_text(.x)), fixed = TRUE)))) |>
+                                           map_chr(ingredients, ~markdown_text(.x))))) |>
         filter(name != "")
       out <- tibble()
 
       for (i in seq_len(nrow(weekmenu))) {
         event <- ic_event(start_time = weekmenu$start_time[i],
                           end_time = weekmenu$end_time[i],
-                          summary = paste("Eten:", weekmenu$summary[i]),
-                          event_properties = c(DESCRIPTION = weekmenu$description[i],
+                          summary = weekmenu$summary[i],
+                          event_properties = c(DESCRIPTION = gsub("\n", "\\n", weekmenu$description[i], fixed = TRUE),
                                                SEQUENCE = "0"),
                           more_properties = TRUE)
         out <- bind_rows(out, event)
@@ -1388,7 +1388,10 @@ shinyplus <- function() {
 
       tryCatch({
         out |>
-          ical() |>
+          ical(ic_attributes = c(ic_attributes_vec(),
+                                 NAME = "Weekmenu",
+                                 DESCRIPTION = "Weekmenu",
+                                 "X-WR-CALNAME" = "Weekmenu")) |>
           ic_write(file = ics_file())
         showNotification("PLUS Weekmenu in agenda opgeslagen.", type = "message")
       }, error = function(e) showNotification(paste0("Fout bij opslaan: ", conditionMessage(e)), type = "error"))
