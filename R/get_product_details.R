@@ -14,22 +14,22 @@ get_product_url <- function(x) {
 #' @export
 get_product_name <- function(x) {
   urls <- plus_get_urls(x, offline_only = TRUE)
-  trimws(plus_env$product_list$name[match(urls, paste0("https://www.plus.nl", plus_env$product_list$url))])
+  trimws(shinyplus_env$product_list$name[match(urls, paste0("https://www.plus.nl", shinyplus_env$product_list$url))])
 }
 
 #' @rdname get_product_details
 #' @export
 get_product_unit <- function(x) {
   urls <- plus_get_urls(x, offline_only = TRUE)
-  plus_env$product_list$unit[match(urls, paste0("https://www.plus.nl", plus_env$product_list$url))]
+  shinyplus_env$product_list$unit[match(urls, paste0("https://www.plus.nl", shinyplus_env$product_list$url))]
 }
 
 #' @rdname get_product_details
 #' @export
 get_product_name_unit <- function(x) {
   urls <- plus_get_urls(x, offline_only = TRUE)
-  name <- trimws(plus_env$product_list$name[match(urls, paste0("https://www.plus.nl", plus_env$product_list$url))])
-  unit <- trimws(plus_env$product_list$unit[match(urls, paste0("https://www.plus.nl", plus_env$product_list$url))])
+  name <- trimws(shinyplus_env$product_list$name[match(urls, paste0("https://www.plus.nl", shinyplus_env$product_list$url))])
+  unit <- trimws(shinyplus_env$product_list$unit[match(urls, paste0("https://www.plus.nl", shinyplus_env$product_list$url))])
   out <- rep(NA_character_, length(name))
   out[!is.na(name)] <- paste0(name[!is.na(name)], " (", unit[!is.na(name)], ")")
   out
@@ -39,5 +39,5 @@ get_product_name_unit <- function(x) {
 #' @export
 get_product_image <- function(x) {
   urls <- plus_get_urls(x, offline_only = TRUE)
-  plus_env$product_list$img[match(urls, paste0("https://www.plus.nl", plus_env$product_list$url))]
+  shinyplus_env$product_list$img[match(urls, paste0("https://www.plus.nl", shinyplus_env$product_list$url))]
 }

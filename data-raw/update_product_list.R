@@ -12,10 +12,10 @@ new_product_list <- clipr::read_clip() |>
   shinyplus:::create_product_tbl_from_html() |>
   shinyplus:::update_current_product_tbl()
 
-# compare to plus_env$product_list, then:
+# compare to shinyplus_env$product_list, then:
 file.copy()
 saveRDS(product_list,
-        file.path(plus_env$data_dir, "product_list.rds"))
+        file.path(shinyplus_env$data_dir, "product_list.rds"))
 
 # done.
 

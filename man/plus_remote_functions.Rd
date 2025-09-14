@@ -22,7 +22,7 @@ plus_current_cart(..., info = interactive())
 
 plus_checkout()
 
-plus_current_url(b = plus_env$browser)
+plus_current_url(b = shinyplus_env$browser)
 
 plus_open_browser()
 

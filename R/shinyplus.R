@@ -1,6 +1,7 @@
 #' Launch the ShinyPLUS App
 #'
 #' Starts the Shiny application for weekly grocery planning, including features for meal selection, fixed and extra products, basket management, and integration with PLUS.nl.
+#' @param credentials Path to a YAML file containing at least fields `email` and `shinyplus_password`, or a [list] contains those names. Can be set with `options(plus_credentials = "...")`
 #' @details
 #' The `shinyplus()` function launches a multi-tab Shiny application with the following core components:
 #'
@@ -14,7 +15,7 @@
 #'
 #' ### Getting Started:
 #' 1. Create an account at <https://www.plus.nl> and select your preferred local store.
-#' 2. Save your PLUS.nl login credentials in a `.yaml` file with `email` and `password` fields.
+#' 2. Save your PLUS.nl login credentials in a `.yaml` file with `email` and `password` fields. Set an app password in the same file for a `shinyplus_password` field.
 #' 3. Set the file path in your R session using:
 #'
 #'    ```r
@@ -43,7 +44,9 @@
 #' @encoding UTF-8
 #' @inheritSection shinyplus-package Disclaimer
 #' @export
-shinyplus <- function() {
+shinyplus <- function(credentials = getOption("plus_credentials")) {
+
+  get_credentials(credentials, require_fields = c("email", "shinyplus_password"))
 
   weekdays_list <- c("Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag", "Zondag")
   weekdays_list_full <- c(weekdays_list, paste0("lunch", 1:5))
@@ -683,20 +686,28 @@ shinyplus <- function() {
                                                   label = day,
                                                   width = "100%",
                                                   choices = NULL,
-                                                  options = list(render = I("
-                           {
-                             option: function(item, escape) {
-                               return '<div style=\"padding-left: 5px;\">' +
-                                        '' + escape(item.label) + '<br>' +
-                                        '<small style=\"opacity: 0.8; padding-left: 20px;\">' +
-                                        item.subtext + '</small>' +
-                                      '</div>';
-                             },
-                             item: function(item, escape) {
-                               return '<div>' + escape(item.label) + '</div>';
-                             }
-                           }
-                         "))
+                                                  options = list(
+                                                    create = TRUE,
+                                                    render = I("
+                                                      {
+                                                        // This controls the 'Add …' row in the dropdown
+                                                        option_create: function(data, escape) {
+                                                          return '<div class=\"create\">Voeg <strong>' +
+                                                                 escape(data.input) +
+                                                                 '</strong> toe als nieuw gerecht...</div>';
+                                                        },
+                                                        option: function(item, escape) {
+                                                          return '<div style=\"padding-left: 5px;\">' +
+                                                                 '' + escape(item.label) + '<br>' +
+                                                                 '<small style=\"opacity: 0.8; padding-left: 20px;\">' +
+                                                                 item.subtext + '</small>' +
+                                                                 '</div>';
+                                                        },
+                                                        item: function(item, escape) {
+                                                          return '<div>' + escape(item.label) + '</div>';
+                                                        }
+                                                      }
+                                                   "))
                                                 )
                                               })
                                           ),
@@ -709,25 +720,26 @@ shinyplus <- function() {
                                                   label = NULL,
                                                   width = "100%",
                                                   choices = NULL,
-                                                  options = list(render = I("
-                           {
-                             option: function(item, escape) {
-                               return '<div style=\"padding-left: 5px;\">' +
-                                        '' + escape(item.label) + '<br>' +
-                                        '<small style=\"opacity: 0.8; padding-left: 20px;\">' +
-                                        item.subtext + '</small>' +
-                                      '</div>';
-                             },
-                             item: function(item, escape) {
-                               return '<div>' + escape(item.label) + '</div>';
-                             }
-                           }
-                         "))
+                                                  options = list(
+                                                    render = I("
+                                                     {
+                                                       option: function(item, escape) {
+                                                         return '<div style=\"padding-left: 5px;\">' +
+                                                                  '' + escape(item.label) + '<br>' +
+                                                                  '<small style=\"opacity: 0.8; padding-left: 20px;\">' +
+                                                                  item.subtext + '</small>' +
+                                                                '</div>';
+                                                       },
+                                                       item: function(item, escape) {
+                                                         return '<div>' + escape(item.label) + '</div>';
+                                                       }
+                                                     }
+                                                   "))
                                                 )
                                               })
                                           ),
                                           hr(),
-                                          radioButtons("sort_dishes", "Gerechten sorteren op", choices = c("Bereidingstijd", "Naam", "Hoeveelheid groenten", "Type vlees"), selected = "Bereidingstijd", width = "100%")
+                                          radioButtons("sort_dishes", "Gerechten sorteren op", choices = c("Naam", "Bereidingstijd", "Hoeveelheid groenten", "Type vlees"), selected = "Naam", width = "100%")
                                      )
                               ),
                               column(5, id = "column-sale",
@@ -863,7 +875,7 @@ shinyplus <- function() {
                             selectizeInput(
                               inputId = paste0("prep_time_", day),
                               label = paste("Bereidingstijd op", tolower(day)),
-                              choices = c(NA_real_, 20, 40, 60, 120) |>
+                              choices = c(NA_integer_, 20, 40, 60, 120) |>
                                 stats::setNames(c("Geen voorkeur",
                                                   "0-20 minuten",
                                                   "20-40 minuten",
@@ -880,8 +892,9 @@ shinyplus <- function() {
                           textInput("dish_name", "Naam gerecht:", width = "100%"),
                           checkboxGroupInput("dish_days", "Geschikt voor:", choices = c("Doordeweeks", "Weekend", "Avondeten", "Lunch / Extra" = "Lunch"), selected = NULL),
                           radioButtons("dish_preptime", "Bereidingstijd:",
-                                       choices = c(20, 40, 60, 120) |>
-                                         stats::setNames(c("0-20 minuten",
+                                       choices = c(" ", "20", "40", "60", "120") |>
+                                         stats::setNames(c("\U2753", # red question mark
+                                                           "0-20 minuten",
                                                            "20-40 minuten",
                                                            "40-60 minuten",
                                                            "60+ minuten")),
@@ -889,22 +902,15 @@ shinyplus <- function() {
                           fluidRow(
                             column(6,
                                    radioButtons("dish_vegetables", "Hoeveelheid groenten:",
-                                                choices = c(0:3) |>
-                                                  stats::setNames(c("\U0001F6AB",                       # red round sign emoji
-                                                                    "\U0001F966",                       # 2 brocolli emojis
-                                                                    "\U0001F966\U0001F966",             # 2 brocolli emojis
-                                                                    "\U0001F966\U0001F966\U0001F966")), # 3 brocolli emojis
+                                                choices = c(" ", "0", "1", "2", "3") |>
+                                                  stats::setNames(vegetables_icon(c(" ", "0", "1", "2", "3"))),
                                                 inline = FALSE,
                                                 selected = 0)
                             ),
                             column(6,
                                    radioButtons("dish_meat", "Vlees:",
-                                                choices = c("Vegetarisch", "Kip", "Rund", "Varken", "Gecombineerd") |>
-                                                  stats::setNames(c("\U0001F331", # leaf emoji
-                                                                    "\U0001F413", # chicken emoji
-                                                                    "\U0001F404", # cow emoji
-                                                                    "\U0001F416", # pig emoji
-                                                                    "Combi")),
+                                                choices = c(" ", "Vegetarisch", "Kip", "Rund", "Varken", "Gecombineerd") |>
+                                                  stats::setNames(meat_icon(c(" ", "Vegetarisch", "Kip", "Rund", "Varken", "Gecombineerd"))),
                                                 inline = FALSE,
                                                 selected = "Vegetarisch")
                             )
@@ -914,8 +920,8 @@ shinyplus <- function() {
                  ),
                  column(6,
                         wellPanel(
-                          h5("Ingredi\u00EBnten bewerken"),
-                          selectizeInput('ingredient_url', "Ingredi\u00EBnt",
+                          h5("Ingredi\U00EBnten bewerken"),
+                          selectizeInput('ingredient_url', "Ingredi\U00EBnt",
                                          choices = NULL,
                                          width = "100%",
                                          options = list(
@@ -999,11 +1005,11 @@ shinyplus <- function() {
     product_list_last_updated <- reactiveVal(Sys.time())
     observeEvent(product_list_last_updated(), {
       # save RDS file
-      saveRDS(plus_env$product_list, file = file.path(plus_env$data_dir, "product_list.rds"))
+      saveRDS(shinyplus_env$product_list, file = file.path(shinyplus_env$data_dir, "product_list.rds"))
 
       # update field lists
-      product_choices <- lapply(seq_len(nrow(plus_env$product_list)), function(i) {
-        row <- plus_env$product_list[i, ]
+      product_choices <- lapply(seq_len(nrow(shinyplus_env$product_list)), function(i) {
+        row <- shinyplus_env$product_list[i, ]
         list(
           value = row$url,
           label = row$name,
@@ -1041,27 +1047,27 @@ shinyplus <- function() {
     # RDS files for saving
     dishes_file <- reactive({
       req(selected_email())
-      file.path(plus_env$data_dir, paste0("dishes-", make.names(selected_email()), ".rds"))
+      file.path(shinyplus_env$data_dir, paste0("dishes-", make.names(selected_email()), ".rds"))
     })
     dish_ingredients_file <- reactive({
       req(selected_email())
-      file.path(plus_env$data_dir, paste0("dish_ingredients-", make.names(selected_email()), ".rds"))
+      file.path(shinyplus_env$data_dir, paste0("dish_ingredients-", make.names(selected_email()), ".rds"))
     })
     weekmenu_file <- reactive({
       req(selected_email())
-      file.path(plus_env$data_dir, paste0("weekmenu-", make.names(selected_email()), ".rds"))
+      file.path(shinyplus_env$data_dir, paste0("weekmenu-", make.names(selected_email()), ".rds"))
     })
     ics_file <- reactive({
       req(selected_email())
-      file.path(plus_env$data_dir, paste0("weekmenu-", make.names(selected_email()), ".ics"))
+      file.path(shinyplus_env$data_dir, paste0("weekmenu-", make.names(selected_email()), ".ics"))
     })
     fixed_products_file <- reactive({
       req(selected_email())
-      file.path(plus_env$data_dir, paste0("fixed_products-", make.names(selected_email()), ".rds"))
+      file.path(shinyplus_env$data_dir, paste0("fixed_products-", make.names(selected_email()), ".rds"))
     })
     basket_file <- reactive({
       req(selected_email())
-      file.path(plus_env$data_dir, paste0("basket-", make.names(selected_email()), ".rds"))
+      file.path(shinyplus_env$data_dir, paste0("basket-", make.names(selected_email()), ".rds"))
     })
 
     selected_email <- reactiveVal(NULL)
@@ -1126,8 +1132,9 @@ shinyplus <- function() {
       modalDialog(
         title = "Selecteer een gebruiker",
         selectInput("selected_user_email", "Kies je e-mailadres",
-                    choices = c(getOption("plus_credentials")$email, "Zonder inloggen"),
+                    choices = c(shinyplus_env$credentials$email, "Zonder inloggen"),
                     selected = NULL),
+        passwordInput("selected_user_password", "ShinyPLUS-wachtwoord"),
         easyClose = FALSE,
         footer = actionButton("confirm_user_email", "Doorgaan", class = "btn-primary")
       )
@@ -1137,15 +1144,20 @@ shinyplus <- function() {
       showModal(user_selection_modal())
     })
     observeEvent(input$confirm_user_email, {
+      if (input$selected_user_password != shinyplus_env$credentials$shinyplus_password) {
+        showNotification("Incorrect wachtwoord", type = "error")
+        return(invisible())
+      }
       req(input$selected_user_email)
-      plus_env$email <- trimws(tolower(input$selected_user_email))
-      selected_email(plus_env$email)
+      shinyplus_env$current_user_email <- trimws(tolower(input$selected_user_email))
+      shinyplus_env$current_user_password <- shinyplus_env$credentials$password[which(shinyplus_env$credentials$email == shinyplus_env$current_user_email)]
+      selected_email(shinyplus_env$current_user_email)
       removeModal()
     })
 
     output$account_tab_title <- renderUI({
       logged_in <- values$logged_in
-      email <- plus_env$email
+      email <- shinyplus_env$current_user_email
       if (logged_in && !is.null(email)) {
         HTML(paste0("Ingelogd als <strong>", email, "</strong>"))
       } else {
@@ -1154,13 +1166,10 @@ shinyplus <- function() {
     })
 
     output$login_ui <- renderUI({
-      creds <- getOption("plus_credentials", default = list(email = "", password = ""))
-      # keep only the first
-      creds <- lapply(creds, function(x) x[1])
       if (!values$logged_in) {
         tagList(
           p("Gebruik je PLUS inloggegevens om in te loggen."),
-          if (all(unlist(creds) == ""))
+          if (is.null(shinyplus_env$current_user_email))
             p(HTML("<small>Maak een account aan op "),
               a("plus.nl",
                 href = "https://aanmelden.plus.nl/plus/registration",
@@ -1169,9 +1178,9 @@ shinyplus <- function() {
               HTML(".</small>"))
           else
             p(HTML("<small>Inloggegevens vooraf ingevuld op basis van instelling <code>plus_credentials</code>.</small>")),
-          p(HTML(paste0("Email: <strong>", plus_env$email, "</strong>"))),
+          p(HTML(paste0("Email: <strong>", shinyplus_env$current_user_email, "</strong>"))),
           div(id = "login_buttons",
-              passwordInput("login_password", "Wachtwoord", value = creds$password),
+              passwordInput("login_password", "Wachtwoord", value = shinyplus_env$current_user_password),
               actionButton("do_login", "Inloggen bij PLUS.nl", class = "btn-success", icon = icon("right-to-bracket")),
               hr(),
               actionButton("change_user", "Selecteer andere gebruiker", class = "btn-primary", icon = icon("user-xmark"))
@@ -1180,7 +1189,7 @@ shinyplus <- function() {
         )
       } else {
         tagList(
-          strong("Ingelogd als: "), plus_env$email,
+          strong("Ingelogd als: "), shinyplus_env$current_user_email,
           br(),
           br(),
           actionButton("do_logout", "Uitloggen", class = "btn-danger", icon = icon("right-from-bracket"))
@@ -1195,19 +1204,21 @@ shinyplus <- function() {
 
     observeEvent(values$logged_in, {
       if (values$logged_in) {
-        values$online_cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
+        values$online_cart <- plus_current_cart(email = shinyplus_env$current_user_email,
+                                                password = shinyplus_env$current_user_password,
+                                                info = FALSE)
       }
     })
 
     observeEvent(input$do_login, {
       hide("login_buttons")
       show("logging_in")
-      creds <- list(email = plus_env$email, password = input$login_password)
       tryCatch({
         showNotification("Inloggen bij PLUS...")
-        plus_login(credentials = creds, info = FALSE)
+        plus_login(email = shinyplus_env$current_user_email,
+                   password = input$login_password,
+                   info = FALSE)
         values$logged_in <- TRUE
-        values$credentials <- creds
         showNotification("Succesvol ingelogd.", type = "message")
       }, error = function(e) {
         show("login_buttons")
@@ -1233,9 +1244,28 @@ shinyplus <- function() {
       isolate(stats::setNames(lapply(weekdays_list_full, function(day) input[[paste0("dish_day_", day)]]), weekdays_list_full))
     }
 
-    # save weekmenu upon any change
+    # observer on any weekmenu selection
     lapply(weekdays_list_full, function(day) {
       observeEvent(input[[paste0("dish_day_", day)]], {
+        value <- input[[paste0("dish_day_", day)]]
+        if (!value %in% values$dishes$name && value != "") {
+          # it's a new dish, so add it
+          new_id <- generate_dish_id()
+          values$dishes <- bind_rows(values$dishes, tibble(
+            dish_id = new_id,
+            name = value,
+            days = "Doordeweeks,Weekend,Avondeten",
+            preptime = NA_integer_,
+            vegetables = NA_integer_,
+            meat = NA_character_,
+            instructions = ""
+          )) |>
+            arrange(name)
+          saveRDS(values$dishes, dishes_file())
+          showNotification("Gerecht toegevoegd. Bewerk het in menu 'Gerechten beheren'.", type = "message")
+        }
+
+        # save any change to weekmenu select
         req(selected_email())
         values$weekmenu <- get_current_weekmenu_selections()
         saveRDS(values$weekmenu, weekmenu_file())
@@ -1259,6 +1289,12 @@ shinyplus <- function() {
           dishes <- dishes |> filter(grepl("Avond", days))
         }
 
+        custom_dishes <- unlist(current_selections, use.names = FALSE)
+        custom_dishes <- unique(custom_dishes[!custom_dishes %in% dishes$name & custom_dishes != ""])
+        if (length(custom_dishes) > 0) {
+          dishes <- dishes |>
+            bind_rows(tibble(name = custom_dishes))
+        }
 
         if (nrow(dishes) == 0) next
 
@@ -1285,11 +1321,11 @@ shinyplus <- function() {
     set_random_dish <- function(day, set_filter, df, session) {
       dish <- df |>
         filter({{set_filter}}) |>
-        filter(!name %in% plus_env$dishes) |>
+        filter(!name %in% shinyplus_env$dishes) |>
         pull(name)
       if (length(dish) > 0) {
         dish <- sample(dish, size = 1)
-        plus_env$dishes <- c(plus_env$dishes, dish)
+        shinyplus_env$dishes <- c(shinyplus_env$dishes, dish)
         updateSelectInput(session, paste0("dish_day_", day), selected = dish)
       }
     }
@@ -1299,7 +1335,7 @@ shinyplus <- function() {
       doordeweeks <- df |> filter(grepl("Doordeweeks", days))
       weekend <- df |> filter(grepl("Weekend", days))
 
-      plus_env$dishes <- ""
+      shinyplus_env$dishes <- ""
       set_random_dish("Maandag", preptime <= 20, doordeweeks, session)
       set_random_dish("Dinsdag", preptime <= 20, doordeweeks, session)
       set_random_dish("Woensdag", preptime <= 60, doordeweeks, session)
@@ -1371,7 +1407,7 @@ shinyplus <- function() {
                                            map_chr(instructions, ~markdown_text(.x)))),
                description = ifelse(ingredients %in% c("", NA),
                                     description,
-                                    paste0(description, "\n\nIngredi\u00EBnten om te gebruiken:\n\n",
+                                    paste0(description, "\n\nIngredi\U00EBnten om te gebruiken:\n\n",
                                            map_chr(ingredients, ~markdown_text(.x))))) |>
         filter(name != "")
       out <- tibble()
@@ -1401,10 +1437,9 @@ shinyplus <- function() {
       selected_dishes <- unlist(values$weekmenu)
       days <- tibble(day = weekdays_list_full,
                      name = selected_dishes)
-      weekmenu <- values$dish_ingredients |>
-        left_join(values$dishes |> filter(name %in% selected_dishes), by = "dish_id") |>
-        left_join(days, by = "name") |>
-        filter(!is.na(day)) |>
+      weekmenu <- weekmenu |>
+        left_join(values$dish_ingredients, by = "dish_id") |>
+        filter(!is.na(day) & name != "") |>
         mutate(product_name = get_product_name_unit(product_url),
                day = factor(day, levels = weekdays_list_full, ordered = TRUE)) |>
         arrange(day)
@@ -1660,9 +1695,9 @@ shinyplus <- function() {
                         span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(prod))),
                         if (sale_items$sale_txt[match(prod, sale_items$url)] != "")
                           span(class = "product-qty", paste0(" ", symbol$bullet, " ", sale_items$sale_txt[match(prod, sale_items$url)])),
-                        span(class = "product-qty", paste0(" ", symbol$bullet, " \u20ac ", sale_items$price_current[match(prod, sale_items$url)], " ")),
+                        span(class = "product-qty", paste0(" ", symbol$bullet, " \U20ac ", sale_items$price_current[match(prod, sale_items$url)], " ")),
                         if (sale_items$price_previous[match(prod, sale_items$url)] != "")
-                          span(class = "price-previous", paste0(" \u20ac ", sale_items$price_previous[match(prod, sale_items$url)]))
+                          span(class = "price-previous", paste0(" \U20ac ", sale_items$price_previous[match(prod, sale_items$url)]))
                       )))
                   )
                 } else {
@@ -1765,17 +1800,17 @@ shinyplus <- function() {
 
     observe({
       req(length(values$fixed_products) > 0)
-      plus_env$fixed_item_moved <- FALSE
+      shinyplus_env$fixed_item_moved <- FALSE
       lapply(values$fixed_products, function(prod) {
         # trash icon for headings
         observeEvent(input[[paste0("fixed_remove_heading_", make.names(prod))]], {
           values$fixed_products <- values$fixed_products[values$fixed_products != prod]
-          plus_env$fixed_item_moved <- TRUE
+          shinyplus_env$fixed_item_moved <- TRUE
         }, ignoreInit = TRUE)
         # trash icon for products
         observeEvent(input[[paste0("remove_fixed_", make.names(prod))]], {
           values$fixed_products <- values$fixed_products[values$fixed_products != prod]
-          plus_env$fixed_item_moved <- TRUE
+          shinyplus_env$fixed_item_moved <- TRUE
         }, ignoreInit = TRUE)
       })
     })
@@ -1883,14 +1918,14 @@ shinyplus <- function() {
       current <- values$basket
       # sort ascending
       values$basket <- values$basket |>
-        left_join(plus_env$product_list |> select(url, name),
+        left_join(shinyplus_env$product_list |> select(url, name),
                   by = c("product_url" = "url")) |>
         arrange(name) |>
         select(-name)
       if (identical(current, values$basket)) {
         # sort descending
         values$basket <- values$basket |>
-          left_join(plus_env$product_list |> select(url, name),
+          left_join(shinyplus_env$product_list |> select(url, name),
                     by = c("product_url" = "url")) |>
           arrange(desc(name)) |>
           select(-name)
@@ -2001,7 +2036,7 @@ shinyplus <- function() {
           $('#progress_name').html('%s');
         ", pct, pct, name_qty))
 
-        successfully_added <- tryCatch(plus_add_products(url, quantity = quantity, credentials = values$credentials, info = FALSE),
+        successfully_added <- tryCatch(plus_add_products(url, quantity = quantity, email = shinyplus_env$current_user_email, password = shinyplus_env$current_user_password, info = FALSE),
                                        error = function(e) 0)
         if (input$remove_cart_from_basket == TRUE && successfully_added > 0) {
           # remove product from local basket
@@ -2015,11 +2050,11 @@ shinyplus <- function() {
       showNotification("Gereed.", type = "message")
 
       # Refresh cart summary + table
-      values$online_cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
+      values$online_cart <- plus_current_cart(email = shinyplus_env$current_user_email, password = shinyplus_env$current_user_password, info = FALSE)
       if (is.null(values$online_cart)) {
         showNotification("PLUS Winkelwagen niet up-to-date, vernieuwen...", type = "message")
         Sys.sleep(2)
-        values$online_cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
+        values$online_cart <- plus_current_cart(email = shinyplus_env$current_user_email, password = shinyplus_env$current_user_password, info = FALSE)
       }
     })
 
@@ -2069,7 +2104,7 @@ shinyplus <- function() {
     observeEvent(input$confirm_clean_basket, {
       cart <- values$online_cart |>
         # join to get product urls
-        left_join(plus_env$product_list, by = c("product" = "name", "unit"))
+        left_join(shinyplus_env$product_list, by = c("product" = "name", "unit"))
       n_basket <- sum(values$basket$quantity, na.rm = TRUE)
       for (i in seq_len(NROW(cart))) {
         if (cart$url[i] %in% values$basket$product_url) {
@@ -2152,7 +2187,7 @@ shinyplus <- function() {
 
       cart <- values$online_cart |>
         arrange(product) |>
-        left_join(plus_env$product_list, by = c("product" = "name", "unit")) |>
+        left_join(shinyplus_env$product_list, by = c("product" = "name", "unit")) |>
         mutate(img = if_else(is.na(img), img,
                              paste0(
                                "<div style='height: 70px; max-width: 100px;'>",
@@ -2191,7 +2226,7 @@ shinyplus <- function() {
         )
       ) |>
         formatCurrency(columns = c("Prijs", "Per kg|L|st", "Totaal"),
-                       currency = "\u20ac ", mark = ".", dec.mark = ",", digits = 2)
+                       currency = "\U20ac ", mark = ".", dec.mark = ",", digits = 2)
     })
 
     observeEvent(input$checkout, {
@@ -2204,11 +2239,11 @@ shinyplus <- function() {
     observeEvent(input$refresh_online_cart, {
       req(values$logged_in)
       showNotification("PLUS Winkelwagen vernieuwen...", type = "message")
-      values$online_cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
+      values$online_cart <- plus_current_cart(email = shinyplus_env$current_user_email, password = shinyplus_env$current_user_password, info = FALSE)
       if (NROW(values$online_cart) == 0) {
         showNotification("Geen verbinding, opnieuw proberen...", type = "message")
         Sys.sleep(3)
-        values$online_cart <- plus_current_cart(credentials = values$credentials, info = FALSE)
+        values$online_cart <- plus_current_cart(email = shinyplus_env$current_user_email, password = shinyplus_env$current_user_password, info = FALSE)
       }
     })
 
@@ -2244,9 +2279,9 @@ shinyplus <- function() {
         dish_id = new_id,
         name = input$new_dish_name,
         days = "Doordeweeks,Weekend,Avondeten",
-        preptime = 20,
-        vegetables = 0,
-        meat = "Vegetarisch",
+        preptime = NA_integer_,
+        vegetables = NA_integer_,
+        meat = NA_character_,
         instructions = ""
       )) |>
         arrange(name)
@@ -2278,19 +2313,19 @@ shinyplus <- function() {
     observeEvent(input$dish_preptime, {
       req(input$dish_id)
       values$dishes <- values$dishes |>
-        mutate(preptime = if_else(dish_id == input$dish_id, as.integer(input$dish_preptime), preptime))
+        mutate(preptime = if_else(dish_id == input$dish_id, if_else(input$dish_preptime == " ", NA_integer_, as.integer(input$dish_preptime)), preptime))
       saveRDS(values$dishes, dishes_file())
     })
     observeEvent(input$dish_vegetables, {
       req(input$dish_id)
       values$dishes <- values$dishes |>
-        mutate(vegetables = if_else(dish_id == input$dish_id, as.integer(input$dish_vegetables), vegetables))
+        mutate(vegetables = if_else(dish_id == input$dish_id, if_else(input$dish_vegetables == " ", NA_integer_, as.integer(input$dish_vegetables)), vegetables))
       saveRDS(values$dishes, dishes_file())
     })
     observeEvent(input$dish_meat, {
       req(input$dish_id)
       values$dishes <- values$dishes |>
-        mutate(meat = if_else(dish_id == input$dish_id, input$dish_meat, meat))
+        mutate(meat = if_else(dish_id == input$dish_id, if_else(input$dish_meat == " ", NA_character_, input$dish_meat), meat))
       saveRDS(values$dishes, dishes_file())
     })
 
@@ -2345,19 +2380,24 @@ shinyplus <- function() {
       updateNumericInput(session, "dish_id", value = input$selected_dish)
       updateTextInput(session, "dish_name", value = sel$name)
       updateCheckboxGroupInput(session, "dish_days", selected = unlist(strsplit(sel$days, ",")))
-      updateRadioButtons(session, "dish_preptime", selected = sel$preptime)
-      updateRadioButtons(session, "dish_vegetables", selected = sel$vegetables)
-      updateRadioButtons(session, "dish_meat", selected = sel$meat)
+      updateRadioButtons(session, "dish_preptime", selected = ifelse(is.na(sel$preptime), " ", sel$preptime))
+      updateRadioButtons(session, "dish_vegetables", selected = ifelse(is.na(sel$vegetables), " ", sel$vegetables))
+      updateRadioButtons(session, "dish_meat", selected = ifelse(is.na(sel$meat), " ", sel$meat))
       dish_instruction_edit_mode(FALSE) # turn off edit mode for instructions
     })
 
     # delete dish
     observeEvent(input$delete_dish, {
       req(input$selected_dish)
+      dish_name <- values$dishes$name[values$dishes$dish_id == input$selected_dish]
+      if (dish_name %in% values$weekmenu) {
+        showNotification("Gerecht kan niet verwijderd worden omdat het momenteel in het weekmenu staat.", type = "error")
+        return(invisible())
+      }
 
       showModal(modalDialog(
         title = "Weet je het zeker?",
-        paste0("Gerecht '", values$dishes$name[values$dishes$dish_id == input$selected_dish], "' verwijderen?"),
+        paste0("Gerecht '", dish_name, "' verwijderen?"),
         easyClose = FALSE,
         footer = tagList(
           modalButton("Annuleren"),
@@ -2375,7 +2415,7 @@ shinyplus <- function() {
       saveRDS(values$dish_ingredients, dish_ingredients_file())
 
       removeModal()
-      updateSelectInput(session, "selected_dish", choices = sort(values$dishes$name), selected = "")
+      updateSelectInput(session, "selected_dish", choices = values$dishes$name[order(tolower(values$dishes$name))], selected = "")
     })
 
     # save to dish ingredients RDS if anything is changed
@@ -2403,7 +2443,7 @@ shinyplus <- function() {
     output$dish_ingredients_table <- renderUI({
       req(input$selected_dish)
       df <- values$dish_ingredients |> filter(dish_id == input$selected_dish)
-      if (nrow(df) == 0) return(p("Nog geen ingredi\u00EBnten toegevoegd."))
+      if (nrow(df) == 0) return(p("Nog geen ingredi\U00EBnten toegevoegd."))
 
       tagList(
         lapply(seq_len(nrow(df)), function(i) {
@@ -2459,7 +2499,7 @@ shinyplus <- function() {
       } else if (NROW(new_items) == 0) {
         p("Geen artikelen gevonden.")
       } else {
-        plus_env$new_items <- new_items # save to pkg envir to be able to save with button later
+        shinyplus_env$new_items <- new_items # save to pkg envir to be able to save with button later
         n_new <- NROW(new_items)
         output$product_search <- renderUI({
           req(NROW(new_items) > 0)
@@ -2493,8 +2533,8 @@ shinyplus <- function() {
 
     observeEvent(input$new_products_import, {
       backup_product_list()
-      plus_env$product_list <- plus_env$product_list |>
-        bind_rows(plus_env$new_items) |>
+      shinyplus_env$product_list <- shinyplus_env$product_list |>
+        bind_rows(shinyplus_env$new_items) |>
         arrange(name)
       # update RDS, input fields
       product_list_last_updated(Sys.time())
@@ -2546,6 +2586,8 @@ preptime_icon <- function(x) {
          x,
          function(xx)
            switch(as.character(xx),
+                  " " = "\U2753",
+                  `NA` = "\U2753",
                   "20" = "0-20 min",
                   "40" = "20-40 min",
                   "60" = "40-60 min",
@@ -2559,6 +2601,8 @@ meat_icon <- function(type) {
          type,
          function(tt)
            switch(tolower(as.character(tt)),
+                  " " = "\U2753",
+                  `NA` = "\U2753",
                   "vegetarisch" = "\U0001F331",
                   "kip" = "\U0001F413",
                   "rund" = "\U0001F404",
@@ -2573,7 +2617,9 @@ vegetables_icon <- function(type) {
          type,
          function(tt)
            switch(as.character(tt),
-                  "0" = "\U0001F6AB",
+                  " " = "\U2753",
+                  `NA` = "\U2753",
+                  "0" = "\U2796",
                   "1" = "\U0001F966",
                   "2" = "\U0001F966\U0001F966",
                   "3" = "\U0001F966\U0001F966\U0001F966",

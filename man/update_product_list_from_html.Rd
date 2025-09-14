@@ -29,7 +29,7 @@ Steps to create local products list file:
 new_product_list <- update_product_list_from_html(html_txt)
 
 # this is the local filepath for products (the R package does not contain product data)
-path <- file.path(shinyplus:::plus_env$data_dir, "product_list.rds")
+path <- file.path(shinyplus:::shinyplus_env$data_dir, "product_list.rds")
 
 # make a backup
 file.copy(from = path, to = paste0(path, ".", format(Sys.time(), "\%Y\%m\%d-\%H\%M\%S"), ".bak"))

@@ -18,7 +18,7 @@
 #'    new_product_list <- update_product_list_from_html(html_txt)
 #'
 #'    # this is the local filepath for products (the R package does not contain product data)
-#'    path <- file.path(shinyplus:::plus_env$data_dir, "product_list.rds")
+#'    path <- file.path(shinyplus:::shinyplus_env$data_dir, "product_list.rds")
 #'
 #'    # make a backup
 #'    file.copy(from = path, to = paste0(path, ".", format(Sys.time(), "%Y%m%d-%H%M%S"), ".bak"))
@@ -57,7 +57,7 @@ update_product_list_from_html <- function(html_txt) {
   }
   new_product_list <- new_product_list |> filter(!is.na(name))
 
-  current_product_list <- plus_env$product_list
+  current_product_list <- shinyplus_env$product_list
 
   product_list <- new_product_list |>
     bind_rows(current_product_list) |>
@@ -82,16 +82,16 @@ create_product_list_internal <- function(x) {
 
   if (grepl("^http", x)) {
     # we launch a browser to visit the page
-    if (is.null(plus_env$browser)) {
+    if (is.null(shinyplus_env$browser)) {
       # initialise browser
-      plus_env$browser <- ChromoteSession$new()
+      shinyplus_env$browser <- ChromoteSession$new()
       Sys.sleep(3)
     }
-    plus_env$browser$Page$navigate(x)
-    wait_for_element("body", b = plus_env$browser) # minimal page check
+    shinyplus_env$browser$Page$navigate(x)
+    wait_for_element("body", b = shinyplus_env$browser) # minimal page check
     Sys.sleep(3)
 
-    html_txt <- plus_env$browser$Runtime$evaluate("document.documentElement.outerHTML", returnByValue = TRUE)$result$value
+    html_txt <- shinyplus_env$browser$Runtime$evaluate("document.documentElement.outerHTML", returnByValue = TRUE)$result$value
 
   } else {
     # HTML code was given in app
@@ -117,7 +117,7 @@ create_product_list_internal <- function(x) {
   }
   new_product_list <- new_product_list |> filter(!is.na(name))
 
-  current_product_list <- plus_env$product_list
+  current_product_list <- shinyplus_env$product_list
 
   product_list <- new_product_list |>
     bind_rows(current_product_list) |>

@@ -1,7 +1,7 @@
 #' Interact with PLUS.nl via Headless Browser
 #'
 #' Provides functions to log in, add products to the cart, retrieve the current cart, and navigate the [PLUS.nl website](https://www.plus.nl) using a [`Chromote`][chromote::Chromote] browser session.
-#' @param credentials Path to a YAML file containing fields `email` and `password`, or a [list] contains those names. Can be set with `options(plus_credentials = "...")`
+#' @param email,password Login credentials
 #' @param x Name of the product, such as "PLUS Houdbare Halfvolle Melk Pak 1000 ml", or URL of the product, such as "plus-houdbare-halfvolle-melk-pak-1000-ml-957806".
 #' @param quantity Number of items to add to cart.
 #' @param info Logical to print info, default is `TRUE` in interactive sessions.
@@ -16,75 +16,67 @@
 #' @aliases plus_login plus_logout plus_add_products plus_open_browser
 #' @inheritSection shinyplus-package Disclaimer
 #' @export
-plus_login <- function(credentials = getOption("plus_credentials"), info = interactive()) {
-
-  if (is.character(credentials) && grepl("[.]ya?ml$", credentials)) {
-    email <- read_yaml(credentials)$email
-    password <- read_yaml(credentials)$password
-  } else if (is.list(credentials) && all(c("email", "password") %in% names(credentials))) {
-    email <- credentials$email
-    password <- credentials$password
-  } else {
-    stop("Credentials must be named list or YAML file path.")
-  }
-
-  if (is.null(plus_env$browser)) {
+plus_login <- function(email, password, info = interactive()) {
+  if (is.null(shinyplus_env$browser)) {
     # initialise browser
-    plus_env$browser <- ChromoteSession$new()
+    shinyplus_env$browser <- ChromoteSession$new()
   }
   if (plus_ascertain_logged_in(info = FALSE)) {
-    plus_env$email <- email
-    if (info) cli_alert_success("Already logged in as {.val {plus_env$email}}.")
+    shinyplus_env$current_user_email <- email
+    shinyplus_env$current_user_password <- password
+    if (info) cli_alert_success("Already logged in as {.val {shinyplus_env$current_user_email}}.")
     return(invisible(TRUE))
   }
 
   # login page
   if (info) cli_progress_message("Logging in at {.url https://www.plus.nl}...")
-  login_url <- "https://aanmelden.plus.nl/plus/login/?plus_env$browserOnly=true&goto=https%3A%2F%2Faanmelden.plus.nl%2Fplus%2Fauth%2Foauth2.0%2Fv1%2Fauthorize%3Fresponse_type%3Dcode%26scope%3Dopenid%2Bprofile%26client_id%3Dweb_ecop_eprod%26redirect_uri%3Dhttps%253A%252F%252Fwww.plus.nl%252FCallback"
+  login_url <- "https://aanmelden.plus.nl/plus/login/?shinyplus_env$browserOnly=true&goto=https%3A%2F%2Faanmelden.plus.nl%2Fplus%2Fauth%2Foauth2.0%2Fv1%2Fauthorize%3Fresponse_type%3Dcode%26scope%3Dopenid%2Bprofile%26client_id%3Dweb_ecop_eprod%26redirect_uri%3Dhttps%253A%252F%252Fwww.plus.nl%252FCallback"
   open_url_if_not_already_there(login_url)
 
   # wait for page population of fields
   repeat {
-    ready <- plus_env$browser$Runtime$evaluate("document.querySelector('#username') !== null && document.querySelector('#password') !== null && document.querySelector('#loginFormUsernameAndPasswordButton') !== null")$result$value
+    ready <- shinyplus_env$browser$Runtime$evaluate("document.querySelector('#username') !== null && document.querySelector('#password') !== null && document.querySelector('#loginFormUsernameAndPasswordButton') !== null")$result$value
     if (isTRUE(ready)) break
     Sys.sleep(0.5)
 
     # check url to see if we're still logged in
-    if (!identical(login_url, plus_current_url(plus_env$browser)) && !grepl("aanmelden.plus.nl", plus_current_url(plus_env$browser), fixed = TRUE)) {
+    if (!identical(login_url, plus_current_url(shinyplus_env$browser)) && !grepl("aanmelden.plus.nl", plus_current_url(shinyplus_env$browser), fixed = TRUE)) {
       # already logged in
-      plus_env$email <- email
-      if (is.null(plus_env$browser_cart)) {
-        plus_env$browser_cart <- plus_env$browser$new_session()
-        open_url_if_not_already_there("https://www.plus.nl/winkelwagen", b = plus_env$browser_cart)
+      shinyplus_env$current_user_email <- email
+      shinyplus_env$current_user_password <- password
+      if (is.null(shinyplus_env$browser_cart)) {
+        shinyplus_env$browser_cart <- shinyplus_env$browser$new_session()
+        open_url_if_not_already_there("https://www.plus.nl/winkelwagen", b = shinyplus_env$browser_cart)
       }
-      if (info) cli_alert_success("Already logged in as {.val {plus_env$email}}.")
+      if (info) cli_alert_success("Already logged in as {.val {shinyplus_env$current_user_email}}.")
       return(invisible(TRUE))
     }
   }
 
   # fill in fields
-  plus_env$browser$Runtime$evaluate(paste0("
+  shinyplus_env$browser$Runtime$evaluate(paste0("
     var emailInput = document.querySelector('#username');
     var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
     nativeInputValueSetter.call(emailInput, '", email, "');
     emailInput.dispatchEvent(new Event('input', { bubbles: true }));
   "))
-  plus_env$browser$Runtime$evaluate(paste0("
+  shinyplus_env$browser$Runtime$evaluate(paste0("
     var passInput = document.querySelector('#password');
     nativeInputValueSetter.call(passInput, '", password, "');
     passInput.dispatchEvent(new Event('input', { bubbles: true }));
   "))
-  plus_env$browser$Runtime$evaluate("document.querySelector('#loginFormUsernameAndPasswordButton').click();")
+  shinyplus_env$browser$Runtime$evaluate("document.querySelector('#loginFormUsernameAndPasswordButton').click();")
   if (info) cli_progress_message("Logged in, redirecting to PLUS home page...")
   # wait_for_element(".input-search input")
-  plus_env$email <- email
-  plus_env$browser_cart <- plus_env$browser$new_session()
-  open_url_if_not_already_there("https://www.plus.nl/winkelwagen", b = plus_env$browser_cart)
-  if (info) cli_alert_success("Succesfully logged in as {.val {plus_env$email}}.")
+  shinyplus_env$current_user_email <- email
+  shinyplus_env$current_user_password <- password
+  shinyplus_env$browser_cart <- shinyplus_env$browser$new_session()
+  open_url_if_not_already_there("https://www.plus.nl/winkelwagen", b = shinyplus_env$browser_cart)
+  if (info) cli_alert_success("Succesfully logged in as {.val {shinyplus_env$current_user_email}}.")
   return(invisible(TRUE))
 }
 
-plus_ascertain_logged_in <- function(info = interactive(), b = plus_env$browser) {
+plus_ascertain_logged_in <- function(info = interactive(), b = shinyplus_env$browser) {
   current_account <- tryCatch(
     b$Runtime$evaluate("document.querySelector('.gtm-account-options .popover-top-label span')?.textContent")$result$value,
     error = function(e) NULL
@@ -101,15 +93,15 @@ plus_ascertain_logged_in <- function(info = interactive(), b = plus_env$browser)
 #' @importFrom cli cli_alert_success
 #' @export
 plus_logout <- function(info = interactive()) {
-  if (!inherits(plus_env$browser, "Chromoteplus_env$browser")) {
+  if (!inherits(shinyplus_env$browser, "Chromoteshinyplus_env$browser")) {
     if (info) cli_alert_danger("Was not logged in.")
     return(invisible())
   }
   # remove cookies
-  plus_env$browser$Network$clearBrowserCookies()
-  plus_env$browser$Runtime$evaluate("localStorage.clear(); plus_env$browserStorage.clear();")
+  shinyplus_env$browser$Network$clearBrowserCookies()
+  shinyplus_env$browser$Runtime$evaluate("localStorage.clear(); shinyplus_env$browserStorage.clear();")
   # close browser
-  plus_env$browser$close()
+  shinyplus_env$browser$close()
   if (info) cli_alert_success("Succesfully logged out.")
   return(invisible())
 }
@@ -141,17 +133,17 @@ plus_add_products <- function(x, quantity = 1, info = interactive(), ...) {
     if (info) cli_progress_message("Adding {.url {urls[i]}}...")
 
     tryCatch({
-      plus_env$browser$Page$navigate(urls[i])
+      shinyplus_env$browser$Page$navigate(urls[i])
       wait_for_element("button.gtm-add-to-cart")
       wait_for_element(".cart-badge-link .badge.background-red")
 
       current_in_cart <- function() {
-        as.integer(plus_env$browser$Runtime$evaluate(
+        as.integer(shinyplus_env$browser$Runtime$evaluate(
           "document.querySelector('.cart-badge-link .badge.background-red')?.textContent.trim()"
         )$result$value)
       }
 
-      product_title <- plus_env$product_list$name[which(grepl(paste0(sku[i], "$"), plus_env$product_list$url))]
+      product_title <- shinyplus_env$product_list$name[which(grepl(paste0(sku[i], "$"), shinyplus_env$product_list$url))]
 
       old_cart_count <- current_in_cart()
       goal_cart_count <- old_cart_count + quantity[i]
@@ -161,7 +153,7 @@ plus_add_products <- function(x, quantity = 1, info = interactive(), ...) {
       max_retries <- 15
 
       while (added < quantity[i] && retries < max_retries) {
-        plus_env$browser$Runtime$evaluate(
+        shinyplus_env$browser$Runtime$evaluate(
           "document.querySelector('button.gtm-add-to-cart')?.click();"
         )
         if (quantity[i] == 1) {
@@ -205,16 +197,16 @@ plus_add_products <- function(x, quantity = 1, info = interactive(), ...) {
 }
 
 #' @importFrom cli cli_text cli_alert_danger
-plus_get_urls <- function(x, ..., info = interactive(), b = plus_env$browser, offline_only = FALSE) {
-  if (all(x %in% plus_env$product_list$url)) {
+plus_get_urls <- function(x, ..., info = interactive(), b = shinyplus_env$browser, offline_only = FALSE) {
+  if (all(x %in% shinyplus_env$product_list$url)) {
     return(plus_url(x))
   }
   x <- trimws(as.character(x))
   x <- gsub("https://www.plus.nl", "", x, fixed = TRUE)
   out <- rep(NA_character_, length(x))
-  out[x %in% trimws(plus_env$product_list$name)] <- plus_env$product_list$url[match(x[x %in% trimws(plus_env$product_list$name)], trimws(plus_env$product_list$name))]
-  out[x %in% plus_env$product_list$url] <- x[x %in% plus_env$product_list$url]
-  out[x %in% plus_env$product_list$img] <- plus_env$product_list$url[match(x[x %in% plus_env$product_list$img], plus_env$product_list$img)]
+  out[x %in% trimws(shinyplus_env$product_list$name)] <- shinyplus_env$product_list$url[match(x[x %in% trimws(shinyplus_env$product_list$name)], trimws(shinyplus_env$product_list$name))]
+  out[x %in% shinyplus_env$product_list$url] <- x[x %in% shinyplus_env$product_list$url]
+  out[x %in% shinyplus_env$product_list$img] <- shinyplus_env$product_list$url[match(x[x %in% shinyplus_env$product_list$img], shinyplus_env$product_list$img)]
   if (anyNA(out) && !offline_only) {
     # we need to search these on the PLUS website
     if (!plus_ascertain_logged_in(info = info)) return(invisible())
@@ -247,20 +239,20 @@ plus_get_urls <- function(x, ..., info = interactive(), b = plus_env$browser, of
 plus_current_cart <- function(..., info = interactive()) {
   if (!plus_ascertain_logged_in(info = info)) return(invisible(NULL))
 
-  if (is.null(plus_env$browser_cart)) {
-    plus_env$browser_cart <- plus_env$browser$new_session()
-    open_url_if_not_already_there("https://www.plus.nl/winkelwagen", b = plus_env$browser_cart)
+  if (is.null(shinyplus_env$browser_cart)) {
+    shinyplus_env$browser_cart <- shinyplus_env$browser$new_session()
+    open_url_if_not_already_there("https://www.plus.nl/winkelwagen", b = shinyplus_env$browser_cart)
   }
 
   # refresh cart page
-  plus_env$browser_cart$Page$reload()
-  wait_for_element("body", b = plus_env$browser_cart) # minimal page check
+  shinyplus_env$browser_cart$Page$reload()
+  wait_for_element("body", b = shinyplus_env$browser_cart) # minimal page check
   # first wait for page to load
-  wait_for_element(".cart-title-wrapper h1", b = plus_env$browser_cart)
+  wait_for_element(".cart-title-wrapper h1", b = shinyplus_env$browser_cart)
   # and wait some more time
   Sys.sleep(3)
 
-  html <- plus_env$browser_cart$Runtime$evaluate("document.documentElement.outerHTML", returnByValue = TRUE)$result$value
+  html <- shinyplus_env$browser_cart$Runtime$evaluate("document.documentElement.outerHTML", returnByValue = TRUE)$result$value
   doc <- read_html(html)
   items <- doc |> html_elements(".cart-item-wrapper")
 
@@ -311,7 +303,7 @@ tbl_sum.plus_cart<- function(x, ...) {
     "Original Total"   = as_euro(sum(x$price_total, na.rm = TRUE), trim = TRUE),
     "Savings"          = as_euro(sum(x$price_total, na.rm = TRUE) - attributes(x)$final_total, trim = TRUE),
     "Final Total"      = as_euro(attributes(x)$final_total, trim = TRUE),
-    "Account"          = plus_env$email
+    "Account"          = shinyplus_env$current_user_email
   )
   dims
 }
@@ -328,7 +320,7 @@ plus_checkout <- function() {
 
 #' @rdname plus_remote_functions
 #' @export
-plus_current_url <- function(b = plus_env$browser) {
+plus_current_url <- function(b = shinyplus_env$browser) {
   if (is.null(b)) {
     cli_alert_danger("No browser initiated yet, run {.fn plus_login} first.")
     return(invisible())
@@ -341,26 +333,26 @@ plus_current_url <- function(b = plus_env$browser) {
 #' @rdname plus_remote_functions
 #' @export
 plus_open_browser <- function() {
-  if (is.null(plus_env$browser)) {
+  if (is.null(shinyplus_env$browser)) {
     cli_alert_danger("No browser initiated yet, run {.fn plus_login} first.")
     return(invisible())
   }
-  tryCatch(plus_env$browser$view(),
+  tryCatch(shinyplus_env$browser$view(),
            error = function(e) cli_alert_danger("Browser not available."))
 }
 
 #' @rdname plus_remote_functions
 #' @export
 plus_page_reload <- function() {
-  if (is.null(plus_env$browser)) {
+  if (is.null(shinyplus_env$browser)) {
     cli_alert_danger("No browser initiated yet, run {.fn plus_login} first.")
     return(invisible())
   }
-  tryCatch(plus_env$browser$Page$reload(),
+  tryCatch(shinyplus_env$browser$Page$reload(),
            error = function(e) cli_alert_danger("Browser not available."))
 }
 
-open_url_if_not_already_there <- function(url, b = plus_env$browser) {
+open_url_if_not_already_there <- function(url, b = shinyplus_env$browser) {
   current_url <- tryCatch(b$Runtime$evaluate("window.location.href")$result$value,
                           error = function(e) "")
   if (!identical(url, current_url)) {
@@ -374,7 +366,7 @@ open_url_if_not_already_there <- function(url, b = plus_env$browser) {
   }
 }
 
-wait_for_element <- function(selector, b = plus_env$browser, timeout = 10, interval = 0.2) {
+wait_for_element <- function(selector, b = shinyplus_env$browser, timeout = 10, interval = 0.2) {
   start_time <- Sys.time()
   while (Sys.time() - start_time < timeout) {
     found <- b$Runtime$evaluate(
@@ -390,7 +382,7 @@ wait_for_element <- function(selector, b = plus_env$browser, timeout = 10, inter
 decline_cookies <- function() {
   # no cookies, remove screen (for easier debugging with `plus_open_browser()`)
   Sys.sleep(2)
-  plus_env$browser$Runtime$evaluate("
+  shinyplus_env$browser$Runtime$evaluate("
     var buttons = Array.from(document.querySelectorAll('button'));
     var declineBtn = buttons.find(btn => btn.textContent.trim() === 'Weigeren');
     if (declineBtn) declineBtn.click();

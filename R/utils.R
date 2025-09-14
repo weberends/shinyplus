@@ -67,14 +67,14 @@ format_unit <- function(units) {
 #' @importFrom rvest read_html html_elements html_element html_text html_text2 html_attr
 #' @importFrom dplyr filter mutate select bind_rows arrange group_by ungroup n distinct
 get_sales <- function() {
-  if (is.null(plus_env$browser)) {
+  if (is.null(shinyplus_env$browser)) {
     # initialise browser
-    plus_env$browser <- ChromoteSession$new()
+    shinyplus_env$browser <- ChromoteSession$new()
   }
   open_url_if_not_already_there("https://www.plus.nl/aanbiedingen")
   wait_for_element(".promotions-category-list")
   Sys.sleep(3) # extra waiting time for images to load
-  html <- plus_env$browser$Runtime$evaluate("document.documentElement.outerHTML", returnByValue = TRUE)$result$value
+  html <- shinyplus_env$browser$Runtime$evaluate("document.documentElement.outerHTML", returnByValue = TRUE)$result$value
   html <- read_html(html)
 
   promo_period <- html |> html_element(".promo-period-display") |> html_text()
@@ -129,13 +129,13 @@ get_sales <- function() {
 
   # sale items not existing in product list must be added there
   new_products <- sale_tbl |>
-    filter(is_product & !url %in% plus_env$product_list$url)
+    filter(is_product & !url %in% shinyplus_env$product_list$url)
   if (NROW(new_products) > 0) {
     new_products <- new_products |>
       mutate(unit = sub(";.*", "", unit),
              unit = format_unit(unit)) |>
       select(name, unit, url, img)
-    plus_env$product_list <- plus_env$product_list |>
+    shinyplus_env$product_list <- shinyplus_env$product_list |>
       bind_rows(new_products) |>
       arrange(name)
   }
@@ -146,7 +146,7 @@ get_sales <- function() {
 }
 
 backup_product_list <- function() {
-  saveRDS(plus_env$product_list, file = file.path(plus_env$data_dir, paste0("product_list.rds.", format(Sys.time(), "%Y%m%d-%H%M%S"), ".bak")))
+  saveRDS(shinyplus_env$product_list, file = file.path(shinyplus_env$data_dir, paste0("product_list.rds.", format(Sys.time(), "%Y%m%d-%H%M%S"), ".bak")))
 }
 
 escape_js_string <- function(x) {
@@ -170,5 +170,38 @@ plus_url <- function(x) {
     factor(x, unique(x), ordered = is_ordered)
   } else {
     x
+  }
+}
+
+#' @importFrom yaml read_yaml
+#' @importFrom blastula creds_envvar
+get_credentials <- function(credentials, require_fields = NULL) {
+  if (is.character(credentials) && grepl("[.]ya?ml$", credentials)) {
+    shinyplus_env$credentials <- read_yaml(credentials)
+  } else if (is.list(credentials) && all(c("email", "password") %in% names(credentials))) {
+    shinyplus_env$credentials <- credentials
+  }
+
+  if (!is.null(shinyplus_env$credentials$gmail_user_name)) {
+    shinyplus_env$credentials$gmail_user_name <- gsub("@gmail[.]com", "", shinyplus_env$credentials$gmail_user_name, ignore.case = TRUE)
+    shinyplus_env$credentials$gmail_account <- c("ShinyPLUS" = paste0(shinyplus_env$credentials$gmail_user_name, "@gmail.com"))
+  }
+  if (!is.null(shinyplus_env$credentials$gmail_app_password)) {
+    Sys.setenv(plus_smtp_password = shinyplus_env$credentials$gmail_app_password)
+  }
+  if (!is.null(shinyplus_env$credentials$gmail_user_name) && !is.null(shinyplus_env$credentials$gmail_app_password)) {
+    shinyplus_env$credentials$smtp_creds <- creds_envvar(user = shinyplus_env$credentials$gmail_user_name,
+                                                    pass_envvar = "plus_smtp_password",
+                                                    provider = "gmail")
+  }
+  shinyplus_env$credentials$email_list <- c(shinyplus_env$credentials$email, shinyplus_env$credentials$email_cc)
+
+  if (!is.null(require_fields)) {
+    if (!all(require_fields %in% names(shinyplus_env$credentials))) {
+      stop("Deze velden missen in de credentials: ", toString(require_fields[!require_fields %in% names(shinyplus_env$credentials)]), call. = FALSE)
+    }
+    if (any(unlist(shinyplus_env$credentials[require_fields]) == "")) {
+      stop("Deze velden moeten ingevuld zijn in de credentials: ", toString(require_fields), call. = FALSE)
+    }
   }
 }
