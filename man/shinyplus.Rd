@@ -5,7 +5,10 @@
 \alias{shinyplus}
 \title{Launch the ShinyPLUS App}
 \usage{
-shinyplus()
+shinyplus(credentials = getOption("plus_credentials"))
+}
+\arguments{
+\item{credentials}{Path to a YAML file containing at least fields \code{email} and \code{shinyplus_password}, or a \link{list} contains those names. Can be set with \code{options(plus_credentials = "...")}}
 }
 \description{
 Starts the Shiny application for weekly grocery planning, including features for meal selection, fixed and extra products, basket management, and integration with PLUS.nl.
@@ -24,7 +27,7 @@ The \code{shinyplus()} function launches a multi-tab Shiny application with the 
 \subsection{Getting Started:}{
 \enumerate{
 \item Create an account at \url{https://www.plus.nl} and select your preferred local store.
-\item Save your PLUS.nl login credentials in a \code{.yaml} file with \code{email} and \code{password} fields.
+\item Save your PLUS.nl login credentials in a \code{.yaml} file with \code{email} and \code{password} fields. Set an app password in the same file for a \code{shinyplus_password} field.
 \item Set the file path in your R session using:
 
 \if{html}{\out{<div class="sourceCode r">}}\preformatted{options(plus_credentials = "path/to/your_file.yaml")

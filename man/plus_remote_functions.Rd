@@ -12,7 +12,7 @@
 \alias{plus_page_reload}
 \title{Interact with PLUS.nl via Headless Browser}
 \usage{
-plus_login(credentials = getOption("plus_credentials"), info = interactive())
+plus_login(email, password, info = interactive())
 
 plus_logout(info = interactive())
 
@@ -29,7 +29,7 @@ plus_open_browser()
 plus_page_reload()
 }
 \arguments{
-\item{credentials}{Path to a YAML file containing fields \code{email} and \code{password}, or a \link{list} contains those names. Can be set with \code{options(plus_credentials = "...")}}
+\item{email, password}{Login credentials}
 
 \item{info}{Logical to print info, default is \code{TRUE} in interactive sessions.}
 

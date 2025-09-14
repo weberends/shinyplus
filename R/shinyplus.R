@@ -191,6 +191,10 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
         margin: 2rem 0;
       }
 
+      .selectize-dropdown .highlight {
+        background: color-mix(in srgb, var(--plus-green-light) 25%, white) !important;
+      }
+
       #basket-icon-wrapper {
         position: absolute;
         top: 10px;
@@ -690,7 +694,6 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
                                                     create = TRUE,
                                                     render = I("
                                                       {
-                                                        // This controls the 'Add …' row in the dropdown
                                                         option_create: function(data, escape) {
                                                           return '<div class=\"create\">Voeg <strong>' +
                                                                  escape(data.input) +
@@ -764,6 +767,7 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
                                                          width = "100%",
                                                          options = list(
                                                            placeholder = "Type om te zoeken...",
+                                                           maxOptions = 25,
                                                            dropdownParent = "body",
                                                            onInitialize = I('function() { this.setValue(""); }'),
                                                            inputAttr = list(
@@ -773,19 +777,19 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
                                                              spellcheck = "false"
                                                            ),
                                                            render = I("{
-                       option: function(item, escape) {
-                         return '<div class=\"product-option\" style=\"display: flex; align-items: center; height: 50px;\">' +
-                                  '<img class=\"hover-preview\" src=\"' + escape(item.img) + '\" style=\"height: 40px; width: 40px; object-fit: contain; margin-right: 10px;\" />' +
-                                  '<div style=\"flex: 1; min-width: 0;\">' +
-                                    '<div style=\"font-weight: normal; text-align: left;\">' + escape(item.label) + '</div>' +
-                                    '<div style=\"color: grey; font-size: 0.8em; text-align: left;\">' + escape(item.subtext) + '</div>' +
-                                  '</div>' +
-                                '</div>';
-                       },
-                       item: function(item, escape) {
-                         return '<div>' + escape(item.label) + '</div>';
-                       }
-                     }")
+                                                             option: function(item, escape) {
+                                                               return '<div class=\"product-option\" style=\"display: flex; align-items: center; height: 50px;\">' +
+                                                                        '<img class=\"hover-preview\" src=\"' + escape(item.img) + '\" style=\"height: 40px; width: 40px; object-fit: contain; margin-right: 10px;\" />' +
+                                                                        '<div style=\"flex: 1; min-width: 0;\">' +
+                                                                          '<div style=\"font-weight: normal; text-align: left;\">' + escape(item.label) + '</div>' +
+                                                                          '<div style=\"color: grey; font-size: 0.8em; text-align: left;\">' + escape(item.subtext) + '</div>' +
+                                                                        '</div>' +
+                                                                      '</div>';
+                                                             },
+                                                             item: function(item, escape) {
+                                                               return '<div>' + escape(item.label) + '</div>';
+                                                             }
+                                                           }")
                                                          )
                                           ),
                                           uiOutput("fixed_settings_ui")
@@ -805,6 +809,7 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
                                                          width = "100%",
                                                          options = list(
                                                            placeholder = "Type om te zoeken...",
+                                                           maxOptions = 25,
                                                            dropdownParent = "body",
                                                            onInitialize = I('function() { this.setValue(""); }'),
                                                            inputAttr = list(
@@ -814,19 +819,19 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
                                                              spellcheck = "false"
                                                            ),
                                                            render = I("{
-                                    option: function(item, escape) {
-                                      return '<div class=\"product-option\" style=\"display: flex; align-items: center; height: 50px;\">' +
-                                               '<img src=\"' + escape(item.img) + '\" style=\"height: 40px; width: 40px; object-fit: contain; margin-right: 10px;\" />' +
-                                               '<div style=\"flex: 1; min-width: 0;\">' +
-                                                 '<div style=\"font-weight: normal; text-align: left;\">' + escape(item.label) + '</div>' +
-                                                 '<div style=\"color: grey; font-size: 0.8em; text-align: left;\">' + escape(item.subtext) + '</div>' +
-                                               '</div>' +
-                                             '</div>';
-                                    },
-                                    item: function(item, escape) {
-                                      return '<div>' + escape(item.label) + '</div>';
-                                    }
-                                  }")
+                                                            option: function(item, escape) {
+                                                              return '<div class=\"product-option\" style=\"display: flex; align-items: center; height: 50px;\">' +
+                                                                       '<img src=\"' + escape(item.img) + '\" style=\"height: 40px; width: 40px; object-fit: contain; margin-right: 10px;\" />' +
+                                                                       '<div style=\"flex: 1; min-width: 0;\">' +
+                                                                         '<div style=\"font-weight: normal; text-align: left;\">' + escape(item.label) + '</div>' +
+                                                                         '<div style=\"color: grey; font-size: 0.8em; text-align: left;\">' + escape(item.subtext) + '</div>' +
+                                                                       '</div>' +
+                                                                     '</div>';
+                                                            },
+                                                            item: function(item, escape) {
+                                                              return '<div>' + escape(item.label) + '</div>';
+                                                            }
+                                                          }")
                                                          )),
                                           uiOutput("basket_overview_table"),
                                           hr(),
@@ -926,6 +931,7 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
                                          width = "100%",
                                          options = list(
                                            placeholder = "Type om te zoeken...",
+                                           maxOptions = 25,
                                            dropdownParent = "body",
                                            onInitialize = I('function() { this.setValue(""); }'),
                                            inputAttr = list(
@@ -2042,7 +2048,7 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
           # remove product from local basket
           values$basket$quantity[i] <- values$basket$quantity[i] - successfully_added
         } else if (successfully_added == 0) {
-          showNotification(session = session, paste0("Artikel '", get_product_name_unit(url), "' kon niet toegevoegd worden."), type = "error", duration = 60)
+          showNotification(session = session, paste0("Artikel '", get_product_name_unit(url), "' kon niet toegevoegd worden."), type = "error", duration = NULL)
         }
       }
 
