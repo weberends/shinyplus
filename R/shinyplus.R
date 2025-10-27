@@ -1441,9 +1441,15 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
 
     observeEvent(input$email_weekmenu, {
       selected_dishes <- unlist(values$weekmenu)
-      days <- tibble(day = weekdays_list_full,
-                     name = selected_dishes)
-      weekmenu <- weekmenu |>
+      selected_dishes <- selected_dishes[names(selected_dishes) %in% weekdays_list]
+      if (all(selected_dishes == "")) {
+        showNotification("Geen gerechten geselecteerd.", type = "message")
+        return(invisible())
+      }
+
+      weekmenu <- tibble(day = weekdays_list,
+                         name = selected_dishes) |>
+        left_join(values$dishes, by = "name") |>
         left_join(values$dish_ingredients, by = "dish_id") |>
         filter(!is.na(day) & name != "") |>
         mutate(product_name = get_product_name_unit(product_url),
