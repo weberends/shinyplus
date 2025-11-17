@@ -1018,7 +1018,7 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
       saveRDS(shinyplus_env$product_list, file = file.path(shinyplus_env$data_dir, "product_list.rds"))
 
       # update field lists
-      product_choices <- lapply(seq_len(nrow(shinyplus_env$product_list)), function(i) {
+      shinyplus_env$product_choices <- lapply(seq_len(nrow(shinyplus_env$product_list)), function(i) {
         row <- shinyplus_env$product_list[i, ]
         list(
           value = row$url,
@@ -1029,15 +1029,15 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
       })
       session$sendCustomMessage("updateSelectizeProductList", list(
         inputId = "add_fixed_product",
-        choices = product_choices))
+        choices = shinyplus_env$product_choices))
 
       session$sendCustomMessage("updateSelectizeProductList", list(
         inputId = "add_extra_product",
-        choices = product_choices))
+        choices = shinyplus_env$product_choices))
 
       session$sendCustomMessage("updateSelectizeProductList", list(
         inputId = "ingredient_url",
-        choices = product_choices))
+        choices = shinyplus_env$product_choices))
     })
 
     # Server: Setup ----
@@ -1086,6 +1086,9 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
     observeEvent(selected_email(), {
       if (file.exists(dishes_file())) {
         values$dishes <- readRDS(dishes_file())
+        if (!"instructions" %in% colnames(values$dishes)) {
+          values$dishes$instructions <- ""
+        }
       }
       if (file.exists(dish_ingredients_file())) {
         values$dish_ingredients <- readRDS(dish_ingredients_file())
@@ -1369,16 +1372,137 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
     observeEvent(input$add_weekmenu_products_to_basket, {
       selected_dishes <- unlist(values$weekmenu)
       selected_dishes <- selected_dishes[selected_dishes != ""]
+
       dish_ingredients <- values$dish_ingredients |>
-        inner_join(values$dishes |> filter(name %in% selected_dishes), by = "dish_id")
+        inner_join(values$dishes |> filter(name %in% selected_dishes),
+                   by = "dish_id")
+      dish_ingredients$name <- factor(dish_ingredients$name, levels = selected_dishes, ordered = TRUE)
+      dish_ingredients <- dish_ingredients |>
+        mutate(current_sort = seq_len(NROW(dish_ingredients))) |>
+        arrange(name, current_sort)
+
+      missing_idx <- which(is.na(dish_ingredients$product_url))
+      missing_n_dish <- length(unique(dish_ingredients$name[is.na(dish_ingredients$product_url)]))
+      missing_n_product <- length(unique(dish_ingredients$label[is.na(dish_ingredients$product_url)]))
+
+      # Store for later use by confirm handler
+      values$pending_dish_ingredients <- dish_ingredients
+      values$pending_missing_idx <- missing_idx
+
+      if (length(missing_idx) == 0) {
+        # No missing products, resume immediately
+        ingredients <- rep(dish_ingredients$product_url, dish_ingredients$quantity)
+
+        if (length(ingredients) == 0) {
+          showNotification("Geen artikelen om toe te voegen.", type = "error")
+        } else {
+          add_to_basket(product_url = ingredients,
+                        quantity = 1,
+                        label = "Weekmenu")
+        }
+
+      } else {
+        last_dish_name <- ""
+        # Build modal with one selectise per NA
+        ui_elems <- lapply(missing_idx, function(i) {
+          current_label <- if (last_dish_name == dish_ingredients$name[i]) NULL else dish_ingredients$name[i]
+          last_dish_name <<- dish_ingredients$name[i]
+          selectizeInput(inputId = paste0("missing_product_", i),
+                         label = current_label,
+                         choices = NULL,
+                         width = "100%",
+                         options = list(
+                           placeholder = dish_ingredients$label[i],
+                           maxOptions = 25,
+                           dropdownParent = NULL,
+                           onInitialize = I('function() { this.setValue(""); }'),
+                           inputAttr = list(
+                             autocomplete = "off",
+                             autocorrect = "off",
+                             autocapitalize = "off",
+                             spellcheck = "false"
+                           ),
+                           render = I("{
+                              option: function(item, escape) {
+                                return '<div class=\"product-option\" style=\"display: flex; align-items: center; height: 50px;\">' +
+                                         '<img src=\"' + escape(item.img) + '\" style=\"height: 40px; width: 40px; object-fit: contain; margin-right: 10px;\" />' +
+                                         '<div style=\"flex: 1; min-width: 0;\">' +
+                                           '<div style=\"font-weight: normal; text-align: left;\">' + escape(item.label) + '</div>' +
+                                           '<div style=\"color: grey; font-size: 0.8em; text-align: left;\">' + escape(item.subtext) + '</div>' +
+                                         '</div>' +
+                                       '</div>';
+                              },
+                              item: function(item, escape) {
+                                return '<div>' + escape(item.label) + '</div>';
+                              }
+                            }")))
+        })
+
+        showModal(modalDialog(
+          title = "Flexibele ingredi\U00EBnten",
+          tagList(
+            p(HTML(paste0("Er ",
+                          ifelse(missing_n_dish == 1,
+                                 "is een gerecht ",
+                                 paste0("zijn ", missing_n_dish, " gerechten ")),
+                          "met ", ifelse(missing_n_product == 1, "een ", ""),
+                          "<span class='text-primary'>flexibel", ifelse(missing_n_product == 1, " ", "e"), " ingredi\U00EBnt",
+                          ifelse(missing_n_product == 1, "", "en"), "</span>. Vul deze hieronder in, of laat leeg om niets toe te voegen."))),
+            br(),
+            ui_elems
+          ),
+          easyClose = FALSE,
+          footer = tagList(
+            modalButton("Annuleren"),
+            actionButton("confirm_missing_products",
+                         "Toevoegen",
+                         class = "btn-primary")
+          )
+        ))
+
+        # Populate all selectises with the large remote list
+        for (i in missing_idx) {
+          session$sendCustomMessage("updateSelectizeProductList", list(
+            inputId = paste0("missing_product_", i),
+            choices = shinyplus_env$product_choices
+          ))
+        }
+      }
+    })
+    observeEvent(input$confirm_missing_products, {
+      req(values$pending_dish_ingredients)
+      req(values$pending_missing_idx)
+
+      dish_ingredients <- values$pending_dish_ingredients
+      missing_idx <- values$pending_missing_idx
+
+      # Retrieve each selected product
+      for (i in missing_idx) {
+        chosen <- input[[paste0("missing_product_", i)]]
+        if (!is.null(chosen) && nzchar(chosen)) {
+          dish_ingredients$product_url[i] <- chosen
+        }
+      }
+
+      removeModal()
+      dish_ingredients <- dish_ingredients |> filter(!is.na(product_url))
+
+      # Continue with your original behaviour
       ingredients <- rep(dish_ingredients$product_url, dish_ingredients$quantity)
 
       if (length(ingredients) == 0) {
         showNotification("Geen artikelen om toe te voegen.", type = "error")
       } else {
-        add_to_basket(product_url = ingredients, quantity = 1, label = "Weekmenu")
+        add_to_basket(product_url = ingredients,
+                      quantity = 1,
+                      label = "Weekmenu")
       }
+
+      # Clean up
+      values$pending_dish_ingredients <- NULL
+      values$pending_missing_idx <- NULL
     })
+
 
     observeEvent(input$weekmenu_clear, {
       lapply(weekdays_list_full, function(day) {
@@ -1403,7 +1527,7 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
         left_join(values$dishes, by = "name")
 
       ingredients <- values$dish_ingredients |>
-        filter(dish_id %in% weekmenu$dish_id) |>
+        filter(dish_id %in% weekmenu$dish_id, !is.na(product_url)) |>
         group_by(dish_id) |>
         summarise(ingredients = paste("*", get_product_name_unit(product_url), collapse = "\n"))
 
@@ -1457,7 +1581,7 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
       weekmenu <- tibble(day = weekdays_list,
                          name = selected_dishes) |>
         left_join(values$dishes, by = "name") |>
-        left_join(values$dish_ingredients, by = "dish_id") |>
+        left_join(values$dish_ingredients |> filter(!is.na(product_url)), by = "dish_id") |>
         filter(!is.na(day) & name != "") |>
         mutate(product_name = get_product_name_unit(product_url),
                day = factor(day, levels = weekdays_list_full, ordered = TRUE)) |>
@@ -2353,9 +2477,6 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
 
     output$dish_instructions_ui <- renderUI({
       req(input$dish_id)
-      if (!"instructions" %in% colnames(values$dishes)) {
-        values$dishes$instructions <- ""
-      }
       raw_txt <- values$dishes |>
         filter(dish_id == input$dish_id) |>
         pull(instructions)
@@ -2463,8 +2584,8 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
             dish_id = as.numeric(input$selected_dish),
             product_url = input$ingredient_url,
             quantity = input$ingredient_quantity,
-            label = NA_character_))
-          group_by(dish_id, product_url) |>
+            label = NA_character_)) |>
+          group_by(dish_id, product_url, label) |>
           summarise(quantity = sum(quantity, na.rm = TRUE), .groups = "drop")
       }
       values$dish_ingredients <- values$dish_ingredients |>
