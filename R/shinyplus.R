@@ -926,21 +926,22 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
                  column(6,
                         wellPanel(
                           h5("Ingredi\U00EBnten bewerken"),
-                          selectizeInput('ingredient_url', "Ingredi\U00EBnt",
-                                         choices = NULL,
-                                         width = "100%",
-                                         options = list(
-                                           placeholder = "Type om te zoeken...",
-                                           maxOptions = 25,
-                                           dropdownParent = "body",
-                                           onInitialize = I('function() { this.setValue(""); }'),
-                                           inputAttr = list(
-                                             autocomplete = "off",
-                                             autocorrect = "off",
-                                             autocapitalize = "off",
-                                             spellcheck = "false"
-                                           ),
-                                           render = I("{
+                          fluidRow(
+                            column(10, selectizeInput('ingredient_url', "Ingredi\U00EBnt uit de lijst kiezen",
+                                                     choices = NULL,
+                                                     width = "100%",
+                                                     options = list(
+                                                       placeholder = "Type om te zoeken...",
+                                                       maxOptions = 25,
+                                                       dropdownParent = "body",
+                                                       onInitialize = I('function() { this.setValue(""); }'),
+                                                       inputAttr = list(
+                                                         autocomplete = "off",
+                                                         autocorrect = "off",
+                                                         autocapitalize = "off",
+                                                         spellcheck = "false"
+                                                       ),
+                                                       render = I("{
                                                   option: function(item, escape) {
                                                     return '<div class=\"product-option\" style=\"display: flex; align-items: center; height: 50px;\">' +
                                                              '<img src=\"' + escape(item.img) + '\" style=\"height: 40px; width: 40px; object-fit: contain; margin-right: 10px;\" />' +
@@ -954,10 +955,13 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
                                                     return '<div>' + escape(item.label) + '</div>';
                                                   }
                                                 }")
-                                         )),
-                          numericInput("ingredient_quantity", "Aantal", 1),
-                          actionButton("add_ingredient", "Toevoegen", icon = icon("plus")),
-
+                               )),
+                            ),
+                            column(2, numericInput("ingredient_quantity", "Aantal", 1, width = "100%")),
+                          ),
+                          textInput("ingredient_flexible", HTML("<strong>OF:</strong> een <span class='text-primary'>flexibel ingredi\U00EBnt</span> toevoegen"), width = "100%", placeholder = "Instructie/label voor ingredi\U00EBnt..."),
+                          p(HTML(paste0("<small>Een <span class='text-primary'>flexibel ingredi\U00EBnt</span> wordt pas gekozen wanneer dit gerecht aan het <span style='color: var(--plus-green-dark);'>", icon("basket-shopping"), " Mandje</span> wordt toegevoegd en kan iedere keer iets anders zijn.</small>"))),
+                          actionButton("add_ingredient", "Toevoegen aan gerecht", icon = icon("plus")),
                           hr(),
                           uiOutput("dish_ingredients_table")
                         )
@@ -1040,7 +1044,7 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
     values <- reactiveValues(
       sale_items = NULL,
       dishes = tibble(dish_id = numeric(), name = character(), days = character(), preptime = integer(), vegetables = integer(), meat = character(), instructions = character()),
-      dish_ingredients = tibble(dish_id = numeric(), product_url = character(), quantity = numeric()),
+      dish_ingredients = tibble(dish_id = numeric(), product_url = character(), quantity = numeric(), label = character()),
       weekmenu = NULL,
       fixed_products = character(),
       fixed_items = character(),
@@ -1085,6 +1089,9 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
       }
       if (file.exists(dish_ingredients_file())) {
         values$dish_ingredients <- readRDS(dish_ingredients_file())
+        if (!"label" %in% colnames(values$dish_ingredients)) {
+          values$dish_ingredients$label <- NA_character_
+        }
       }
       if (file.exists(weekmenu_file())) {
         values$weekmenu <- readRDS(weekmenu_file())
@@ -2438,17 +2445,35 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
 
     # add ingredient
     observeEvent(input$add_ingredient, {
-      req(input$ingredient_url)
-      values$dish_ingredients <- bind_rows(values$dish_ingredients, tibble(
-        dish_id = as.numeric(input$selected_dish),
-        product_url = input$ingredient_url,
-        quantity = input$ingredient_quantity
-      )) |>
-        arrange(product_url) |>
-        group_by(dish_id, product_url) |>
-        summarise(quantity = sum(quantity, na.rm = TRUE), .groups = "drop")
+      if (input$ingredient_url == "") {
+        if (trimws(input$ingredient_flexible) == "") {
+          # nothing selected
+          return(invisible())
+        }
+        values$dish_ingredients <- values$dish_ingredients |>
+          bind_rows(tibble(
+            dish_id = as.numeric(input$selected_dish),
+            product_url = NA_character_,
+            quantity = 1,
+            label = trimws(input$ingredient_flexible)))
+      } else {
+        # selected from list
+        values$dish_ingredients <- values$dish_ingredients |>
+          bind_rows(tibble(
+            dish_id = as.numeric(input$selected_dish),
+            product_url = input$ingredient_url,
+            quantity = input$ingredient_quantity,
+            label = NA_character_))
+          group_by(dish_id, product_url) |>
+          summarise(quantity = sum(quantity, na.rm = TRUE), .groups = "drop")
+      }
+      values$dish_ingredients <- values$dish_ingredients |>
+        mutate(sortname = tolower(ifelse(is.na(label), get_product_name(product_url), label))) |>
+        arrange(dish_id, sortname) |>
+        select(-sortname)
       updateSelectInput(session, "ingredient_url", selected = "")
       updateNumericInput(session, "ingredient_quantity", value = 1)
+      updateTextInput(session, "ingredient_flexible", value = "")
     })
 
     # render ingredient table with remove buttons
@@ -2460,16 +2485,26 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
       tagList(
         lapply(seq_len(nrow(df)), function(i) {
           row <- df[i, ]
-          remove_id <- paste0("remove_ingr_", row$dish_id, "_", make.names(row$product_url))
+          remove_id <- paste0("remove_ingr_", row$dish_id, "_", make.names(paste(row$product_url, row$label)))
 
-          fluidRow(
-            class = "row products-list-row",
-            column(2, class = "product-list-col1", div(class = "products-list-img", a(href = plus_url(row$product_url), target = "_blank", img(src = get_product_image(row$product_url), width = "100%", class = "hover-preview")))),
-            column(9, class = "product-list-col2", div(class = "products-list-p", p(HTML(paste0("<strong>", row$quantity, "x</strong> ",
-                                                                   get_product_name(row$product_url), " ",
-                                                                   span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(row$product_url)))))))),
-            column(1, class = "product-list-col3", actionButton(remove_id, "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;"))
-          )
+          if (is.na(row$label)) {
+            fluidRow(
+              class = "row products-list-row",
+              column(2, class = "product-list-col1", div(class = "products-list-img", a(href = plus_url(row$product_url), target = "_blank", img(src = get_product_image(row$product_url), width = "100%", class = "hover-preview")))),
+              column(9, class = "product-list-col2", div(class = "products-list-p", p(HTML(paste0(ifelse(row$quantity != 1, paste0("<strong>", row$quantity, "x</strong> "), ""),
+                                                                                                  get_product_name(row$product_url), " ",
+                                                                                                  span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(row$product_url)))))))),
+              column(1, class = "product-list-col3", actionButton(remove_id, "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;"))
+            )
+          } else {
+            # no product - it's a label
+            fluidRow(
+              class = "row products-list-row",
+              column(2, class = "product-list-col1", div(class = "products-list-img", img(src = get_product_image(row$product_url), width = "100%", class = "hover-preview"))),
+              column(9, class = "product-list-col2", div(class = "products-list-p", p(HTML(paste0(row$label, " ", span(class = "product-qty", symbol$bullet), " <span class='basket-label fixed'>flexibel</span>"))))),
+              column(1, class = "product-list-col3", actionButton(remove_id, "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;"))
+            )
+          }
         })
       )
     })
@@ -2479,9 +2514,9 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
       req(NROW(values$dish_ingredients) > 0)
       lapply(seq_len(nrow(values$dish_ingredients)), function(i) {
         row <- values$dish_ingredients[i, ]
-        remove_id <- paste0("remove_ingr_", row$dish_id, "_", make.names(row$product_url))
+        remove_id <- paste0("remove_ingr_", row$dish_id, "_", make.names(paste(row$product_url, row$label)))
         observeEvent(input[[remove_id]], {
-          values$dish_ingredients <- values$dish_ingredients |> filter(!(dish_id == input$selected_dish & product_url == row$product_url))
+          values$dish_ingredients <- values$dish_ingredients |> filter(!(dish_id == input$selected_dish & paste(product_url, label) == paste(row$product_url, row$label)))
         }, ignoreInit = TRUE)
       })
     })
