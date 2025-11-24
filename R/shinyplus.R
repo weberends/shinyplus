@@ -129,6 +129,17 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
         });
       })();
     ")),
+    tags$script(HTML("
+      Shiny.addCustomMessageHandler('openPlainTextTab', function(message) {
+        var win = window.open('', '_blank');
+        if (win) {
+          win.document.write('<pre>' + message + '</pre>');
+          win.document.close();
+        } else {
+          alert('Pop-up blocked. Please allow pop-ups for this site.');
+        }
+      });
+    ")),
     tags$style(HTML("
       :root {
         --plus-red-rgb: 227, 19, 29;
@@ -218,6 +229,14 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
       .btn-success:hover, .btn-success:active, .btn-success:focus {
         background: color-mix(in srgb, var(--plus-green-light) 70%, black);
         border-color: var(--plus-green-light);
+      }
+      .btn-green-dark {
+        background: var(--plus-green-dark);
+        border-color: var(--plus-green-dark);
+      }
+      .btn-green-dark:hover, .btn-green-dark:active, .btn-green-dark:focus {
+        background: color-mix(in srgb, var(--plus-green-dark) 70%, black);
+        border-color: var(--plus-green-dark);
       }
       .btn-primary {
         background: var(--plus-purple);
@@ -842,11 +861,12 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
                                             column(3, actionButton("email_basket", "E-mailen", icon = icon("envelope"), width = "100%"))
                                           ),
                                           fluidRow(
-                                            column(12, actionButton("send_basket_to_cart", HTML(paste0("Artikelen in ", icon("cart-shopping"), " PLUS Winkelwagen plaatsen")), class = "btn-success", width = "100%"))
+                                            column(6, actionButton("send_basket_to_cart", HTML(paste0("Inhoud in ", icon("cart-shopping"), " PLUS Winkelwagen plaatsen")), class = "btn-success", width = "100%")),
+                                            column(6, actionButton("clear_basket", "Mandje leegmaken", icon = icon("trash"),  class = "btn-danger", width = "100%")),
                                           ),
                                           fluidRow(
                                             column(6, actionButton("clean_basket", "Mandje opschonen", icon = icon("broom"),  class = "btn-primary", width = "100%")),
-                                            column(6, actionButton("clear_basket", "Mandje leegmaken", icon = icon("trash"),  class = "btn-danger", width = "100%")),
+                                            column(6, actionButton("text_basket", "Inhoud openen als tekst", icon = icon("align-left"),  class = "btn-success btn-green-dark", width = "100%")),
                                           ),
                                           checkboxInput("remove_cart_from_basket", HTML(paste0("Artikelen direct uit mandje verwijderen die succesvol in ", plus_cart_text(), " geplaatst zijn")), value = FALSE, width = "100%")
                                      )
@@ -2045,6 +2065,20 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
           values$basket <- values$basket |> filter(as.character(product_url) != as.character(prod))
         }, ignoreInit = TRUE)
       })
+    })
+
+
+    observeEvent(input$text_basket, {
+      # Escape HTML special characters, ensure plain text
+      text <- get_product_name_unit(values$basket$product_url)
+      text[values$basket$quantity > 1] <- paste0(values$basket$quantity[values$basket$quantity > 1], "x ", text[values$basket$quantity > 1])
+      text <- gsub("<", "&lt;", text)
+      text <- gsub(">", "&gt;", text)
+      text <- c("BOODSCHAPPEN:", "", text)
+      text <- paste0(text, collapse = "<br>")
+
+      # Send to browser
+      session$sendCustomMessage("openPlainTextTab", text)
     })
 
     observeEvent(input$add_extra_product, {
