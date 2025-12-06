@@ -35,7 +35,7 @@
 #' @importFrom tibble tibble as_tibble
 #' @importFrom DT datatable DTOutput renderDT formatCurrency
 #' @importFrom cli symbol
-#' @importFrom shinyjs hide show useShinyjs runjs
+#' @importFrom shinyjs hide show useShinyjs runjs disable enable
 #' @importFrom commonmark markdown_html markdown_text
 #' @importFrom rvest read_html html_elements html_element html_text2
 #' @importFrom calendar ic_event ic_attributes_vec ical ic_write
@@ -164,6 +164,9 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
       }
       .text-primary {
         color: var(--plus-purple) !important;
+      }
+      .text-secondary {
+        color: var(--plus-green-light) !important;
       }
       .text-success {
         color: var(--plus-green-light) !important;
@@ -975,10 +978,12 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
                                                     return '<div>' + escape(item.label) + '</div>';
                                                   }
                                                 }")
-                               )),
+                                                     )),
+                                   checkboxInput("ingredient_optional", HTML("Dit is een <span class='text-secondary'>optioneel ingredi\U00EBnt</span>")),
                             ),
                             column(2, numericInput("ingredient_quantity", "Aantal", 1, width = "100%")),
                           ),
+                          p(HTML(paste0("<small>Een <span class='text-secondary'>optioneel ingredi\U00EBnt</span> wordt alleen gekozen wanneer dit gerecht aan het <span style='color: var(--plus-green-dark);'>", icon("basket-shopping"), " Mandje</span> wordt toegevoegd en is niet iedere keer nodig.</small>"))),
                           textInput("ingredient_flexible", HTML("<strong>OF:</strong> een <span class='text-primary'>flexibel ingredi\U00EBnt</span> toevoegen"), width = "100%", placeholder = "Instructie/label voor ingredi\U00EBnt..."),
                           p(HTML(paste0("<small>Een <span class='text-primary'>flexibel ingredi\U00EBnt</span> wordt pas gekozen wanneer dit gerecht aan het <span style='color: var(--plus-green-dark);'>", icon("basket-shopping"), " Mandje</span> wordt toegevoegd en kan iedere keer iets anders zijn.</small>"))),
                           actionButton("add_ingredient", "Toevoegen aan gerecht", icon = icon("plus")),
@@ -1275,6 +1280,14 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
 
     # Server: Boodschappen ----
 
+    observeEvent(input$ingredient_optional, {
+      if (isTRUE(input$ingredient_optional)) {
+        disable("ingredient_quantity")
+      } else {
+        enable("ingredient_quantity")
+      }
+    })
+
     ## 1. Weekmenu ----
     get_current_weekmenu_selections <- function() {
       isolate(stats::setNames(lapply(weekdays_list_full, function(day) input[[paste0("dish_day_", day)]]), weekdays_list_full))
@@ -1391,7 +1404,6 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
 
     observeEvent(input$add_weekmenu_products_to_basket, {
       selected_dishes <- unlist(values$weekmenu)
-      selected_dishes <- selected_dishes[selected_dishes != ""]
 
       dish_ingredients <- values$dish_ingredients |>
         inner_join(values$dishes |> filter(name %in% selected_dishes),
@@ -1401,9 +1413,9 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
         mutate(current_sort = seq_len(NROW(dish_ingredients))) |>
         arrange(name, current_sort)
 
-      missing_idx <- which(is.na(dish_ingredients$product_url))
-      missing_n_dish <- length(unique(dish_ingredients$name[is.na(dish_ingredients$product_url)]))
-      missing_n_product <- length(unique(dish_ingredients$label[is.na(dish_ingredients$product_url)]))
+      missing_idx <- which(is.na(dish_ingredients$product_url) | dish_ingredients$quantity == 0)
+      missing_n_dish <- length(unique(dish_ingredients$name[is.na(dish_ingredients$product_url) | dish_ingredients$quantity == 0]))
+      missing_n_product <- length(unique(dish_ingredients$label[is.na(dish_ingredients$product_url) | dish_ingredients$quantity == 0]))
 
       # Store for later use by confirm handler
       values$pending_dish_ingredients <- dish_ingredients
@@ -1427,22 +1439,34 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
         ui_elems <- lapply(missing_idx, function(i) {
           current_label <- if (last_dish_name == dish_ingredients$name[i]) NULL else dish_ingredients$name[i]
           last_dish_name <<- dish_ingredients$name[i]
-          selectizeInput(inputId = paste0("missing_product_", i),
-                         label = current_label,
-                         choices = NULL,
-                         width = "100%",
-                         options = list(
-                           placeholder = dish_ingredients$label[i],
-                           maxOptions = 25,
-                           dropdownParent = NULL,
-                           onInitialize = I('function() { this.setValue(""); }'),
-                           inputAttr = list(
-                             autocomplete = "off",
-                             autocorrect = "off",
-                             autocapitalize = "off",
-                             spellcheck = "false"
-                           ),
-                           render = I("{
+          if (dish_ingredients$quantity[i] == 0) {
+            # optional ingredient - checkbox
+            tagList(
+              if (!is.null(current_label)) h5(current_label) else NULL,
+              checkboxInput(inputId = paste0("missing_product_", i),
+                            label = get_product_name_unit(dish_ingredients$product_url[i]),
+                            value = FALSE,
+                            width = "100%"))
+          } else {
+            # flexibel ingredient - selectbox
+            tagList(
+              if (!is.null(current_label)) h5(current_label) else NULL,
+              selectizeInput(inputId = paste0("missing_product_", i),
+                             label = NULL,
+                             choices = NULL,
+                             width = "100%",
+                             options = list(
+                               placeholder = dish_ingredients$label[i],
+                               maxOptions = 25,
+                               dropdownParent = NULL,
+                               onInitialize = I('function() { this.setValue(""); }'),
+                               inputAttr = list(
+                                 autocomplete = "off",
+                                 autocorrect = "off",
+                                 autocapitalize = "off",
+                                 spellcheck = "false"
+                               ),
+                               render = I("{
                               option: function(item, escape) {
                                 return '<div class=\"product-option\" style=\"display: flex; align-items: center; height: 50px;\">' +
                                          '<img src=\"' + escape(item.img) + '\" style=\"height: 40px; width: 40px; object-fit: contain; margin-right: 10px;\" />' +
@@ -1455,19 +1479,21 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
                               item: function(item, escape) {
                                 return '<div>' + escape(item.label) + '</div>';
                               }
-                            }")))
+                            }"))))
+          }
         })
-
         showModal(modalDialog(
-          title = "Flexibele ingredi\U00EBnten",
+          title = "Flexibele en optionele ingredi\U00EBnten",
           tagList(
             p(HTML(paste0("Er ",
                           ifelse(missing_n_dish == 1,
                                  "is een gerecht ",
                                  paste0("zijn ", missing_n_dish, " gerechten ")),
                           "met ", ifelse(missing_n_product == 1, "een ", ""),
-                          "<span class='text-primary'>flexibel", ifelse(missing_n_product == 1, " ", "e"), " ingredi\U00EBnt",
-                          ifelse(missing_n_product == 1, "", "en"), "</span>. Vul deze hieronder in, of laat leeg om niets toe te voegen."))),
+                          "<span class='text-primary'>flexibel", ifelse(missing_n_product == 1, "", "e"), "</span> en/of ",
+                          "<span class='text-secondary'>optione", ifelse(missing_n_product == 1, "el", "le"), "</span>",
+                          " ingredi\U00EBnt", ifelse(missing_n_product == 1, "", "en"),
+                          ". Vul deze hieronder in, of laat leeg om niets toe te voegen."))),
             br(),
             ui_elems
           ),
@@ -1499,7 +1525,11 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
       # Retrieve each selected product
       for (i in missing_idx) {
         chosen <- input[[paste0("missing_product_", i)]]
-        if (!is.null(chosen) && nzchar(chosen)) {
+        if (dish_ingredients$quantity[i] == 0 && isTRUE(chosen)) {
+          # optional ingredient
+          dish_ingredients$quantity[i] <- 1
+        } else if (!is.null(chosen) && nzchar(chosen)) {
+          # flexibel ingredient
           dish_ingredients$product_url[i] <- chosen
         }
       }
@@ -2617,7 +2647,7 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
           bind_rows(tibble(
             dish_id = as.numeric(input$selected_dish),
             product_url = input$ingredient_url,
-            quantity = input$ingredient_quantity,
+            quantity = ifelse(input$ingredient_optional == TRUE, 0, input$ingredient_quantity),
             label = NA_character_)) |>
           group_by(dish_id, product_url, label) |>
           summarise(quantity = sum(quantity, na.rm = TRUE), .groups = "drop")
@@ -2628,6 +2658,7 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
         select(-sortname)
       updateSelectInput(session, "ingredient_url", selected = "")
       updateNumericInput(session, "ingredient_quantity", value = 1)
+      updateCheckboxInput(session, "ingredient_optional", value = FALSE)
       updateTextInput(session, "ingredient_flexible", value = "")
     })
 
@@ -2635,6 +2666,7 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
     output$dish_ingredients_table <- renderUI({
       req(input$selected_dish)
       df <- values$dish_ingredients |> filter(dish_id == input$selected_dish)
+
       if (nrow(df) == 0) return(p("Nog geen ingredi\U00EBnten toegevoegd."))
 
       tagList(
@@ -2642,7 +2674,18 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
           row <- df[i, ]
           remove_id <- paste0("remove_ingr_", row$dish_id, "_", make.names(paste(row$product_url, row$label)))
 
-          if (is.na(row$label)) {
+          if (row$quantity == 0) {
+            # optional product (quantity = 0)
+            fluidRow(
+              class = "row products-list-row",
+              column(2, class = "product-list-col1", div(class = "products-list-img", a(href = plus_url(row$product_url), target = "_blank", img(src = get_product_image(row$product_url), width = "100%", class = "hover-preview")))),
+              column(9, class = "product-list-col2", div(class = "products-list-p", p(HTML(paste0(get_product_name(row$product_url), " ",
+                                                                                                  span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(row$product_url), " ", symbol$bullet), " "),
+                                                                                                  span(class = "basket-label weekmenu", "optioneel")))))),
+              column(1, class = "product-list-col3", actionButton(remove_id, "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;"))
+            )
+          } else if (is.na(row$label)) {
+            # normal product
             fluidRow(
               class = "row products-list-row",
               column(2, class = "product-list-col1", div(class = "products-list-img", a(href = plus_url(row$product_url), target = "_blank", img(src = get_product_image(row$product_url), width = "100%", class = "hover-preview")))),
