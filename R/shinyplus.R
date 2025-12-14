@@ -1408,7 +1408,7 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
       dish_ingredients <- values$dish_ingredients |>
         inner_join(values$dishes |> filter(name %in% selected_dishes),
                    by = "dish_id")
-      dish_ingredients$name <- factor(dish_ingredients$name, levels = selected_dishes, ordered = TRUE)
+      dish_ingredients$name <- factor(dish_ingredients$name, levels = unique(selected_dishes), ordered = TRUE)
       dish_ingredients <- dish_ingredients |>
         mutate(current_sort = seq_len(NROW(dish_ingredients))) |>
         arrange(name, current_sort)
