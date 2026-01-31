@@ -209,6 +209,12 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
         background: color-mix(in srgb, var(--plus-green-light) 25%, white) !important;
       }
 
+      .btn_make_optional {
+        padding: 0px 5px 0px 5px;
+        font-size: 0.7rem;
+        margin-left: 10px;
+      }
+
       #basket-icon-wrapper {
         position: absolute;
         top: 10px;
@@ -348,6 +354,15 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
         color: inherit;
       }
 
+      .flexible-item .selectize-input {
+        border-color: var(--plus-purple);
+        color: var(--plus-purple);
+      }
+      .optional-item .checkbox input:checked {
+        background-color: var(--plus-green-light);
+        border-color: var(--plus-green-light);
+      }
+
       .well {
         background: rgba(255, 255, 255, 0.7);
         color: RGB(var(--bs-emphasis-color-rgb, 0, 0, 0));
@@ -383,6 +398,11 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
       }
       .basket-count-icon {
         color: var(--plus-green-dark);
+      }
+      #dish_ingredients_table .basket-label {
+        top: -2px;
+        position: relative;
+        padding-bottom: 1px;
       }
 
       .products-list-p .basket-label.weekmenu {
@@ -736,7 +756,7 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
                                                 )
                                               })
                                           ),
-                                          actionButton("weekmenu_refresh", "Willekeurige keuze", icon = icon("rotate"), width = "100%"),
+                                          # actionButton("weekmenu_refresh", "Willekeurige keuze", icon = icon("rotate"), width = "100%"),
                                           div(class = "dish-selector",
                                               h5("Lunch / Anders"),
                                               lapply(paste0("lunch", 1:5), function(day) {
@@ -897,20 +917,20 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
                           h5("Nieuw gerecht"),
                           textInput("new_dish_name", NULL, placeholder = "Naam van het gerecht", width = "100%"),
                           actionButton("new_dish", "Nieuw gerecht", icon = icon("plus"), width = "100%"),
-                          hr(),
-                          h5("Voorkeuren 'Willekeurige keuze'"),
-                          lapply(weekdays_list, function(day) {
-                            selectizeInput(
-                              inputId = paste0("prep_time_", day),
-                              label = paste("Bereidingstijd op", tolower(day)),
-                              choices = c(NA_integer_, 20, 40, 60, 120) |>
-                                stats::setNames(c("Geen voorkeur",
-                                                  "0-20 minuten",
-                                                  "20-40 minuten",
-                                                  "40-60 minuten",
-                                                  "60+ minuten")),
-                              width = "100%")
-                          }),
+                          # hr(),
+                          # h5("Voorkeuren 'Willekeurige keuze'"),
+                          # lapply(weekdays_list, function(day) {
+                          #   selectizeInput(
+                          #     inputId = paste0("prep_time_", day),
+                          #     label = paste("Bereidingstijd op", tolower(day)),
+                          #     choices = c(NA_integer_, 20, 40, 60, 120) |>
+                          #       stats::setNames(c("Geen voorkeur",
+                          #                         "0-20 minuten",
+                          #                         "20-40 minuten",
+                          #                         "40-60 minuten",
+                          #                         "60+ minuten")),
+                          #     width = "100%")
+                          # }),
                         ),
                  ),
                  column(3,
@@ -1443,15 +1463,17 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
             # optional ingredient - checkbox
             tagList(
               if (!is.null(current_label)) h5(current_label) else NULL,
-              checkboxInput(inputId = paste0("missing_product_", i),
-                            label = get_product_name_unit(dish_ingredients$product_url[i]),
-                            value = FALSE,
-                            width = "100%"))
+              div(class = "optional-item",
+                  checkboxInput(inputId = paste0("missing_product_", i),
+                                label = get_product_name_unit(dish_ingredients$product_url[i]),
+                                value = FALSE,
+                                width = "100%")))
           } else {
             # flexibel ingredient - selectbox
             tagList(
               if (!is.null(current_label)) h5(current_label) else NULL,
-              selectizeInput(inputId = paste0("missing_product_", i),
+              div(class = "flexible-item",
+                  selectizeInput(inputId = paste0("missing_product_", i),
                              label = NULL,
                              choices = NULL,
                              width = "100%",
@@ -1479,7 +1501,7 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
                               item: function(item, escape) {
                                 return '<div>' + escape(item.label) + '</div>';
                               }
-                            }"))))
+                            }")))))
           }
         })
         showModal(modalDialog(
@@ -1500,9 +1522,7 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
           easyClose = FALSE,
           footer = tagList(
             modalButton("Annuleren"),
-            actionButton("confirm_missing_products",
-                         "Toevoegen",
-                         class = "btn-primary")
+            actionButton("confirm_missing_products", "Verder")
           )
         ))
 
@@ -2673,6 +2693,7 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
         lapply(seq_len(nrow(df)), function(i) {
           row <- df[i, ]
           remove_id <- paste0("remove_ingr_", row$dish_id, "_", make.names(paste(row$product_url, row$label)))
+          make_optional_id <- paste0("make_optional_", row$dish_id, "_", make.names(paste(row$product_url, row$label)))
 
           if (row$quantity == 0) {
             # optional product (quantity = 0)
@@ -2691,7 +2712,8 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
               column(2, class = "product-list-col1", div(class = "products-list-img", a(href = plus_url(row$product_url), target = "_blank", img(src = get_product_image(row$product_url), width = "100%", class = "hover-preview")))),
               column(9, class = "product-list-col2", div(class = "products-list-p", p(HTML(paste0(ifelse(row$quantity != 1, paste0("<strong>", row$quantity, "x</strong> "), ""),
                                                                                                   get_product_name(row$product_url), " ",
-                                                                                                  span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(row$product_url)))))))),
+                                                                                                  span(class = "product-qty", paste0(symbol$bullet, " ", get_product_unit(row$product_url))),
+                                                                                                  actionButton(make_optional_id, "optioneel maken", class = "btn_make_optional")))))),
               column(1, class = "product-list-col3", actionButton(remove_id, "", icon = icon("trash"), class = "btn-danger btn-sm", style = "margin-top: -8px;"))
             )
           } else {
@@ -2715,6 +2737,20 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
         remove_id <- paste0("remove_ingr_", row$dish_id, "_", make.names(paste(row$product_url, row$label)))
         observeEvent(input[[remove_id]], {
           values$dish_ingredients <- values$dish_ingredients |> filter(!(dish_id == input$selected_dish & paste(product_url, label) == paste(row$product_url, row$label)))
+        }, ignoreInit = TRUE)
+      })
+    })
+    # Make optional buttons work
+    observe({
+      req(NROW(values$dish_ingredients) > 0)
+      lapply(seq_len(nrow(values$dish_ingredients)), function(i) {
+        row <- values$dish_ingredients[i, ]
+        make_optional_id <- paste0("make_optional_", row$dish_id, "_", make.names(paste(row$product_url, row$label)))
+        observeEvent(input[[make_optional_id]], {
+          values$dish_ingredients <- values$dish_ingredients |>
+            mutate(quantity = ifelse(dish_id == input$selected_dish & paste(product_url, label) == paste(row$product_url, row$label),
+                                     0,
+                                     quantity))
         }, ignoreInit = TRUE)
       })
     })
