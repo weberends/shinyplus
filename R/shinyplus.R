@@ -784,7 +784,7 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
                                               })
                                           ),
                                           hr(),
-                                          radioButtons("sort_dishes", "Gerechten sorteren op", choices = c("Naam", "Bereidingstijd", "Hoeveelheid groenten", "Type vlees"), selected = "Naam", width = "100%")
+                                          radioButtons("sort_dishes", "Gerechten sorteren op", choices = c("Naam", "Bereidingstijd", "Hoeveelheid groenten", "Type vlees/vis/vega"), selected = "Naam", width = "100%")
                                      )
                               ),
                               column(5, id = "column-sale",
@@ -956,9 +956,9 @@ shinyplus <- function(credentials = getOption("plus_credentials")) {
                                                 selected = 0)
                             ),
                             column(6,
-                                   radioButtons("dish_meat", "Vlees:",
-                                                choices = c(" ", "Vegetarisch", "Kip", "Rund", "Varken", "Gecombineerd") |>
-                                                  stats::setNames(meat_icon(c(" ", "Vegetarisch", "Kip", "Rund", "Varken", "Gecombineerd"))),
+                                   radioButtons("dish_meat", "Vlees/vis/vega:",
+                                                choices = c(" ", "Vegetarisch", "Kip", "Rund", "Varken", "Vis", "Gecombineerd") |>
+                                                  stats::setNames(meat_icon(c(" ", "Vegetarisch", "Kip", "Rund", "Varken", "Vis", "Gecombineerd"))),
                                                 inline = FALSE,
                                                 selected = "Vegetarisch")
                             )
@@ -2840,7 +2840,7 @@ sort_dish_df <- function(dishes, method) {
                        "Naam" = "name",
                        "Bereidingstijd" = "preptime",
                        "Hoeveelheid groenten" = "vegetables",
-                       "Type vlees" = "meat",
+                       "Type vlees/vis/vega" = "meat",
                        "preptime")
 
   if (sort_field == "name") {
@@ -2857,12 +2857,6 @@ sort_dish_df <- function(dishes, method) {
 }
 
 preptime_icon <- function(x) {
-  # switch(as.character(x),
-  #        "20" = "\U0001F552\U0001F642",
-  #        "40" = "\U0001F552\U0001F610",
-  #        "60" = "\U0001F552\U0001F641",
-  #        "120" = "\U0001F552\U0001F975",
-  #        paste0(x, "+"))
   vapply(FUN.VALUE = character(1),
          x,
          function(xx)
@@ -2884,10 +2878,11 @@ meat_icon <- function(type) {
            switch(tolower(as.character(tt)),
                   " " = "\U2753",
                   `NA` = "\U2753",
-                  "vegetarisch" = "\U0001F331",
-                  "kip" = "\U0001F413",
-                  "rund" = "\U0001F404",
-                  "varken" = "\U0001F416",
+                  "vegetarisch" = "\U1F331",
+                  "kip" = "\U1F413",
+                  "rund" = "\U1F404",
+                  "varken" = "\U1F416",
+                  "vis" = "\U1F41F",
                   "gecombineerd" = "Combi",
                   as.character(tt)),
          USE.NAMES = FALSE)
@@ -2901,9 +2896,9 @@ vegetables_icon <- function(type) {
                   " " = "\U2753",
                   `NA` = "\U2753",
                   "0" = "\U2796",
-                  "1" = "\U0001F966",
-                  "2" = "\U0001F966\U0001F966",
-                  "3" = "\U0001F966\U0001F966\U0001F966",
+                  "1" = "\U1F966",
+                  "2" = "\U1F966\U1F966",
+                  "3" = "\U1F966\U1F966\U1F966",
                   as.character(tt)),
          USE.NAMES = FALSE)
 }
