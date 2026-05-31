@@ -12,7 +12,7 @@ Description: A Shiny web application for planning weekly groceries.
 URL: https://github.com/weberends/shinyplus
 BugReports: https://github.com/weberends/shinyplus/issues
 Depends: R (>= 4.4.0)
-Imports: 
+Imports:
   blastula,
   bslib,
   calendar,
@@ -21,6 +21,7 @@ Imports:
   commonmark,
   dplyr,
   DT,
+  jsonlite,
   pillar,
   purrr,
   rvest,

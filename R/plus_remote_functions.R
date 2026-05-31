@@ -111,7 +111,7 @@ plus_logout <- function(info = interactive()) {
 #' @importFrom dplyr group_by summarise
 #' @importFrom cli cli_progress_message cli_alert_success cli_alert_danger
 #' @export
-plus_add_products <- function(x, quantity = 1, info = interactive(), ...) {
+plus_add_products_old <- function(x, quantity = 1, info = interactive(), ...) {
   if (length(quantity) == 1) quantity <- rep(quantity, length(x))
   stopifnot(length(x) == length(quantity))
 
@@ -194,6 +194,191 @@ plus_add_products <- function(x, quantity = 1, info = interactive(), ...) {
   }
 
   return(successfully_added)
+}
+
+#' @rdname plus_remote_functions
+#' @importFrom tibble tibble
+#' @importFrom dplyr group_by summarise
+#' @importFrom cli cli_progress_message cli_alert_success cli_alert_danger cli_alert_warning
+#' @importFrom jsonlite fromJSON toJSON
+#' @importFrom purrr `%||%`
+#' @export
+plus_add_products <- function(x, quantity = 1, info = interactive(), ...) {
+  if (length(quantity) == 1) quantity <- rep(quantity, length(x))
+  stopifnot(length(x) == length(quantity))
+
+  if (length(unique(x)) < length(x)) {
+    summed <- tibble(x, quantity) |>
+      group_by(x) |>
+      summarise(quantity = sum(quantity, na.rm = TRUE))
+    x <- summed$x
+    quantity <- summed$quantity
+  }
+
+  if (!plus_ascertain_logged_in(info = info)) return(invisible())
+  urls  <- plus_get_urls(x, ..., info = info)
+  sku   <- gsub(".*-([0-9]+)$", "\\1", urls)
+  successfully_added <- integer(length(sku))
+
+  # ── Capture session state from first ActionCheckoutItem_Add request ──
+  # Chromote's Network domain gives us the full request body, including the
+  # action-specific moduleVersion/apiVersion hashes we need for direct calls.
+  tryCatch(
+    shinyplus_env$browser$Network$enable(maxPostDataSize = 65536L),
+    error = function(e) NULL
+  )
+
+  .s <- new.env(parent = emptyenv())   # session state
+  .s$module_version     <- NULL
+  .s$api_version        <- NULL
+  .s$checkout_id        <- NULL
+  .s$checkout_version   <- NULL
+  .s$onewelcome_user_id <- NULL
+
+  unsub <- shinyplus_env$browser$Network$requestWillBeSent(function(params) {
+    if (!grepl("ActionCheckoutItem_Add", params$request$url %||% "", fixed = TRUE)) return()
+    post_data <- params$request$postData %||% ""
+    if (!nzchar(post_data)) return()
+    tryCatch({
+      body <- fromJSON(post_data, simplifyVector = FALSE)
+      .s$module_version     <- body$versionInfo$moduleVersion
+      .s$api_version        <- body$versionInfo$apiVersion
+      .s$checkout_id        <- body$inputParameters$CheckoutId
+      .s$checkout_version   <- body$inputParameters$CheckoutVersion
+      .s$onewelcome_user_id <- body$inputParameters$OneWelcomeUserId
+    }, error = function(e) NULL)
+  })
+  on.exit(tryCatch(unsub(), error = function(e) NULL), add = TRUE)
+
+  # ── Item 1: browser click (same reliable path as before) ─────────────
+  if (info) cli_progress_message("SKU {sku[1]}: via browser (legt API-versie vast)...")
+  tryCatch({
+    search_url <- paste0("https://www.plus.nl/zoekresultaten?SearchTerm=", sku[1])
+    shinyplus_env$browser$Page$navigate(search_url)
+    wait_for_element("button.gtm-add-to-cart")
+
+    badge_count <- function() {
+      v <- shinyplus_env$browser$Runtime$evaluate(
+        "parseInt(document.querySelector('.cart-badge-link .badge')?.textContent?.trim() || '0')"
+      )$result$value
+      suppressWarnings(as.integer(v) %||% 0L)
+    }
+
+    old_count <- badge_count()
+    for (j in seq_len(quantity[1])) {
+      shinyplus_env$browser$Runtime$evaluate(
+        "document.querySelector('button.gtm-add-to-cart')?.click();"
+      )
+      Sys.sleep(2.5)
+    }
+
+    # Poll until the Network callback has fired (max 5 s)
+    deadline <- Sys.time() + 5
+    while (is.null(.s$module_version) && Sys.time() < deadline) Sys.sleep(0.1)
+
+    successfully_added[1] <- badge_count() - old_count
+    if (info) cli_alert_success(
+      "SKU {sku[1]}: {successfully_added[1]}/{quantity[1]} stuks toegevoegd (browser)"
+    )
+  }, error = function(e) {
+    if (info) cli_alert_danger("SKU {sku[1]}: browser mislukt — {conditionMessage(e)}")
+  })
+
+  # ── Fallback: session state not captured → old method for remainder ──
+  if (is.null(.s$module_version)) {
+    if (info) cli_alert_warning(
+      "Sessiegegevens niet vastgelegd, val terug op browser voor overige items"
+    )
+    if (length(sku) > 1) {
+      rest <- plus_add_products_old(urls[-1], quantity[-1], info = info, ...)
+      successfully_added[-1] <- rest
+    }
+    return(invisible(successfully_added))
+  }
+
+  # ── Store CSRF token in browser global (read once, reused each call) ─
+  shinyplus_env$browser$Runtime$evaluate("
+    window.__plusCsrf = (function() {
+      const m = {};
+      document.cookie.split('; ').forEach(c => {
+        const eq = c.indexOf('=');
+        if (eq > 0) m[c.slice(0, eq)] = c.slice(eq + 1);
+      });
+      const nr2 = decodeURIComponent(m['nr2Users'] || '');
+      const f = nr2.split(';').find(p => p.trim().startsWith('crf=')) || '';
+      return f.slice(f.indexOf('=') + 1);
+    })();
+  ")
+
+  # ── Items 2-N: direct API via in-browser fetch() ─────────────────────
+  # Payload is written to window.__plusPayload to avoid R↔JS string escaping.
+  # The browser page supplies cookies + Origin + Sec-Fetch-* headers automatically.
+  if (length(sku) > 1) {
+    for (i in seq(2L, length(sku))) {
+      if (info) cli_progress_message("SKU {sku[i]}: via directe API...")
+      tryCatch({
+        payload <- list(
+          versionInfo = list(
+            moduleVersion = .s$module_version,
+            apiVersion    = .s$api_version
+          ),
+          viewName = "MainFlow.SearchPage",
+          inputParameters = list(
+            IsOrderEditMode  = FALSE,
+            CheckoutId       = .s$checkout_id,
+            CheckoutVersion  = .s$checkout_version,
+            OrderEditId      = "",
+            SKU              = sku[i],
+            QuantityToAdd    = quantity[i],
+            ChannelId        = "1690b994-7511-41cc-a1bc-aacf2726f218",
+            OneWelcomeUserId = .s$onewelcome_user_id
+          )
+        )
+
+        shinyplus_env$browser$Runtime$evaluate(
+          paste0("window.__plusPayload = ", toJSON(payload, auto_unbox = TRUE), ";")
+        )
+
+        t0 <- proc.time()[["elapsed"]]
+        result <- shinyplus_env$browser$Runtime$evaluate("
+          (async function() {
+            const resp = await fetch(
+              'https://www.plus.nl/screenservices/ECP_Cart_CW/ActionCheckoutItem_Add',
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-csrftoken': window.__plusCsrf,
+                  'outsystems-locale': 'nl-NL'
+                },
+                body: JSON.stringify(window.__plusPayload),
+                credentials: 'include'
+              }
+            );
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            return JSON.stringify(await resp.json());
+          })()
+        ", awaitPromise = TRUE)
+        elapsed_ms <- round((proc.time()[["elapsed"]] - t0) * 1000)
+
+        if (!is.null(result$exceptionDetails)) {
+          stop(result$exceptionDetails$exception$description %||% "onbekende JS-fout")
+        }
+
+        response <- fromJSON(result$result$value, simplifyVector = FALSE)
+        .s$checkout_version <- response$data$Checkout$Version
+        successfully_added[i] <- quantity[i]
+
+        if (info) cli_alert_success(
+          "SKU {sku[i]}: {quantity[i]} stuks toegevoegd via API in {elapsed_ms}ms"
+        )
+      }, error = function(e) {
+        if (info) cli_alert_danger("SKU {sku[i]}: API mislukt — {conditionMessage(e)}")
+      })
+    }
+  }
+
+  invisible(successfully_added)
 }
 
 #' @importFrom cli cli_text cli_alert_danger
